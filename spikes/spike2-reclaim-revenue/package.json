@@ -1,0 +1,67 @@
+{
+  "name": "zkfetch-stellar-example",
+  "version": "1.0.0",
+  "description": "A demonstration of zkFetch integration with Stellar blockchain for verifiable data fetching",
+  "main": "src/index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node src/index.js",
+    "request-proof": "node src/requestProof.js",
+    "request-trading-economics": "node src/index.js request-trading-economics",
+    "request-forbes": "node src/index.js request-forbes",
+    "request-accuweather": "node src/index.js request-accuweather",
+    "request-goal": "node src/index.js request-goal",
+    "verify-proof": "node src/verifyProof.js",
+    "verify-proof-mainnet": "node src/verifyProof.js --mainnet",
+    "test": "vitest",
+    "test:watch": "vitest --watch",
+    "test:coverage": "vitest --coverage",
+    "lint": "eslint src/ tests/",
+    "lint:fix": "eslint src/ tests/ --fix",
+    "format": "prettier --write src/ tests/",
+    "format:check": "prettier --check src/ tests/",
+    "setup": "node scripts/setup.js",
+    "download-zk-files": "node node_modules/@reclaimprotocol/zk-symmetric-crypto/lib/scripts/download-files"
+  },
+  "keywords": [
+    "zkfetch",
+    "stellar",
+    "blockchain",
+    "zero-knowledge",
+    "proof",
+    "verification",
+    "cryptocurrency",
+    "price-feed"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@ethersproject/keccak256": "^5.8.0",
+    "@reclaimprotocol/js-sdk": "^4.3.1",
+    "@reclaimprotocol/zk-fetch": "^0.8.0",
+    "@stellar/stellar-base": "^14.0.4",
+    "dotenv": "^17.2.1",
+    "stellar-hd-wallet": "^1.0.2",
+    "stellar-sdk": "^13.3.0"
+  },
+  "devDependencies": {
+    "@vitest/coverage-v8": "^3.2.4",
+    "eslint": "^8.57.0",
+    "prettier": "^3.2.5",
+    "vitest": "^3.2.4"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/your-username/zkfetch-stellar-example.git"
+  },
+  "bugs": {
+    "url": "https://github.com/your-username/zkfetch-stellar-example/issues"
+  },
+  "homepage": "https://github.com/your-username/zkfetch-stellar-example#readme",
+  "overrides": {
+    "@stellar/stellar-base": "^14.0.4"
+  }
+}

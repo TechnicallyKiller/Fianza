@@ -1,0 +1,14 @@
+{
+  "gate": "2A",
+  "source": "stellar-price (CoinGecko, built-in)",
+  "extractedParameterValues": {
+    "price": "0.171408"
+  },
+  "proofIdentifier": "0x8688c7dd10d2bd4a02197f6fef6270a494e942a77dbfc4a499b8e179198118a1",
+  "signaturesLen": 1,
+  "contractId": "CA3EMXR6JOOTNP44T3OAJFMMMGKRRETDJKBLZP2RU3SIY4SDFAH54DU5",
+  "verifyTxHash": "c819e14559d0d1297aa038f3def8b8ae63f959e9cfbe367798aaa926742561bc",
+  "onchainStatus": "SUCCESS",
+  "explorer": "https://stellar.expert/explorer/testnet/tx/c819e14559d0d1297aa038f3def8b8ae63f959e9cfbe367798aaa926742561bc",
+  "verdict": "PASS"
+}

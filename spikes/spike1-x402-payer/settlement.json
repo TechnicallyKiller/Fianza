@@ -1,0 +1,28 @@
+{
+  "url": "http://localhost:3001/paid",
+  "network": "stellar:testnet",
+  "status": 200,
+  "body": {
+    "ok": true,
+    "data": "paid content",
+    "ts": 1782649196266
+  },
+  "settlement": {
+    "success": true,
+    "payer": "GBEFWKH6NGDAGJ2TAUEF3VOUQETOIFM64WBNDIRIPRK2KE5QOUWVQHDE",
+    "transaction": "ee7aa15bd22823b4ff2340f8e67f0bb14cd343ed1af5d459dd357d356227d4fd",
+    "network": "stellar:testnet"
+  },
+  "txHash": "ee7aa15bd22823b4ff2340f8e67f0bb14cd343ed1af5d459dd357d356227d4fd",
+  "reportedPayer": "GBEFWKH6NGDAGJ2TAUEF3VOUQETOIFM64WBNDIRIPRK2KE5QOUWVQHDE",
+  "headers": {
+    "connection": "keep-alive",
+    "content-length": "52",
+    "content-type": "application/json; charset=utf-8",
+    "date": "Sun, 28 Jun 2026 12:20:02 GMT",
+    "etag": "W/\"34-TsGyIbaYJ8ZoqlqU3JAjt77U1tY\"",
+    "keep-alive": "timeout=5",
+    "payment-response": "eyJzdWNjZXNzIjp0cnVlLCJwYXllciI6IkdCRUZXS0g2TkdEQUdKMlRBVUVGM1ZPVVFFVE9JRk02NFdCTkRJUklQUksyS0U1UU9VV1ZRSERFIiwidHJhbnNhY3Rpb24iOiJlZTdhYTE1YmQyMjgyM2I0ZmYyMzQwZjhlNjdmMGJiMTRjZDM0M2VkMWFmNWQ0NTlkZDM1N2QzNTYyMjdkNGZkIiwibmV0d29yayI6InN0ZWxsYXI6dGVzdG5ldCJ9",
+    "x-powered-by": "Express"
+  }
+}

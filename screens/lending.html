@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>TrustLine Pro - Lender Dashboard</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "surface": "#0f131c",
+                        "surface-container-low": "#181b25",
+                        "on-tertiary-container": "#3e2400",
+                        "error-container": "#93000a",
+                        "on-secondary-fixed-variant": "#005236",
+                        "inverse-surface": "#dfe2ef",
+                        "inverse-primary": "#005ac2",
+                        "on-primary-container": "#00285d",
+                        "tertiary-fixed": "#ffddb8",
+                        "tertiary-container": "#ca8100",
+                        "surface-dim": "#0f131c",
+                        "on-secondary": "#003824",
+                        "secondary-fixed": "#6ffbbe",
+                        "primary-fixed-dim": "#adc6ff",
+                        "secondary-container": "#00a572",
+                        "inverse-on-surface": "#2c303a",
+                        "primary": "#adc6ff",
+                        "surface-variant": "#31353f",
+                        "on-surface-variant": "#c2c6d6",
+                        "surface-tint": "#adc6ff",
+                        "on-error": "#690005",
+                        "secondary": "#4edea3",
+                        "surface-container-lowest": "#0a0e17",
+                        "tertiary": "#ffb95f",
+                        "error": "#ffb4ab",
+                        "surface-container-high": "#262a34",
+                        "background": "#0f131c",
+                        "on-surface": "#dfe2ef",
+                        "outline": "#8c909f",
+                        "on-error-container": "#ffdad6",
+                        "tertiary-fixed-dim": "#ffb95f",
+                        "primary-container": "#4d8eff",
+                        "on-tertiary-fixed": "#2a1700",
+                        "on-tertiary-fixed-variant": "#653e00",
+                        "on-tertiary": "#472a00",
+                        "on-primary-fixed": "#001a42",
+                        "on-primary": "#002e6a",
+                        "on-background": "#dfe2ef",
+                        "surface-bright": "#353943",
+                        "on-primary-fixed-variant": "#004395",
+                        "surface-container": "#1c1f29",
+                        "on-secondary-container": "#00311f",
+                        "primary-fixed": "#d8e2ff",
+                        "outline-variant": "#424754",
+                        "on-secondary-fixed": "#002113",
+                        "surface-container-highest": "#31353f",
+                        "secondary-fixed-dim": "#4edea3"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "unit": "4px",
+                        "container-padding-mobile": "16px",
+                        "stack-sm": "8px",
+                        "stack-lg": "24px",
+                        "gutter": "24px",
+                        "stack-md": "16px",
+                        "container-padding-desktop": "32px",
+                        "card-padding": "24px"
+                    },
+                    "fontFamily": {
+                        "body-lg": ["Inter"],
+                        "label-caps": ["Inter"],
+                        "headline-lg-mobile": ["Inter"],
+                        "headline-lg": ["Inter"],
+                        "body-md": ["Inter"],
+                        "body-sm": ["Inter"],
+                        "data-md": ["JetBrains Mono"],
+                        "headline-md": ["Inter"],
+                        "display-lg": ["Inter"],
+                        "data-lg": ["JetBrains Mono"]
+                    },
+                    "fontSize": {
+                        "body-lg": ["18px", { "lineHeight": "28px", "fontWeight": "400" }],
+                        "label-caps": ["12px", { "lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "600" }],
+                        "headline-lg-mobile": ["24px", { "lineHeight": "32px", "fontWeight": "600" }],
+                        "headline-lg": ["32px", { "lineHeight": "40px", "letterSpacing": "-0.01em", "fontWeight": "600" }],
+                        "body-md": ["16px", { "lineHeight": "24px", "fontWeight": "400" }],
+                        "body-sm": ["14px", { "lineHeight": "20px", "fontWeight": "400" }],
+                        "data-md": ["14px", { "lineHeight": "20px", "fontWeight": "500" }],
+                        "headline-md": ["24px", { "lineHeight": "32px", "fontWeight": "600" }],
+                        "display-lg": ["48px", { "lineHeight": "56px", "letterSpacing": "-0.02em", "fontWeight": "700" }],
+                        "data-lg": ["18px", { "lineHeight": "24px", "fontWeight": "500" }]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        .glass-panel {
+            background: rgba(18, 24, 38, 0.6);
+            backdrop-filter: blur(12px);
+            border: 1px solid #1F2937;
+        }
+        .shimmer-btn {
+            position: relative;
+            overflow: hidden;
+        }
+        .shimmer-btn::after {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: linear-gradient(
+                to bottom right,
+                rgba(255, 255, 255, 0) 0%,
+                rgba(255, 255, 255, 0.1) 50%,
+                rgba(255, 255, 255, 0) 100%
+            );
+            transform: rotate(45deg);
+            animation: shimmer 3s infinite linear;
+        }
+        @keyframes shimmer {
+            0% { transform: translateX(-100%) rotate(45deg); }
+            100% { transform: translateX(100%) rotate(45deg); }
+        }
+    </style>
+</head>
+<body class="bg-surface-container-lowest text-on-surface font-body-md min-h-screen flex flex-col">
+<!-- Top Navigation -->
+<nav class="w-full border-b border-outline-variant bg-surface dark:bg-surface">
+<div class="flex justify-between items-center h-16 px-gutter max-w-[1440px] mx-auto">
+<div class="flex items-center gap-8">
+<span class="text-headline-md font-headline-md font-bold text-on-surface dark:text-on-surface tracking-tight">TrustLine</span>
+<div class="hidden md:flex gap-6">
+<a class="text-primary font-bold border-b-2 border-primary pb-1 active:scale-95 transition-transform" href="#">Dashboard</a>
+<a class="text-on-surface-variant font-medium hover:text-primary transition-colors duration-200" href="#">Liquidity</a>
+<a class="text-on-surface-variant font-medium hover:text-primary transition-colors duration-200" href="#">Swap</a>
+<a class="text-on-surface-variant font-medium hover:text-primary transition-colors duration-200" href="#">Governance</a>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<span class="font-data-md text-data-md text-on-surface-variant bg-surface-container px-3 py-1 rounded-md border border-outline-variant">Testnet</span>
+<span class="font-data-md text-data-md text-primary bg-primary/10 px-3 py-1 rounded-md border border-primary/20">GBEF...QHDE</span>
+</div>
+</div>
+</nav>
+<!-- Main Content -->
+<main class="flex-1 w-full max-w-[1440px] mx-auto px-gutter py-stack-lg space-y-stack-lg">
+<!-- Header -->
+<div>
+<h1 class="font-headline-lg text-headline-lg-mobile md:text-headline-lg">Lender Dashboard</h1>
+<p class="font-body-md text-body-md text-on-surface-variant mt-2">Manage your automated credit lines and monitor agent risk exposure.</p>
+</div>
+<!-- Summary Cards -->
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-stack-md">
+<!-- Card 1 -->
+<div class="glass-panel p-card-padding rounded-lg flex flex-col gap-2">
+<span class="font-label-caps text-label-caps text-on-surface-variant uppercase tracking-wider">Total Deposited</span>
+<span class="font-data-lg text-data-lg">250,000 <span class="text-sm text-on-surface-variant">USDC</span></span>
+</div>
+<!-- Card 2 -->
+<div class="glass-panel p-card-padding rounded-lg flex flex-col gap-2">
+<span class="font-label-caps text-label-caps text-on-surface-variant uppercase tracking-wider">Active Exposure</span>
+<span class="font-data-lg text-data-lg">185,000 <span class="text-sm text-on-surface-variant">USDC</span></span>
+</div>
+<!-- Card 3 -->
+<div class="glass-panel p-card-padding rounded-lg flex flex-col gap-2">
+<span class="font-label-caps text-label-caps text-on-surface-variant uppercase tracking-wider">Realized Yield</span>
+<span class="font-data-lg text-data-lg text-secondary">12,450 <span class="text-sm text-secondary/70">USDC</span></span>
+</div>
+<!-- Card 4 -->
+<div class="glass-panel p-card-padding rounded-lg flex flex-col gap-2">
+<span class="font-label-caps text-label-caps text-on-surface-variant uppercase tracking-wider">Average APR</span>
+<span class="font-data-lg text-data-lg">11.2%</span>
+</div>
+</div>
+<!-- Two Column Layout -->
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-stack-lg">
+<!-- Left Column: Agents Table -->
+<div class="lg:col-span-8 space-y-stack-md">
+<h2 class="font-headline-md text-headline-md">Agents seeking credit</h2>
+<div class="glass-panel rounded-lg overflow-hidden">
+<div class="overflow-x-auto">
+<table class="w-full text-left border-collapse">
+<thead>
+<tr class="border-b border-outline-variant/50 bg-surface-container-low/50">
+<th class="p-4 font-label-caps text-label-caps text-on-surface-variant">Agent</th>
+<th class="p-4 font-label-caps text-label-caps text-on-surface-variant">Tier</th>
+<th class="p-4 font-label-caps text-label-caps text-on-surface-variant text-right">Verified Rev</th>
+<th class="p-4 font-label-caps text-label-caps text-on-surface-variant text-right">Req Credit</th>
+<th class="p-4 font-label-caps text-label-caps text-on-surface-variant text-right">Offered APR</th>
+<th class="p-4 font-label-caps text-label-caps text-on-surface-variant text-center">Risk</th>
+<th class="p-4 font-label-caps text-label-caps text-on-surface-variant text-right">Action</th>
+</tr>
+</thead>
+<tbody class="font-data-md text-data-md divide-y divide-outline-variant/30">
+<!-- Row 1 (Active) -->
+<tr class="hover:bg-surface-variant/30 transition-colors cursor-pointer bg-primary/5">
+<td class="p-4 flex items-center gap-3">
+<div class="w-8 h-8 rounded-full bg-gradient-to-br from-primary to-surface-container flex items-center justify-center border border-outline-variant">
+<div class="w-3 h-3 bg-surface rounded-sm rotate-45"></div>
+</div>
+                                        GBCX...YT65
+                                    </td>
+<td class="p-4">
+<span class="bg-surface-container border border-outline-variant px-2 py-1 rounded text-xs">Tier A</span>
+</td>
+<td class="p-4 text-right">45,000</td>
+<td class="p-4 text-right">20,000</td>
+<td class="p-4 text-right text-secondary">12.5%</td>
+<td class="p-4 text-center">
+<div class="w-2 h-2 rounded-full bg-secondary mx-auto shadow-[0_0_8px_rgba(78,222,163,0.6)]"></div>
+</td>
+<td class="p-4 text-right">
+<button class="px-4 py-1.5 bg-primary/10 text-primary border border-primary/30 hover:bg-primary/20 rounded font-body-sm transition-colors">Fund</button>
+</td>
+</tr>
+<!-- Row 2 -->
+<tr class="hover:bg-surface-variant/30 transition-colors cursor-pointer">
+<td class="p-4 flex items-center gap-3">
+<div class="w-8 h-8 rounded-full bg-gradient-to-br from-tertiary to-surface-container flex items-center justify-center border border-outline-variant">
+<div class="w-4 h-4 bg-surface rounded-full"></div>
+</div>
+                                        GDFQ...LP92
+                                    </td>
+<td class="p-4">
+<span class="bg-surface-container border border-outline-variant px-2 py-1 rounded text-xs">Tier B</span>
+</td>
+<td class="p-4 text-right">18,500</td>
+<td class="p-4 text-right">10,000</td>
+<td class="p-4 text-right text-secondary">14.0%</td>
+<td class="p-4 text-center">
+<div class="w-2 h-2 rounded-full bg-tertiary mx-auto shadow-[0_0_8px_rgba(255,185,95,0.6)]"></div>
+</td>
+<td class="p-4 text-right">
+<button class="px-4 py-1.5 bg-transparent text-on-surface border border-outline hover:border-primary rounded font-body-sm transition-colors">Fund</button>
+</td>
+</tr>
+<!-- Row 3 -->
+<tr class="hover:bg-surface-variant/30 transition-colors cursor-pointer">
+<td class="p-4 flex items-center gap-3">
+<div class="w-8 h-8 rounded-full bg-gradient-to-br from-error to-surface-container flex items-center justify-center border border-outline-variant">
+<div class="w-3 h-3 bg-surface"></div>
+</div>
+                                        GAZT...MN41
+                                    </td>
+<td class="p-4">
+<span class="bg-surface-container border border-outline-variant px-2 py-1 rounded text-xs">Tier C</span>
+</td>
+<td class="p-4 text-right">5,200</td>
+<td class="p-4 text-right">15,000</td>
+<td class="p-4 text-right text-secondary">18.5%</td>
+<td class="p-4 text-center">
+<div class="w-2 h-2 rounded-full bg-error mx-auto shadow-[0_0_8px_rgba(255,180,171,0.6)]"></div>
+</td>
+<td class="p-4 text-right">
+<button class="px-4 py-1.5 bg-transparent text-on-surface border border-outline hover:border-primary rounded font-body-sm transition-colors">Fund</button>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</div>
+<!-- Right Column: Agent Details -->
+<div class="lg:col-span-4 space-y-stack-md">
+<h2 class="font-headline-md text-headline-md text-transparent selection:bg-transparent">_</h2> <!-- Spacer for alignment -->
+<div class="glass-panel rounded-lg p-card-padding flex flex-col gap-stack-md relative overflow-hidden">
+<!-- Subtle glow -->
+<div class="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none"></div>
+<div class="flex items-center gap-3 border-b border-outline-variant/50 pb-4">
+<div class="w-10 h-10 rounded-full bg-gradient-to-br from-primary to-surface-container flex items-center justify-center border border-outline-variant">
+<div class="w-4 h-4 bg-surface rounded-sm rotate-45"></div>
+</div>
+<div>
+<h3 class="font-body-md font-semibold">Agent Details</h3>
+<p class="font-data-md text-on-surface-variant">GBCX...YT65</p>
+</div>
+</div>
+<div class="space-y-4">
+<h4 class="font-label-caps text-label-caps text-on-surface-variant uppercase">Underwriting History</h4>
+<div class="bg-surface-container-low rounded p-4 border border-outline-variant/30 space-y-4">
+<div>
+<span class="font-body-sm text-on-surface-variant block mb-1">30-Day Rev Trend</span>
+<!-- Sparkline Mock -->
+<div class="h-10 w-full flex items-end gap-1 opacity-80">
+<div class="w-full bg-primary/20 rounded-t h-2"></div>
+<div class="w-full bg-primary/30 rounded-t h-3"></div>
+<div class="w-full bg-primary/40 rounded-t h-5"></div>
+<div class="w-full bg-primary/50 rounded-t h-4"></div>
+<div class="w-full bg-primary/60 rounded-t h-7"></div>
+<div class="w-full bg-primary/70 rounded-t h-6"></div>
+<div class="w-full bg-primary rounded-t h-full"></div>
+</div>
+</div>
+<div class="flex justify-between items-center">
+<span class="font-body-sm text-on-surface-variant">Track Record</span>
+<span class="font-data-md text-secondary text-sm">12 of 12 repaid</span>
+</div>
+<div class="flex justify-between items-center">
+<span class="font-body-sm text-on-surface-variant">Counterparties</span>
+<span class="font-data-md text-sm">8 distinct entities</span>
+</div>
+</div>
+</div>
+<div class="space-y-4 pt-2 border-t border-outline-variant/50">
+<h4 class="font-label-caps text-label-caps text-on-surface-variant uppercase">Deposit Box</h4>
+<div class="space-y-3">
+<div class="relative">
+<input class="w-full bg-surface border border-outline-variant rounded-md px-4 py-3 font-data-md text-data-md text-on-surface focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-colors text-right pr-16" type="text" value="1,000"/>
+<span class="absolute right-4 top-3 font-body-sm text-on-surface-variant">USDC</span>
+</div>
+<div class="flex justify-between items-center px-1">
+<span class="font-body-sm text-on-surface-variant">Projected Yield</span>
+<span class="font-data-md text-secondary">125 USDC / yr</span>
+</div>
+<p class="font-body-sm text-xs text-on-surface-variant/70 italic text-center px-2">
+                                Isolated vault. You are exposed only to this agent's default risk.
+                            </p>
+<button class="w-full bg-primary text-surface font-semibold py-3 rounded-md shimmer-btn mt-2 shadow-[0_0_15px_rgba(173,198,255,0.15)] hover:shadow-[0_0_20px_rgba(173,198,255,0.25)] transition-shadow">
+                                Deposit into isolated vault
+                            </button>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Positions Grid -->
+<div class="space-y-stack-md pt-stack-md border-t border-outline-variant/30">
+<h2 class="font-headline-md text-headline-md">Your positions</h2>
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-stack-md">
+<!-- Position 1 -->
+<div class="glass-panel p-card-padding rounded-lg flex flex-col gap-4 border-l-4 border-l-secondary">
+<div class="flex justify-between items-start">
+<div>
+<span class="font-label-caps text-label-caps text-on-surface-variant uppercase">Agent</span>
+<p class="font-data-md text-data-md mt-1">GZZX...KL11</p>
+</div>
+<span class="bg-secondary/10 text-secondary border border-secondary/20 px-2 py-1 rounded text-xs font-medium">Active</span>
+</div>
+<div class="grid grid-cols-2 gap-4 pt-2 border-t border-outline-variant/30">
+<div>
+<span class="font-label-caps text-xs text-on-surface-variant uppercase block">Deposited</span>
+<span class="font-data-md">50,000 <span class="text-xs text-on-surface-variant">USDC</span></span>
+</div>
+<div>
+<span class="font-label-caps text-xs text-on-surface-variant uppercase block">Yield Earned</span>
+<span class="font-data-md text-secondary">+2,450</span>
+</div>
+<div>
+<span class="font-label-caps text-xs text-on-surface-variant uppercase block">Repayments</span>
+<span class="font-data-md">3/6</span>
+</div>
+</div>
+</div>
+<!-- Position 2 -->
+<div class="glass-panel p-card-padding rounded-lg flex flex-col gap-4 border-l-4 border-l-secondary">
+<div class="flex justify-between items-start">
+<div>
+<span class="font-label-caps text-label-caps text-on-surface-variant uppercase">Agent</span>
+<p class="font-data-md text-data-md mt-1">GQQW...ZX88</p>
+</div>
+<span class="bg-secondary/10 text-secondary border border-secondary/20 px-2 py-1 rounded text-xs font-medium">Active</span>
+</div>
+<div class="grid grid-cols-2 gap-4 pt-2 border-t border-outline-variant/30">
+<div>
+<span class="font-label-caps text-xs text-on-surface-variant uppercase block">Deposited</span>
+<span class="font-data-md">120,000 <span class="text-xs text-on-surface-variant">USDC</span></span>
+</div>
+<div>
+<span class="font-label-caps text-xs text-on-surface-variant uppercase block">Yield Earned</span>
+<span class="font-data-md text-secondary">+8,100</span>
+</div>
+<div>
+<span class="font-label-caps text-xs text-on-surface-variant uppercase block">Repayments</span>
+<span class="font-data-md">11/12</span>
+</div>
+</div>
+</div>
+<!-- Position 3 (Completed) -->
+<div class="glass-panel p-card-padding rounded-lg flex flex-col gap-4 border-l-4 border-l-outline">
+<div class="flex justify-between items-start">
+<div>
+<span class="font-label-caps text-label-caps text-on-surface-variant uppercase">Agent</span>
+<p class="font-data-md text-data-md mt-1">GBNX...YY21</p>
+</div>
+<span class="bg-surface-variant text-on-surface-variant border border-outline/30 px-2 py-1 rounded text-xs font-medium">Closed</span>
+</div>
+<div class="grid grid-cols-2 gap-4 pt-2 border-t border-outline-variant/30 opacity-70">
+<div>
+<span class="font-label-caps text-xs text-on-surface-variant uppercase block">Deposited</span>
+<span class="font-data-md">15,000 <span class="text-xs text-on-surface-variant">USDC</span></span>
+</div>
+<div>
+<span class="font-label-caps text-xs text-on-surface-variant uppercase block">Yield Earned</span>
+<span class="font-data-md text-secondary">+1,900</span>
+</div>
+<div>
+<span class="font-label-caps text-xs text-on-surface-variant uppercase block">Repayments</span>
+<span class="font-data-md">12/12</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+</main>
+</body></html>

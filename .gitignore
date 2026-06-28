@@ -1,0 +1,26 @@
+# Dependencies
+node_modules/
+
+# Secrets — every package's .env, never committed. .env.example IS committed.
+.env
+.env.*
+!.env.example
+!.env*.example
+
+# Rust / Soroban build output
+target/
+**/target/
+*.wasm
+
+# Node / Next build output
+dist/
+.next/
+out/
+*.tsbuildinfo
+
+# Logs & OS cruft
+*.log
+.DS_Store
+
+# Local Stellar dev skill (kept out of the repo)
+.stellar-dev-skill/

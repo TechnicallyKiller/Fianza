@@ -1,0 +1,24 @@
+{
+  "claimData": {
+    "provider": "http",
+    "parameters": "{\"body\":\"\",\"method\":\"GET\",\"responseMatches\":[{\"type\":\"regex\",\"value\":\"\\\"available\\\":\\\\s*\\\\[\\\\s*\\\\{\\\\s*\\\"amount\\\":\\\\s*(?<amt>\\\\d+)\"}],\"responseRedactions\":[{\"regex\":\"\\\"available\\\":\\\\s*\\\\[\\\\s*\\\\{\\\\s*\\\"amount\\\":\\\\s*(?<amt>\\\\d+)\"}],\"url\":\"https://api.stripe.com/v1/balance\"}",
+    "owner": "0x381994d6b9b08c3e7cfe3a4cd544c85101b8f201",
+    "timestampS": 1782651659,
+    "context": "{\"extractedParameters\":{\"amt\":\"0\"},\"providerHash\":\"0x82ed16559a2dca54a20e144a60bda3ec68c2310435b54d823ea1c1deaa95a16c\"}",
+    "identifier": "0xf7516cff4e6961baa4a858761faa840df70c5bca0f929e29948cdc0e4bef8e09",
+    "epoch": 1
+  },
+  "identifier": "0xf7516cff4e6961baa4a858761faa840df70c5bca0f929e29948cdc0e4bef8e09",
+  "signatures": [
+    "0x3d985442091bec42c062a631dc6069dbdbbc7262384fa21e0293cba831d3247423d120f6dda43e4aadf35958d9ca185f170f323f451e2a3b89d3ebe052e6012c1c"
+  ],
+  "extractedParameterValues": {
+    "amt": "0"
+  },
+  "witnesses": [
+    {
+      "id": "0x244897572368eadf65bfbc5aec98d8e5443a9072",
+      "url": "wss://attestor.reclaimprotocol.org:444/ws"
+    }
+  ]
+}

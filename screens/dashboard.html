@@ -1,0 +1,490 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>TrustLine - Dashboard</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-secondary-fixed-variant": "#005236",
+                        "error": "#ffb4ab",
+                        "surface-container-high": "#262a34",
+                        "on-error-container": "#ffdad6",
+                        "secondary-fixed-dim": "#4edea3",
+                        "error-container": "#93000a",
+                        "on-surface-variant": "#c2c6d6",
+                        "surface-dim": "#0f131c",
+                        "secondary-fixed": "#6ffbbe",
+                        "surface-bright": "#353943",
+                        "primary-fixed": "#d8e2ff",
+                        "outline": "#8c909f",
+                        "primary": "#adc6ff",
+                        "primary-container": "#4d8eff",
+                        "inverse-primary": "#005ac2",
+                        "on-secondary": "#003824",
+                        "tertiary-fixed-dim": "#ffb95f",
+                        "on-surface": "#dfe2ef",
+                        "on-primary-container": "#00285d",
+                        "surface-variant": "#31353f",
+                        "on-tertiary-container": "#3e2400",
+                        "surface-container-low": "#181b25",
+                        "secondary": "#4edea3",
+                        "on-secondary-fixed": "#002113",
+                        "surface-container-lowest": "#0a0e17",
+                        "tertiary-container": "#ca8100",
+                        "tertiary-fixed": "#ffddb8",
+                        "on-error": "#690005",
+                        "surface": "#0f131c",
+                        "on-primary": "#002e6a",
+                        "surface-tint": "#adc6ff",
+                        "on-background": "#dfe2ef",
+                        "secondary-container": "#00a572",
+                        "primary-fixed-dim": "#adc6ff",
+                        "background": "#0f131c",
+                        "inverse-surface": "#dfe2ef",
+                        "on-secondary-container": "#00311f",
+                        "surface-container-highest": "#31353f",
+                        "surface-container": "#1c1f29",
+                        "on-primary-fixed-variant": "#004395",
+                        "tertiary": "#ffb95f",
+                        "on-primary-fixed": "#001a42",
+                        "on-tertiary-fixed-variant": "#653e00",
+                        "on-tertiary": "#472a00",
+                        "on-tertiary-fixed": "#2a1700",
+                        "outline-variant": "#424754",
+                        "inverse-on-surface": "#2c303a"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "gutter": "24px",
+                        "stack-md": "16px",
+                        "container-padding-mobile": "16px",
+                        "stack-sm": "8px",
+                        "unit": "4px",
+                        "container-padding-desktop": "32px",
+                        "stack-lg": "24px",
+                        "card-padding": "24px"
+                    },
+                    "fontFamily": {
+                        "label-caps": ["Inter"],
+                        "headline-md": ["Inter"],
+                        "body-lg": ["Inter"],
+                        "headline-lg": ["Inter"],
+                        "data-md": ["JetBrains Mono"],
+                        "display-lg": ["Inter"],
+                        "body-sm": ["Inter"],
+                        "headline-lg-mobile": ["Inter"],
+                        "data-lg": ["JetBrains Mono"],
+                        "body-md": ["Inter"]
+                    },
+                    "fontSize": {
+                        "label-caps": ["12px", { "lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "600" }],
+                        "headline-md": ["24px", { "lineHeight": "32px", "fontWeight": "600" }],
+                        "body-lg": ["18px", { "lineHeight": "28px", "fontWeight": "400" }],
+                        "headline-lg": ["32px", { "lineHeight": "40px", "letterSpacing": "-0.01em", "fontWeight": "600" }],
+                        "data-md": ["14px", { "lineHeight": "20px", "fontWeight": "500" }],
+                        "display-lg": ["48px", { "lineHeight": "56px", "letterSpacing": "-0.02em", "fontWeight": "700" }],
+                        "body-sm": ["14px", { "lineHeight": "20px", "fontWeight": "400" }],
+                        "headline-lg-mobile": ["24px", { "lineHeight": "32px", "fontWeight": "600" }],
+                        "data-lg": ["18px", { "lineHeight": "24px", "fontWeight": "500" }],
+                        "body-md": ["16px", { "lineHeight": "24px", "fontWeight": "400" }]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        .electric-blue-glow {
+            box-shadow: 0 0 15px rgba(77, 142, 255, 0.4);
+            animation: pulse-glow 2s infinite alternate;
+        }
+        
+        @keyframes pulse-glow {
+            0% { box-shadow: 0 0 10px rgba(77, 142, 255, 0.3); }
+            100% { box-shadow: 0 0 20px rgba(77, 142, 255, 0.6); }
+        }
+
+        .glass-card {
+            background: rgba(18, 24, 38, 0.7);
+            backdrop-filter: blur(24px);
+            -webkit-backdrop-filter: blur(24px);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .glass-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2), 0 0 12px rgba(173, 198, 255, 0.1);
+        }
+
+        .animate-enter {
+            animation: slideUpFade 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+            opacity: 0;
+            transform: translateY(20px);
+        }
+
+        @keyframes slideUpFade {
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        /* Staggered animation delays */
+        .delay-100 { animation-delay: 100ms; }
+        .delay-200 { animation-delay: 200ms; }
+        .delay-300 { animation-delay: 300ms; }
+        .delay-400 { animation-delay: 400ms; }
+        
+        #canvas-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+        }
+    </style>
+</head>
+<body class="text-on-surface font-body-md min-h-screen flex flex-col bg-transparent">
+<!-- Shader Background -->
+<div id="canvas-container"></div>
+<script>
+        const scene = new THREE.Scene();
+        const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.getElementById('canvas-container').appendChild(renderer.domElement);
+
+        const geometry = new THREE.PlaneGeometry(2, 2);
+        const material = new THREE.ShaderMaterial({
+            uniforms: {
+                u_time: { value: 0.0 },
+                u_resolution: { value: new THREE.Vector2(window.innerWidth, window.innerHeight) }
+            },
+            vertexShader: `
+                varying vec2 v_texCoord;
+                void main() {
+                    v_texCoord = uv;
+                    gl_Position = vec4(position, 1.0);
+                }
+            `,
+            fragmentShader: `
+                precision highp float;
+                uniform float u_time;
+                uniform vec2 u_resolution;
+                varying vec2 v_texCoord;
+
+                float hash(vec2 p) {
+                    p = fract(p * vec2(123.34, 456.21));
+                    p += dot(p, p + 45.32);
+                    return fract(p.x * p.y);
+                }
+
+                float noise(vec2 p) {
+                    vec2 i = floor(p);
+                    vec2 f = fract(p);
+                    float a = hash(i);
+                    float b = hash(i + vec2(1.0, 0.0));
+                    float c = hash(i + vec2(0.0, 1.0));
+                    float d = hash(i + vec2(1.0, 1.0));
+                    vec2 u = f * f * (3.0 - 2.0 * f);
+                    return mix(a, b, u.x) + (c - a) * u.y * (1.0 - u.x) + (d - b) * u.x * u.y;
+                }
+
+                void main() {
+                    vec2 uv = v_texCoord;
+                    vec2 p = uv * 3.0;
+                    
+                    float n = noise(p + u_time * 0.1);
+                    n += 0.5 * noise(p * 2.1 + u_time * 0.15);
+                    n += 0.25 * noise(p * 4.2 + u_time * 0.2);
+                    
+                    vec3 color1 = vec3(0.039, 0.055, 0.09); // #0A0E17
+                    vec3 color2 = vec3(0.071, 0.094, 0.149); // Lighter navy
+                    vec3 accent = vec3(0.231, 0.509, 0.965); // #3B82F6
+                    
+                    vec3 finalColor = mix(color1, color2, n * 0.5);
+                    finalColor += accent * pow(n, 4.0) * 0.15; // Subtle electric highlights
+                    
+                    gl_FragColor = vec4(finalColor, 1.0);
+                }
+            `
+        });
+
+        const mesh = new THREE.Mesh(geometry, material);
+        scene.add(mesh);
+
+        function animate(time) {
+            requestAnimationFrame(animate);
+            material.uniforms.u_time.value = time * 0.001;
+            renderer.render(scene, camera);
+        }
+        animate(0);
+
+        window.addEventListener('resize', () => {
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            material.uniforms.u_resolution.value.set(window.innerWidth, window.innerHeight);
+        });
+    </script>
+<div class="relative z-10 w-full min-h-screen flex flex-col">
+<!-- TopNavBar (Dashboard active by default as this is a dashboard view) -->
+<header class="w-full border-b border-white/5 glass-card sticky top-0 z-50 rounded-none">
+<div class="flex justify-between items-center h-16 px-gutter max-w-[1440px] mx-auto">
+<div class="flex items-center gap-6">
+<div class="text-headline-md font-headline-md font-bold text-on-surface dark:text-on-surface">TrustLine</div>
+<nav class="hidden md:flex gap-6 items-center h-full">
+<a class="text-primary font-bold border-b-2 border-primary pb-1 h-full flex items-center pt-1 hover:text-primary transition-colors duration-200" href="#">Dashboard</a>
+<a class="text-on-surface-variant font-medium h-full flex items-center hover:text-primary transition-colors duration-200" href="#">Liquidity</a>
+<a class="text-on-surface-variant font-medium h-full flex items-center hover:text-primary transition-colors duration-200" href="#">Swap</a>
+<a class="text-on-surface-variant font-medium h-full flex items-center hover:text-primary transition-colors duration-200" href="#">Governance</a>
+</nav>
+</div>
+<div class="flex items-center gap-4">
+<span class="bg-tertiary-container/20 text-tertiary font-label-caps text-label-caps px-2 py-1 rounded-full border border-tertiary/30">Testnet</span>
+<button class="font-data-md text-data-md text-on-surface-variant border border-outline-variant px-4 py-2 rounded flex items-center gap-2 hover:text-primary transition-colors duration-200 hover:border-primary/50">
+<span class="material-symbols-outlined" style="font-size: 16px;">account_balance_wallet</span>
+<span class="font-data-md">GBEF...QHDE</span>
+</button>
+</div>
+</div>
+</header>
+<main class="flex-1 w-full max-w-[1440px] mx-auto px-gutter py-stack-lg">
+<!-- Summary Row -->
+<div class="grid grid-cols-1 md:grid-cols-4 gap-stack-md mb-stack-lg">
+<!-- Credit Score -->
+<div class="glass-card p-card-padding rounded-lg flex flex-col justify-between animate-enter">
+<div class="flex justify-between items-start mb-stack-sm">
+<span class="text-on-surface-variant font-body-sm text-body-sm">Credit Score</span>
+<span class="bg-primary/10 text-primary font-label-caps text-label-caps px-2 py-1 rounded border border-primary/20">Tier B</span>
+</div>
+<div class="text-headline-lg font-headline-lg text-on-surface">720</div>
+</div>
+<!-- Available Credit -->
+<div class="glass-card p-card-padding rounded-lg flex flex-col justify-between animate-enter delay-100">
+<div class="mb-stack-sm">
+<span class="text-on-surface-variant font-body-sm text-body-sm">Available Credit</span>
+</div>
+<div class="text-headline-lg font-headline-lg text-on-surface flex items-baseline gap-2">
+<span class="font-data-lg text-data-lg">50,000</span>
+<span class="font-data-md text-body-sm text-on-surface-variant">USDC</span>
+</div>
+</div>
+<!-- Currently Borrowed -->
+<div class="glass-card p-card-padding rounded-lg flex flex-col justify-between animate-enter delay-200">
+<div class="mb-stack-sm">
+<span class="text-on-surface-variant font-body-sm text-body-sm">Currently Borrowed</span>
+</div>
+<div class="text-headline-lg font-headline-lg text-on-surface flex items-baseline gap-2">
+<span class="font-data-lg text-data-lg">12,500</span>
+<span class="font-data-md text-body-sm text-on-surface-variant">USDC</span>
+</div>
+</div>
+<!-- Verified Trailing Revenue (30d) -->
+<div class="glass-card p-card-padding rounded-lg flex flex-col justify-between animate-enter delay-300">
+<div class="mb-stack-sm">
+<span class="text-on-surface-variant font-body-sm text-body-sm">Verified Trailing Revenue (30d)</span>
+</div>
+<div class="text-headline-lg font-headline-lg text-on-surface flex items-baseline gap-2">
+<span class="font-data-lg text-data-lg">25,000</span>
+<span class="font-data-md text-body-sm text-on-surface-variant">USDC</span>
+</div>
+</div>
+</div>
+<!-- Main Layout -->
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-stack-lg">
+<!-- Left Column (8 cols) -->
+<div class="lg:col-span-8 flex flex-col gap-stack-lg">
+<!-- Revenue Panel Chart -->
+<div class="glass-card rounded-lg p-card-padding flex flex-col h-[400px] animate-enter delay-100">
+<div class="border-b border-white/10 pb-stack-sm mb-stack-md flex justify-between items-center">
+<h2 class="text-body-lg font-body-lg">Revenue History</h2>
+<span class="text-on-surface-variant font-body-sm text-body-sm">on-chain x402 earnings (30d)</span>
+</div>
+<div class="flex-1 relative w-full h-full bg-surface-dim/20 rounded border border-white/5 flex items-end justify-center pb-4 text-on-surface-variant font-body-sm backdrop-blur-sm">
+<!-- Placeholder for actual chart -->
+                        [ Line Chart Visualization Area ]
+                    </div>
+</div>
+<!-- Off-chain Revenue Section -->
+<div class="glass-card rounded-lg p-card-padding animate-enter delay-200">
+<div class="border-b border-white/10 pb-stack-sm mb-stack-md">
+<h2 class="text-body-lg font-body-lg">Off-chain Revenue</h2>
+</div>
+<div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-surface-dim/30 p-4 rounded border border-white/5 backdrop-blur-sm">
+<div class="flex items-center gap-3">
+<div class="bg-secondary/10 p-2 rounded-full text-secondary border border-secondary/20">
+<span class="material-symbols-outlined">shield</span>
+</div>
+<div>
+<div class="font-body-md text-on-surface">zkTLS-verified Stripe revenue</div>
+<div class="text-body-sm text-on-surface-variant mt-1 flex items-center gap-1">
+<span class="material-symbols-outlined text-secondary" style="font-size: 14px;">check_circle</span>
+<span class="text-secondary font-medium">Verified</span>
+</div>
+</div>
+</div>
+<button class="bg-primary-container text-on-primary-container px-4 py-2 rounded font-body-sm hover:bg-primary hover:text-surface transition-all duration-300 electric-blue-glow transform hover:scale-105">
+                            Submit revenue proof
+                        </button>
+</div>
+</div>
+<!-- Score Breakdown -->
+<div class="glass-card rounded-lg p-card-padding animate-enter delay-300">
+<div class="border-b border-white/10 pb-stack-sm mb-stack-md">
+<h2 class="text-body-lg font-body-lg">Score Breakdown</h2>
+</div>
+<div class="flex flex-col gap-4">
+<!-- Bar 1 -->
+<div>
+<div class="flex justify-between text-body-sm mb-1">
+<span class="text-on-surface-variant">Revenue Coverage Ratio</span>
+<span class="font-data-md">High</span>
+</div>
+<div class="w-full bg-surface-dim/50 h-2 rounded-full overflow-hidden border border-white/5 backdrop-blur-sm">
+<div class="bg-primary w-[85%] h-full shadow-[0_0_10px_rgba(173,198,255,0.5)]"></div>
+</div>
+</div>
+<!-- Bar 2 -->
+<div>
+<div class="flex justify-between text-body-sm mb-1">
+<span class="text-on-surface-variant">Distinct Counterparty Count</span>
+<span class="font-data-md">Medium</span>
+</div>
+<div class="w-full bg-surface-dim/50 h-2 rounded-full overflow-hidden border border-white/5 backdrop-blur-sm">
+<div class="bg-primary/70 w-[60%] h-full shadow-[0_0_8px_rgba(173,198,255,0.4)]"></div>
+</div>
+</div>
+<!-- Bar 3 -->
+<div>
+<div class="flex justify-between text-body-sm mb-1">
+<span class="text-on-surface-variant">Off-chain Proof Weight</span>
+<span class="font-data-md">Low</span>
+</div>
+<div class="w-full bg-surface-dim/50 h-2 rounded-full overflow-hidden border border-white/5 backdrop-blur-sm">
+<div class="bg-primary/40 w-[30%] h-full shadow-[0_0_6px_rgba(173,198,255,0.3)]"></div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Right Column (4 cols) -->
+<div class="lg:col-span-4 flex flex-col gap-stack-lg">
+<!-- Credit Line Status -->
+<div class="glass-card rounded-lg p-card-padding animate-enter delay-200">
+<div class="border-b border-white/10 pb-stack-sm mb-stack-md">
+<h2 class="text-body-lg font-body-lg">Credit Line Status</h2>
+</div>
+<div class="flex justify-between items-baseline mb-4">
+<span class="text-on-surface-variant text-body-sm">Credit Limit</span>
+<div class="flex items-baseline gap-1">
+<span class="font-data-lg text-on-surface">50,000</span>
+<span class="font-data-md text-body-sm text-on-surface-variant">USDC</span>
+</div>
+</div>
+<div class="flex justify-between items-baseline mb-6">
+<span class="text-on-surface-variant text-body-sm">APR (Fixed)</span>
+<span class="font-data-md text-on-surface">8.5%</span>
+</div>
+<div class="bg-surface-dim/30 border border-white/5 rounded p-4 mb-6 backdrop-blur-sm">
+<div class="text-body-sm text-on-surface-variant mb-1">Amount Drawn</div>
+<div class="text-headline-md text-on-surface flex items-baseline gap-2">
+<span class="font-data-lg">12,500</span>
+<span class="font-data-md text-body-sm text-on-surface-variant">USDC</span>
+</div>
+<div class="w-full bg-surface-dim/50 h-1.5 rounded-full mt-3 overflow-hidden border border-white/5">
+<div class="bg-primary w-[25%] h-full shadow-[0_0_10px_rgba(173,198,255,0.5)]"></div>
+</div>
+</div>
+<div class="flex flex-col gap-3">
+<button class="w-full bg-primary-container text-on-primary-container py-3 rounded font-body-sm hover:bg-primary hover:text-surface transition-all duration-300 electric-blue-glow font-medium transform hover:scale-[1.02]">
+                            Request credit
+                        </button>
+<button class="w-full bg-surface-dim/20 border border-white/10 text-on-surface-variant py-3 rounded font-body-sm hover:bg-surface-variant/50 hover:text-on-surface transition-colors duration-200 backdrop-blur-sm">
+                            Repay
+                        </button>
+</div>
+</div>
+<!-- Activity Feed -->
+<div class="glass-card rounded-lg p-card-padding flex-1 animate-enter delay-400">
+<div class="border-b border-white/10 pb-stack-sm mb-stack-md">
+<h2 class="text-body-lg font-body-lg">Activity Feed</h2>
+</div>
+<div class="flex flex-col gap-4 relative">
+<!-- Vertical line for feed -->
+<div class="absolute left-2.5 top-2 bottom-2 w-[1px] bg-white/10"></div>
+<!-- Event 1 -->
+<div class="flex gap-4 relative z-10">
+<div class="w-5 h-5 rounded-full bg-surface-container-low border border-primary flex items-center justify-center mt-0.5 shrink-0 shadow-[0_0_8px_rgba(173,198,255,0.3)]">
+<div class="w-2 h-2 rounded-full bg-primary"></div>
+</div>
+<div>
+<div class="font-body-sm text-on-surface flex items-center gap-1">Repaid <span class="font-data-md text-xs">500 USDC</span></div>
+<div class="text-body-sm text-on-surface-variant mt-0.5 flex gap-2 items-center">
+<span>2 hrs ago</span>
+<span>•</span>
+<span class="font-data-md text-xs">0xab...8f9d</span>
+</div>
+</div>
+</div>
+<!-- Event 2 -->
+<div class="flex gap-4 relative z-10">
+<div class="w-5 h-5 rounded-full bg-surface-container-low border border-white/20 flex items-center justify-center mt-0.5 shrink-0">
+<div class="w-1.5 h-1.5 rounded-full bg-white/20"></div>
+</div>
+<div>
+<div class="font-body-sm text-on-surface flex items-center gap-1">Borrowed <span class="font-data-md text-xs">500 USDC</span></div>
+<div class="text-body-sm text-on-surface-variant mt-0.5 flex gap-2 items-center">
+<span>Yesterday</span>
+<span>•</span>
+<span class="font-data-md text-xs">0xcd...1a2b</span>
+</div>
+</div>
+</div>
+<!-- Event 3 -->
+<div class="flex gap-4 relative z-10">
+<div class="w-5 h-5 rounded-full bg-surface-container-low border border-white/20 flex items-center justify-center mt-0.5 shrink-0">
+<div class="w-1.5 h-1.5 rounded-full bg-white/20"></div>
+</div>
+<div>
+<div class="font-body-sm text-on-surface">Score updated</div>
+<div class="text-body-sm text-on-surface-variant mt-0.5 flex gap-2 items-center">
+<span>3 days ago</span>
+</div>
+</div>
+</div>
+<!-- Event 4 -->
+<div class="flex gap-4 relative z-10">
+<div class="w-5 h-5 rounded-full bg-surface-container-low border border-white/20 flex items-center justify-center mt-0.5 shrink-0">
+<div class="w-1.5 h-1.5 rounded-full bg-white/20"></div>
+</div>
+<div>
+<div class="font-body-sm text-on-surface">Registered</div>
+<div class="text-body-sm text-on-surface-variant mt-0.5 flex gap-2 items-center">
+<span>1 week ago</span>
+<span>•</span>
+<span class="font-data-md text-xs">0xef...3c4d</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</main>
+</div>
+</body></html>

@@ -1,0 +1,20 @@
+{
+  "gate": "2B",
+  "source": "Stripe GET /v1/balance (private, key in zkFetch secretOptions)",
+  "extractedParameterValues": {
+    "amt": "0"
+  },
+  "amountMinorUnits": "0",
+  "proofIdentifier": "0xf7516cff4e6961baa4a858761faa840df70c5bca0f929e29948cdc0e4bef8e09",
+  "contractId": "CA3EMXR6JOOTNP44T3OAJFMMMGKRRETDJKBLZP2RU3SIY4SDFAH54DU5",
+  "verifyTxHash": "3733e2b91a1106516bd8ac966055c35e73bba819bd03e62e922e0fd40ebeaf30",
+  "onchainStatus": "SUCCESS",
+  "explorer": "https://stellar.expert/explorer/testnet/tx/3733e2b91a1106516bd8ac966055c35e73bba819bd03e62e922e0fd40ebeaf30",
+  "secretCheck": {
+    "fullKeyPresent": false,
+    "prefixPresent": false,
+    "keyInTransformed": false,
+    "secretSafe": true
+  },
+  "verdict": "PASS"
+}

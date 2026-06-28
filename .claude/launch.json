@@ -1,0 +1,18 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "web",
+      "runtimeExecutable": "wsl",
+      "runtimeArgs": [
+        "-d",
+        "ubuntu-24.04",
+        "--",
+        "bash",
+        "-lc",
+        "source ~/.profile; cd ~/stellar/frontend && PORT=3100 exec npm start"
+      ],
+      "port": 3100
+    }
+  ]
+}
