@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(wsl -d ubuntu-24.04 -- bash -lc 'source ~/.profile; bash ~/stellar/backend/scripts/demo-api.sh 2>&1 | tail -75')",
+      "Bash(wsl -d ubuntu-24.04 -- bash -lc 'source ~/.profile; cd ~/stellar/backend && npx tsc -p tsconfig.json --noEmit; echo \"TSC_EXIT=$?\"; pkill -f \"src/index.ts\" 2>/dev/null; echo cleaned')"
+    ]
+  }
+}
