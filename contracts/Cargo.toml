@@ -16,10 +16,10 @@ edition = "2021"
 license = "MIT"
 
 # Single source of truth for the SDK version across every crate.
-# NOTE: pinned to the version used throughout .stellar-dev-skill/skills/soroban.
-# Verify against `cargo search soroban-sdk` when the toolchain is wired in Phase 1.
+# Pinned to "26" — the version `stellar contract init` scaffolds for stellar-cli
+# 27.0.0 (verified Phase 1).
 [workspace.dependencies]
-soroban-sdk = "22.0.8"
+soroban-sdk = "26"
 revenue_math = { path = "libraries/revenue_math" }
 
 # Release profile per the soroban skill: small, overflow-checked WASM.

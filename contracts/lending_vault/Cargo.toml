@@ -14,3 +14,5 @@ revenue_math = { workspace = true }
 
 [dev-dependencies]
 soroban-sdk = { workspace = true, features = ["testutils"] }
+score_registry = { path = "../score_registry" }
+credit_line = { path = "../credit_line" }
