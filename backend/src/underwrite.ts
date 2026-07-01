@@ -2,7 +2,7 @@
 // single pass for one agent, the end-to-end pipeline the API exposes.
 
 import { indexRevenue, type RevenueReport } from "./indexer/index.js";
-import { proveOffchainRevenue, type ProofResult } from "./zktls/index.js";
+import type { ProofResult } from "./zktls/index.js";
 import { computeScoreResult, type ScoreResult } from "./scoring/index.js";
 import { analyzeIndependence, type IndependenceResult } from "./scoring/independence.js";
 import { attestScore, submitScore, type Attestation, type SubmitResult } from "./signer/index.js";
@@ -60,6 +60,10 @@ export async function underwrite(
   let proofError: string | null = null;
   if (!opts.skipProof) {
     try {
+      // Lazy import: @reclaimprotocol/zk-fetch needs a manual asset-download step
+      // (`npm run download-zk-files`) that fresh deploy environments may skip. A
+      // failure here must only break the proof step, never the whole server.
+      const { proveOffchainRevenue } = await import("./zktls/index.js");
       proof = await proveOffchainRevenue();
     } catch (e) {
       proofError = e instanceof Error ? e.message : String(e);
