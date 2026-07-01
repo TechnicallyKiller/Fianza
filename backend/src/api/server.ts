@@ -4,6 +4,7 @@
 // Lender dashboard: list of underwritten agents. Settlement contract ids +
 // network come from /config so the frontend can wire wallet flows.
 
+import { readFileSync } from "node:fs";
 import Fastify from "fastify";
 import cors from "@fastify/cors";
 import { config } from "../config.js";
@@ -32,6 +33,38 @@ export async function buildServer() {
   }));
 
   app.get("/signer", async () => ({ signer: signerPublicKey() }));
+
+  // The two showcase agents for the self-serve /demo page. Env-first (Render);
+  // falls back to the local seeder output (/tmp) for dev.
+  app.get("/demo", async () => {
+    let honest = config.demoHonestAgent;
+    let sybil = config.demoSybilAgent;
+    let fromLedger = config.demoFromLedger;
+    if (!honest || !sybil || !fromLedger) {
+      try {
+        const d = JSON.parse(readFileSync("/tmp/_demo_agents.json", "utf8"));
+        honest = honest || d.honestAgentPub;
+        sybil = sybil || d.sybilAgentPub;
+        fromLedger = fromLedger || d.fromLedger;
+      } catch {
+        /* no local seed file */
+      }
+    }
+    return {
+      honestAgent: honest || null,
+      sybilAgent: sybil || null,
+      fromLedger: fromLedger || null,
+      // Real, immutable settlement txs from the recorded autonomous run.
+      txs: {
+        register: "d6b99f256cdb3b3d1d856809733c4b99ec7f1dc3abb4f968769e635b27a5a669",
+        scorePublished: "7d113ede5a77a34696e9fa00142db80c02ca74be5dde866322054daef4fadc11",
+        deposit: "4bf6a210842b67520f8dd6dc99f7d0bc635e9400f8b1665b3b830c1de352d2ea",
+        borrow: "98b3f5625d9eea49c19ffde5e9a6db6ba462de1c407f9fa7c6ea750fbd515788",
+        repay: "c58f02438d5a0d9b9a5b217d891a2161c8bb368f26af3efaf33d6d7055684bfc",
+        drawOn402: "b43c09987f4ed41cc43d0386c2202dbfd9e87e80834e70cafd206080628f409e",
+      },
+    };
+  });
 
   // Live x402 revenue index for an agent (cheap read).
   app.get<{ Params: { address: string }; Querystring: { fromLedger?: string } }>(

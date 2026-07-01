@@ -8,7 +8,8 @@
       "Bash(wsl -d ubuntu-24.04 -- bash -lc 'source ~/.profile; cd ~/stellar/backend && node _make_lender.mjs 2>&1')",
       "Bash(wsl -d ubuntu-24.04 -- bash -lc 'source ~/.profile; cd ~/stellar/spikes/spike1-x402-payer && node x402-pay.mjs 2>&1')",
       "Bash(wsl -d ubuntu-24.04 -- bash -lc 'source ~/.profile; cd ~/stellar/spikes/spike1-x402-payer && SERVICE_PUBLIC=GA2YSWX54ZNO2E3AC74Q4MJRSH4I5EPBEFD52VSF4WWDHA2NX4YFTUOF X402_PRICE_USDC=3 PORT=3010 node x402-server.mjs')",
-      "Bash(wsl -d ubuntu-24.04 -- bash -lc 'source ~/.profile; cd ~/stellar/spikes/spike1-x402-payer && node x402-draw-demo.mjs 2>&1')"
+      "Bash(wsl -d ubuntu-24.04 -- bash -lc 'source ~/.profile; cd ~/stellar/spikes/spike1-x402-payer && node x402-draw-demo.mjs 2>&1')",
+      "mcp__Claude_Preview__preview_start"
     ]
   }
 }

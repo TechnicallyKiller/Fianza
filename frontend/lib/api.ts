@@ -141,12 +141,15 @@ export class ApiError extends Error {
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  // Only send a JSON content-type when there's actually a body — Fastify rejects
+  // a bodyless POST that declares content-type: application/json (400).
+  const headers: Record<string, string> = { ...(init?.headers as Record<string, string>) };
+  if (init?.body && !("content-type" in headers)) {
+    headers["content-type"] = "application/json";
+  }
   let res: Response;
   try {
-    res = await fetch(`${API_BASE_URL}${path}`, {
-      ...init,
-      headers: { "content-type": "application/json", ...(init?.headers ?? {}) },
-    });
+    res = await fetch(`${API_BASE_URL}${path}`, { ...init, headers });
   } catch (e) {
     // Network-level failure (backend not running / CORS / offline).
     throw new ApiError(
@@ -169,10 +172,20 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 
 // ---- Endpoints ----
 
+export interface DemoInfo {
+  honestAgent: string | null;
+  sybilAgent: string | null;
+  fromLedger: number | null;
+  txs: Record<string, string>;
+}
+
 export const api = {
   health: () => request<{ ok: boolean; ts: number }>("/health"),
 
   config: () => request<PublicConfig>("/config"),
+
+  /** The two showcase agents + recorded settlement txs for the /demo page. */
+  demo: () => request<DemoInfo>("/demo"),
 
   signer: () => request<{ signer: string }>("/signer"),
 

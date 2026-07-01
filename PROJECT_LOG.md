@@ -370,10 +370,28 @@ investment-worthy product (production infra, full independence model, originate�
   Server runs as a bg node process on :3010 (start with
   `SERVICE_PUBLIC=<funder> X402_PRICE_USDC=3 PORT=3010 node x402-server.mjs`).
 
-**Optional polish left (not blocking a winning demo):** surface the independence
-verdict in the dashboard Score Breakdown (visible "fraud caught" on-screen); the
-zkTLS Beat 3 (`demo-day.mjs --zktls`); refactor draw-on-402 into an SDK
-`payWithCredit(fetch)` method.
+**Polish DONE (all of it):** independence verdict surfaced in the borrower Score
+Breakdown; zkTLS Beat 3 validated (proof verifies on-chain); draw-on-402 folded
+into the SDK as `payWithCredit(url, priceUsdc)`. Fixed an independence false
+positive (don't traverse loop-detection through excluded funding hubs) + excluded
+the vault contract. Fixed a real frontend bug: the API client sent
+`content-type: application/json` on bodyless POSTs → Fastify 400 (broke the
+underwrite button); now only set on requests with a body.
+
+**Self-serve /demo page (VC/SCF-facing) — the "no scripts" fix:** `app/demo/page.tsx`
++ backend `GET /demo` (serves the two showcase agents from `DEMO_*` env, `/tmp`
+fallback) + `api.demo()`. A visitor clicks "Run" → the site LIVE-underwrites the
+honest + sybil agents (no wallet) → animates APPROVED vs DENIED with the
+independence breakdown, then a real settlement-tx timeline. README fully rewritten
+product-first (live-demo link, tx proof, architecture, why-Stellar).
+
+**Render deploy:** backend builds to `dist/index.js` (`npm run build` → `npm start`,
+`node dist/index.js`); PORT from env; CORS open; config reads all secrets/ids from
+env (no .env on Render). Point the Vercel frontend's `NEXT_PUBLIC_API_BASE_URL` at
+the Render URL. Env vars to set on Render: `SCORE_SIGNER_SECRET`, the three
+contract ids, `DEMO_HONEST_AGENT`/`DEMO_SYBIL_AGENT`/`DEMO_FROM_LEDGER`,
+`X402_EXCLUDE_ADDRESSES` (facilitators + funder `GA2YSWX…` + vault `CD5RQFFY…`),
+`SCORE_BAND_DIVISOR=1000`, and (for x402/zkTLS) `OZ_API_KEY`/`FACILITATOR_URL`.
 
 **Artifacts added this session:** `packages/agent-sdk/*` (SDK + LP deposit),
 `scripts/{sdk-smoke,sdk-write-smoke,demo-day}.mjs`,

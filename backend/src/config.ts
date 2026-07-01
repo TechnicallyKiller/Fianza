@@ -72,6 +72,11 @@ export const config = {
   creditLineContractId: opt("CREDIT_LINE_CONTRACT_ID"), // Phase 4 deploy
   lendingVaultContractId: opt("LENDING_VAULT_CONTRACT_ID"), // Phase 4 deploy
 
+  // Self-serve /demo page: the two pre-seeded showcase agents.
+  demoHonestAgent: opt("DEMO_HONEST_AGENT"),
+  demoSybilAgent: opt("DEMO_SYBIL_AGENT"),
+  demoFromLedger: Number(opt("DEMO_FROM_LEDGER", "0")) || 0,
+
   // API
   port: Number(opt("PORT", "8787")),
   host: opt("HOST", "0.0.0.0"),
