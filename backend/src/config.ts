@@ -69,6 +69,8 @@ export const config = {
   // Trusted score signer (publishes to score_registry). Backend-specific.
   scoreSignerSecret: opt("SCORE_SIGNER_SECRET"),
   scoreRegistryContractId: opt("SCORE_REGISTRY_CONTRACT_ID"), // set after Phase 4 deploy
+  creditLineContractId: opt("CREDIT_LINE_CONTRACT_ID"), // Phase 4 deploy
+  lendingVaultContractId: opt("LENDING_VAULT_CONTRACT_ID"), // Phase 4 deploy
 
   // API
   port: Number(opt("PORT", "8787")),

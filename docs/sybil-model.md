@@ -1,7 +1,198 @@
 # Sybil / counterparty-independence model
 
-Counterparty independence is the core open research bet (see README, "Risk model
-and economics"). MVP mitigation: count revenue only from a minimum number of
-independently-identified counterparties, weight zkTLS-proved off-chain revenue
-more heavily, and keep the two facilitator-side addresses on an explicit exclude
-list. Robust anti-Sybil heuristics are out of scope for v1 and tracked here.
+> Status: **v1 design spec** (supersedes the MVP minimum-counterparty heuristic).
+> This is the defensible core of TrustLine — see the root README "Risk model and
+> economics". zkTLS and on-chain indexing prove revenue is **real**; this model
+> is what argues revenue is **independent**. The two are different problems and
+> independence is the open, fundable one.
+
+---
+
+## 0. Why this is the moat
+
+Anyone can index `getEvents` and read an agent's USDC inflows. That is not a
+business — it is a SELECT statement. The hard, defensible question is:
+
+> Is this revenue from **genuine, independent counterparties**, or is the
+> operator paying themselves to manufacture a credit score?
+
+If the answer can be faked cheaply, the protocol is insolvent by construction:
+an attacker fabricates revenue, draws an uncollateralized credit line against it,
+and walks. Every uncollateralized-credit protocol lives or dies on this. The
+minimum-counterparty rule (`MIN_COUNTERPARTIES = 3`) shipped in
+`backend/src/scoring` is a **floor, not a moat** — it is defeated by spinning up
+three wallets and paying yourself. This document replaces that binary gate with a
+continuous, economically-grounded independence model.
+
+---
+
+## 1. Threat model
+
+### 1.1 Attacker goal
+Maximize `creditLimit(agent)` per dollar of *real* economic cost, then draw and
+default. The protocol is safe iff faking the revenue that unlocks a credit line
+costs the attacker **more than the line is worth** (see §2).
+
+### 1.2 Attacker capabilities (assume all of these)
+- Can create unlimited Stellar accounts at negligible cost.
+- Can move their own USDC freely between their own accounts.
+- Can stand up a real Stripe account and charge their own cards.
+- Can wait (age accounts), and can script organic-looking activity.
+- Cannot (cheaply) obtain *other people's* genuine, independent economic activity.
+
+That last line is the only asymmetry we have, and the entire model is built to
+price it.
+
+### 1.3 Attack catalog
+| # | Attack | Mechanism | v1 defense (§3) |
+|---|---|---|---|
+| A1 | **Wash / self-pay** | Agent pays itself from N controlled wallets | Payer reputation + loop detection |
+| A2 | **Fresh-wallet farm** | N brand-new wallets, no other history | Payer reputation weight ≈ 0 |
+| A3 | **Circular funding** | Agent funds wallets → they "pay" agent → repeat | Fund-flow graph, k-hop discount |
+| A4 | **Concentration** | 2–3 "payers" supply ~all revenue | HHI / per-payer contribution cap |
+| A5 | **Synthetic cadence** | Scripted regular payments to look like volume | Temporal organicity penalty |
+| A6 | **Off-chain self-charge** | Self-funded Stripe charges via own cards | Off-chain independence signals (§4, partial) |
+| A7 | **Collusion ring** | K real operators cross-pay to inflate each other | Out of scope v1 — see §5 |
+
+---
+
+## 2. The reframe: independence is an economic-security property
+
+You cannot *prove* independence. You can only make faking it expensive. State the
+protocol invariant we are underwriting toward:
+
+```
+cost_to_fake(R_independent)  >  value_unlocked(R_independent)
+```
+
+where `value_unlocked = limitMultiple(tier) × R` minus expected recovery. Because
+`limitMultiple` is ≤3× (`revenue_math`), the model must ensure that manufacturing
+$1 of *counted* independent revenue costs the attacker **more than ~$3** of
+at-risk capital they could otherwise abscond with. Everything below is in service
+of pricing `cost_to_fake` upward until the inequality holds. This framing — not a
+particular heuristic — is the thing to defend in a fundraise: it is a clear,
+falsifiable security target with a roadmap of levers.
+
+---
+
+## 3. Independence-v1 scoring model (on-chain)
+
+Replace the binary `onchainCounts` gate with a continuous **effective independent
+revenue** `R_eff` and an **independence score** in `[0,1]`. All inputs are
+derivable from the payment graph the indexer already builds (`from → agent`,
+amount, ledger), plus cheap per-account lookups.
+
+### 3.1 Per-payer independence weight `w_i ∈ [0,1]`
+For each distinct payer `i` contributing revenue `r_i`:
+
+```
+w_i = age_factor_i · diversity_factor_i · not_funded_factor_i
+```
+
+- **age_factor** — `min(1, account_age_days / AGE_FULL)`. A wallet younger than
+  `AGE_FULL` (e.g. 30 days) is discounted; one born this week counts ~0. Defeats
+  A2.
+- **diversity_factor** — function of the payer's *own* out-degree: how many other,
+  distinct parties it transacts with besides this agent. A payer that pays only
+  this agent looks like a puppet → ~0; a payer embedded in real economic activity
+  → 1. Defeats A1/A2.
+- **not_funded_factor** — `0` if payer `i` was funded (directly, or within `K`
+  hops) by the agent or a known agent-controlled address; else `1`. Defeats A3.
+
+### 3.2 Fund-flow loop detection
+Build the directed value graph over the lookback window. Run a bounded `K`-hop
+(default `K=3`) reverse search from each payer back toward the agent's own funding
+sources. Any payer whose inbound funds originate from the agent is **circular**
+and its `r_i` is excluded (its `not_funded_factor = 0`). This is the primary
+defense against the cheapest realistic attack (A3).
+
+### 3.3 Concentration cap
+Cap how much any single payer can contribute to counted revenue, and penalize
+concentration via a normalized Herfindahl index:
+
+```
+r_i_capped = min(r_i, MAX_PAYER_SHARE · Σ r)        # e.g. MAX_PAYER_SHARE = 0.4
+HHI        = Σ (r_i_capped / Σ r_i_capped)²
+concentration_factor = 1 − clamp((HHI − HHI_FLOOR)/(1 − HHI_FLOOR), 0, 1)
+```
+
+A long tail of independent payers → low HHI → factor ≈ 1. Two payers → high HHI →
+factor → 0. Defeats A4.
+
+### 3.4 Temporal organicity (lightweight v1)
+Real revenue is irregular; scripted loops are periodic. v1 uses a coarse signal:
+coefficient of variation of inter-payment intervals and amount entropy, combined
+into `organicity_factor ∈ [0.5, 1]` (never below 0.5 — this is a soft signal, not
+a gate). Flags A5 for review without hard-failing legitimate steady revenue.
+
+### 3.5 Composition
+```
+R_eff = concentration_factor · organicity_factor · Σ_i ( w_i · r_i_capped )
+independence_score = clamp( R_eff / Σ r_i , 0, 1 )
+```
+
+`R_eff` (not raw on-chain revenue) feeds `computeScore` exactly where
+`onchainUsdc` does today. The existing `MIN_COUNTERPARTIES` rule becomes a cheap
+pre-filter, not the decision. zkTLS off-chain revenue keeps its higher weight but
+is itself subject to §4.
+
+---
+
+## 4. Off-chain independence (Stripe) — partial in v1
+
+Self-charged Stripe (A6) is harder because we don't see cardholder identities. v1
+ships *signals*, not a solution, and weights them into the off-chain figure:
+- Stripe **account age** and payout history (provable via additional zkTLS
+  fetches against Stripe's balance/payout endpoints).
+- **Refund / dispute / chargeback rate** — a self-charge ring tends to have an
+  anomalous (often zero) dispute profile.
+- **Payment-method diversity** as exposed by Stripe's own aggregate metrics
+  (count of distinct cards / customers), proven via zkTLS without revealing PII.
+
+These are explicitly partial. Robust off-chain independence is a v2 research line
+(see §5).
+
+---
+
+## 5. What v1 does NOT solve (be honest in the pitch)
+- **Collusion rings (A7):** K genuinely-distinct operators cross-paying to inflate
+  each other defeats per-payer reputation. Needs global graph analysis / stake.
+- **Patient capital:** an attacker who ages wallets and scripts diverse activity
+  for months can still pass — but now at real time/capital cost, which is the
+  point (§2). We raise the cost; we don't make it infinite.
+- **Sophisticated off-chain self-dealing** with diverse real cards.
+
+**Path beyond v1:** payer **staking / skin-in-the-game**, cross-protocol identity
+and reputation (reusing the `stellar8004_identity` interface), ZK reputation
+proofs, and per-agent **credit ramps** (limits grow with repayment history, so a
+cold attacker can never jump straight to a large draw — this caps `value_unlocked`
+directly and is the cheapest, highest-leverage lever to add next).
+
+---
+
+## 6. Implementation map
+- **Data:** extend the indexer to retain the payment graph (`from, to, amount,
+  ledger`) and expose cheap per-account lookups (age via first-activity ledger;
+  out-degree via counterparties). This is the same persistent-indexer→DB upgrade
+  the on-demand scanner needs anyway — independence and scale share one dependency.
+- **Engine:** new `backend/src/scoring/independence.ts` computing `R_eff` and
+  `independence_score`; `computeScoreResult` consumes `R_eff` in place of raw
+  `onchainUsdc`. Surface every factor in the API so the borrower dashboard's
+  "Score Breakdown" can show *why* (turns a black box into a trust feature).
+- **Contracts:** unchanged. Independence is an off-chain underwriting concern; the
+  on-chain `score_registry` still just stores the signed result.
+
+---
+
+## 7. Parameters (initial, all tunable)
+| Param | Default | Controls |
+|---|---|---|
+| `AGE_FULL` | 30 days | When a payer's age stops discounting it |
+| `K` (hops) | 3 | Loop-detection search depth |
+| `MAX_PAYER_SHARE` | 0.40 | Per-payer contribution cap |
+| `HHI_FLOOR` | 0.15 | Concentration tolerance |
+| `MIN_COUNTERPARTIES` | 3 | Cheap pre-filter (retained) |
+| `organicity_factor` floor | 0.50 | Cap on the temporal penalty |
+
+All defaults are starting points to be calibrated against real + adversarial
+data; the calibration methodology is itself part of the v1 deliverable.

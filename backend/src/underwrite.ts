@@ -4,11 +4,14 @@
 import { indexRevenue, type RevenueReport } from "./indexer/index.js";
 import { proveOffchainRevenue, type ProofResult } from "./zktls/index.js";
 import { computeScoreResult, type ScoreResult } from "./scoring/index.js";
+import { analyzeIndependence, type IndependenceResult } from "./scoring/independence.js";
 import { attestScore, submitScore, type Attestation, type SubmitResult } from "./signer/index.js";
 
 export interface UnderwritingResult {
   agent: string;
   revenue: RevenueReport;
+  /** Counterparty-independence (anti-Sybil) analysis; null if it couldn't run. */
+  independence: IndependenceResult | null;
   proof: ProofResult | null;
   proofError: string | null;
   score: ScoreResult;
@@ -33,6 +36,26 @@ export async function underwrite(
 ): Promise<UnderwritingResult> {
   const revenue = await indexRevenue(agent, { fromLedger: opts.fromLedger });
 
+  // Counterparty independence: only revenue from payers NOT funded by the agent
+  // counts. Defeats the self-pay Sybil attack. Resilient — on failure we fall
+  // back to raw revenue rather than break the pass.
+  let independence: IndependenceResult | null = null;
+  try {
+    independence = await analyzeIndependence(
+      agent,
+      revenue,
+      opts.fromLedger ?? revenue.windowFromLedger,
+    );
+  } catch {
+    independence = null;
+  }
+  const onchainRevenueStroops = independence
+    ? independence.independentRevenueStroops
+    : revenue.totalRevenueStroops;
+  const distinctPayers = independence
+    ? independence.independentPayers.length
+    : revenue.distinctPayers;
+
   let proof: ProofResult | null = null;
   let proofError: string | null = null;
   if (!opts.skipProof) {
@@ -45,18 +68,26 @@ export async function underwrite(
 
   const score = computeScoreResult({
     agent,
-    onchainRevenueStroops: revenue.totalRevenueStroops,
-    distinctPayers: revenue.distinctPayers,
+    onchainRevenueStroops,
+    distinctPayers,
     offchainRevenueStroops: proof?.amountStroops ?? "0",
     offchainVerified: proof?.verified ?? false,
   });
 
   const attestation = attestScore(score);
-  const submission = await submitScore(score);
+  // Publishing on-chain can fail for benign reasons (agent not registered yet,
+  // RPC hiccup). Never let it break the underwriting pass — record and continue.
+  let submission: SubmitResult;
+  try {
+    submission = await submitScore(score);
+  } catch (e) {
+    submission = { submitted: false, reason: e instanceof Error ? e.message : String(e) };
+  }
 
   const result: UnderwritingResult = {
     agent,
     revenue,
+    independence,
     proof,
     proofError,
     score,

@@ -25,6 +25,8 @@ export async function buildServer() {
     usdcSac: config.usdcSac,
     reclaimVerifierContractId: config.reclaimVerifierContractId,
     scoreRegistryContractId: config.scoreRegistryContractId || null,
+    creditLineContractId: config.creditLineContractId || null,
+    lendingVaultContractId: config.lendingVaultContractId || null,
     signer: signerPublicKey(),
     excludeAddresses: config.excludeAddresses,
   }));

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Inter, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import ShaderBackground from "@/components/ShaderBackground";
+import { WalletProvider } from "@/components/WalletProvider";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -39,7 +40,7 @@ export default function RootLayout({
     >
       <body className="min-h-screen font-sans antialiased">
         <ShaderBackground />
-        {children}
+        <WalletProvider>{children}</WalletProvider>
       </body>
     </html>
   );

@@ -24,3 +24,6 @@ out/
 
 # Local Stellar dev skill (kept out of the repo)
 .stellar-dev-skill/
+
+# Local script with a testnet API key — never commit
+backend/_oz_wire.sh

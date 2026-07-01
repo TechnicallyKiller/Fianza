@@ -1,32 +1,24 @@
-import Link from "next/link";
-import { ArrowLeft, Wallet } from "lucide-react";
+"use client";
 
-// Faithful reproduction of the dashboards' top nav (screens/*.html), wrapped in
-// a "sample preview" ribbon so visitors understand this is an illustrative
-// mockup, not live data yet.
+import Link from "next/link";
+import { ArrowLeft } from "lucide-react";
+import WalletButton from "@/components/WalletButton";
+import { useWallet } from "@/components/WalletProvider";
+
+// Dashboard top nav (screens/*.html), now wired to the live wallet + backend.
+// `active` highlights the current section; the network pill reflects /config.
 export default function DashboardChrome({
+  active = "Dashboard",
   children,
 }: {
+  active?: "Dashboard" | "Liquidity";
   children: React.ReactNode;
 }) {
+  const { config } = useWallet();
+  const network = config?.network ? config.network : "Testnet";
+
   return (
     <div className="relative z-10 flex min-h-screen flex-col bg-surface-container-lowest/60">
-      {/* Sample-preview ribbon */}
-      <div className="w-full border-b border-tertiary/20 bg-tertiary-container/10">
-        <div className="mx-auto flex max-w-[1440px] items-center justify-between gap-4 px-gutter py-2">
-          <span className="font-label-caps text-label-caps uppercase tracking-wider text-tertiary">
-            Sample preview · illustrative data, not live yet
-          </span>
-          <Link
-            href="/coming-soon"
-            className="inline-flex items-center gap-1.5 font-body-sm text-on-surface-variant transition-colors hover:text-on-surface"
-          >
-            <ArrowLeft size={14} />
-            Back
-          </Link>
-        </div>
-      </div>
-
       {/* Top nav */}
       <nav className="w-full border-b border-outline-variant bg-surface/80 backdrop-blur-md">
         <div className="mx-auto flex h-16 max-w-[1440px] items-center justify-between px-gutter">
@@ -38,33 +30,63 @@ export default function DashboardChrome({
               TrustLine
             </Link>
             <div className="hidden gap-6 md:flex">
-              <span className="cursor-default border-b-2 border-primary pb-1 font-bold text-primary">
+              <NavLink href="/borrower" current={active === "Dashboard"}>
                 Dashboard
-              </span>
-              <span className="cursor-default font-medium text-on-surface-variant">
+              </NavLink>
+              <NavLink href="/lender" current={active === "Liquidity"}>
                 Liquidity
-              </span>
-              <span className="cursor-default font-medium text-on-surface-variant">
+              </NavLink>
+              <span className="cursor-default font-medium text-on-surface-variant/40">
                 Swap
               </span>
-              <span className="cursor-default font-medium text-on-surface-variant">
+              <span className="cursor-default font-medium text-on-surface-variant/40">
                 Governance
               </span>
             </div>
           </div>
           <div className="flex items-center gap-4">
-            <span className="rounded-md border border-outline-variant bg-surface-container px-3 py-1 font-data-md text-data-md text-on-surface-variant">
-              Testnet
+            <span className="rounded-md border border-outline-variant bg-surface-container px-3 py-1 font-data-md text-data-md capitalize text-on-surface-variant">
+              {network}
             </span>
-            <span className="inline-flex items-center gap-2 rounded-md border border-primary/20 bg-primary/10 px-3 py-1 font-data-md text-data-md text-primary">
-              <Wallet size={14} />
-              GBEF...QHDE
-            </span>
+            <WalletButton />
           </div>
         </div>
       </nav>
 
       {children}
+
+      <div className="mx-auto w-full max-w-[1440px] px-gutter pb-stack-md">
+        <Link
+          href="/"
+          className="inline-flex items-center gap-1.5 font-body-sm text-on-surface-variant transition-colors hover:text-on-surface"
+        >
+          <ArrowLeft size={14} />
+          Back to site
+        </Link>
+      </div>
     </div>
+  );
+}
+
+function NavLink({
+  href,
+  current,
+  children,
+}: {
+  href: string;
+  current: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <Link
+      href={href}
+      className={
+        current
+          ? "border-b-2 border-primary pb-1 font-bold text-primary"
+          : "font-medium text-on-surface-variant transition-colors hover:text-on-surface"
+      }
+    >
+      {children}
+    </Link>
   );
 }

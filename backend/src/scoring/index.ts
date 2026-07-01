@@ -47,6 +47,10 @@ export interface ScoreResult {
 const MIN_COUNTERPARTIES = Number(process.env.MIN_COUNTERPARTIES ?? "3");
 const OFFCHAIN_WEIGHT = 1.5; // zkTLS revenue trusted more than raw on-chain
 const ONCHAIN_WEIGHT = 1.0;
+// Revenue bands are calibrated for mainnet $-scale revenue. On testnet, faucet
+// USDC caps demo revenue at single digits, so SCORE_BAND_DIVISOR rescales the
+// thresholds (e.g. 1000 → a few USDC clears Tier C). Defaults to 1 (mainnet).
+const BAND_DIVISOR = Number(process.env.SCORE_BAND_DIVISOR ?? "1");
 
 // Banding mirrors revenue_math::tier_from_score and limit/apr policy.
 function tierFromScore(score: number): Tier {
@@ -67,10 +71,10 @@ function aprBps(tier: Tier): number {
 /** Map effective verified USDC revenue + payer diversity to a 0..850 score. */
 function computeScore(effectiveUsdc: number, distinctPayers: number, onchainCounts: boolean): number {
   let base: number;
-  if (effectiveUsdc >= 25_000) base = 760;
-  else if (effectiveUsdc >= 10_000) base = 680;
-  else if (effectiveUsdc >= 2_500) base = 600;
-  else if (effectiveUsdc >= 500) base = 560;
+  if (effectiveUsdc >= 25_000 / BAND_DIVISOR) base = 760;
+  else if (effectiveUsdc >= 10_000 / BAND_DIVISOR) base = 680;
+  else if (effectiveUsdc >= 2_500 / BAND_DIVISOR) base = 600;
+  else if (effectiveUsdc >= 500 / BAND_DIVISOR) base = 560;
   else base = 400;
 
   // Counterparty-diversity bonus (anti-Sybil): independent payers build trust.
@@ -79,7 +83,7 @@ function computeScore(effectiveUsdc: number, distinctPayers: number, onchainCoun
   // If on-chain revenue failed the counterparty minimum and there's no verified
   // off-chain revenue to lean on, cap below the lending threshold.
   let score = base + bonus;
-  if (!onchainCounts && effectiveUsdc < 500) score = Math.min(score, 540);
+  if (!onchainCounts && effectiveUsdc < 500 / BAND_DIVISOR) score = Math.min(score, 540);
 
   return Math.max(0, Math.min(850, Math.round(score)));
 }
