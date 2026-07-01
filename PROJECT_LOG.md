@@ -370,6 +370,68 @@ investment-worthy product (production infra, full independence model, originate�
   Server runs as a bg node process on :3010 (start with
   `SERVICE_PUBLIC=<funder> X402_PRICE_USDC=3 PORT=3010 node x402-server.mjs`).
 
+## 9. Scout — the live autonomous agent (2026-07-01/02)
+
+**A brand-new agent, zero starting capital, ran the ENTIRE TrustLine lifecycle
+organically through real usage — no pre-arranged demo script.** New top-level
+`agents/` workspace (`agents/{shared,dataco,scout}/`), $0 real cost throughout
+(free Groq/Gemini inference, free testnet USDC, free Render/local hosting).
+
+**What Scout is:** a real x402-paid `/research` agent. `agents/scout/server.mjs`
+uses `agents/shared/brain.mjs` (Groq primary, Gemini 2.5 Flash fallback — both
+live-verified) for real inference, and buys real supplementary data from
+**DataCo** (`agents/dataco/server.mjs`, a real Wikipedia-backed x402-paid lookup
+service — genuine external data, free, no key) via the SDK's `payWithCredit`.
+This is the real, on-chain cash-flow gap: Scout must pay DataCo before it's
+collected for the job that needed the data.
+
+**The full organic lifecycle, proven on testnet:**
+1. Scout earned real revenue from 3 independent real customer wallets paying
+   its `/research` endpoint over x402 (real AI answers, real Wikipedia sourcing).
+2. `agents/scout/reconcile.mjs` registered + underwrote Scout on that real
+   revenue → **score 695 (Tier B)**, independence check: **3/3 real payers
+   verified independent, 0 circular**.
+3. A real lender deposited into Scout's isolated vault (tx `075b6507…`).
+4. Facing a real cost it couldn't cover, Scout **autonomously borrowed** from
+   its own earned credit line — no human decided this; `payWithCredit`'s inline
+   logic did. Verified on-chain vault state: real principal, real accruing
+   interest.
+5. Scout **autonomously repaid** from its earnings (tx `6015548b…`) — interest
+   paid first into a real, tiny, non-zero **yield_pool** the lender can claim.
+
+**Bug found + fixed along the way (important):** `SCORE_SIGNER_SECRET` was never
+actually set on Render — `signerKeypair()` was silently falling back to a fresh,
+**unfunded ephemeral key on every cold start**, so on-chain score *publishing*
+had been failing silently since the Render deploy (the funded local signer,
+`GCNFNO4A4WPHUNNT3YJ36J4NIW4SV46XNO35Y355TMJF6DVPVXM3KWXF`, was never used
+there). The `/demo` page's UI numbers were always computed correctly off-chain;
+they just weren't landing on-chain. Fixed by setting `SCORE_SIGNER_SECRET` in
+Render's dashboard (value in local `backend/.env`) — confirmed fixed: `/config`
+now reports the correct funded signer, and a fresh underwrite for Scout returned
+`submission.submitted: true` with a real tx hash for the first time.
+
+**SDK fix:** `payWithCredit(url, priceUsdc, opts)` gained an `opts.init` param
+(method/headers/body) — it previously only supported a bare GET, which broke on
+DataCo's POST+JSON endpoint.
+
+**Also confirmed (real, not staged):** `lending_vault.borrow()` enforces BOTH
+credit limit AND vault liquidity — Scout's first borrow attempt correctly failed
+with `InsufficientCredit` (before underwriting), then `InsufficientLiquidity`
+(after underwriting but before a lender deposited), then succeeded once both
+conditions were real. This is the two-sided marketplace working exactly as
+designed, discovered through genuine testing, not asserted.
+
+**Ops gotcha:** `pkill -f` inside `wsl bash -lc` intermittently failed to kill
+background node processes in this session, leaving stale servers squatting on
+ports and serving stale env — always verify with `ss -ltnp` / kill by exact PID
+after a pkill, don't trust the exit code alone.
+
+**Left to do:** restore Scout/DataCo to persistent hosting (Render, `agents/`
+services) + a public "Scout, live" status page — currently running locally only.
+Keys for all agent/customer/lender wallets used above live in `agents/.env`
+(gitignored) — back these up, `/tmp`-style loss already happened once this
+session.
+
 **Polish DONE (all of it):** independence verdict surfaced in the borrower Score
 Breakdown; zkTLS Beat 3 validated (proof verifies on-chain); draw-on-402 folded
 into the SDK as `payWithCredit(url, priceUsdc)`. Fixed an independence false

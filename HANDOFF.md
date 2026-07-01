@@ -1,0 +1,243 @@
+# TrustLine — Reality & Handoff (READ THIS FIRST)
+
+_Last updated: 2026-07-02. If you're a new session, read this whole file before
+touching anything. It is deliberately blunt. `PROJECT_LOG.md` has the granular
+history; this file is the truth + the plan._
+
+---
+
+## TL;DR — what this actually is
+
+TrustLine is a **working, honest testnet prototype** of revenue-underwritten,
+uncollateralized USDC credit for AI agents on Stellar. The core loop
+(earn → underwrite → get a credit line → borrow → repay → lender yield) **works
+end-to-end on-chain**, and a real autonomous agent (Scout) has run the whole
+cycle from zero capital. That is genuinely done and verifiable on-chain.
+
+**It is NOT a lending product.** It is ~10–15% of the way to production. Every
+gap that matters — credit risk, a real anti-Sybil moat, scale, contract safety,
+trust decentralization — is unbuilt. Nothing has ever touched real money or a
+real adversary. See Part 2. **Do not describe this as production-ready to anyone.**
+
+The current push: build the **production-grade organs that CAN be built on
+testnet** (credit/risk engine, robust independence, scale), because testnet is
+free to be adversarial in. Real-money/legal/audit work is explicitly deferred
+(Part 3).
+
+---
+
+## Part 1 — What is REALLY built (verified)
+
+**Contracts (Soroban, deployed to testnet, tested):**
+- `score_registry` `CAZUPW5MWHG5XCE7BM6YP6M52NPB6TPRRAXU3GEV4TL2AR2ZMYE7TRSX` —
+  registration + signed scores + `record_repayment` (repayment tally EXISTS but
+  is NOT yet fed into scoring).
+- `credit_line` `CA2HOO3KKDPQB4URKDJGVP4QD57UTCSKA2XN7U76RAN4VATOKXZV4QSV` —
+  reads score → tier/limit/APR via `revenue_math`.
+- `lending_vault` `CD5RQFFYF57MLI3JI2PHUROMYFWLGDB7RPMGIK5JRWAO6NWHEUE3EC6C` —
+  isolated per-agent vaults: deposit/borrow/repay/withdraw/claim_yield, simple
+  interest → yield_pool. Isolation is real (proven by test). **No default,
+  liquidation, or reserve logic.**
+- `revenue_math` (lib, single source of truth for tiers/limits/APR),
+  `stellar8004_identity` (interface stub, unused).
+
+**Backend** (`backend/`, TS/Fastify, on Render): indexer (on-demand `getEvents`
+of USDC SAC), `scoring/independence.ts` (fund-flow loop detection — ONE
+heuristic), scoring, signer, zktls (Reclaim, lazy-loaded, flaky), REST API.
+**In-memory store — all state lost on restart.**
+
+**SDK** (`packages/agent-sdk/`): `TrustLineAgent` — register/onboard/underwrite/
+creditLine/vaultState/borrow/repay/deposit/`payWithCredit`(draw-on-402, now
+supports POST bodies via `opts.init`). Real, works.
+
+**Frontend** (`frontend/`, Next.js, on Vercel): `/demo` (self-serve, live —
+underwrites the two demo agents, shows APPROVED vs DENIED), `/borrower`,
+`/lender`, landing.
+
+**Agent fleet** (`agents/`, NEW, **local-only, uncommitted at time of writing**):
+`shared/brain.mjs` (Groq primary + Gemini 2.5 Flash fallback, $0), `dataco/`
+(x402-paid Wikipedia lookup = real cost driver), `scout/` (x402-paid research
+agent, wired to SDK). **Scout genuinely earned from 3 independent customers, was
+underwritten to Tier B (695), autonomously borrowed against its line from a real
+lender deposit, and repaid — full lifecycle, on-chain, from zero.** This is the
+strongest artifact.
+
+**Deployed:** backend `https://trustline.onrender.com` (Render free tier —
+SLEEPS after ~15 min, first request wakes it ~30–60s). Frontend
+`https://0xtrustline.vercel.app`. Repo `github.com/TechnicallyKiller/TrustLine`
+(branch `main`).
+
+---
+
+## Part 2 — The brutal reality (what's missing / broken)
+
+1. **Zero real money, zero real adversary.** All "revenue" was free testnet USDC
+   we moved around. The whole thesis (underwriting survives attackers) is
+   UNTESTED because nothing is at stake. This is the #1 gap.
+2. **No credit-risk engine at all.** No default state, no liquidation, no
+   recovery, no reserve/first-loss, no dynamic rates, no loss provisioning. If an
+   agent doesn't repay, the lender silently eats it. **A lending protocol with no
+   default handling is not a lending protocol.**
+3. **The moat is one shallow heuristic.** Loop detection at k=3 hops catches only
+   directly-self-funded Sybils. It does NOT catch collusion rings, aged wallets,
+   funding routed via exchange/4th hop, or bought revenue. `docs/sybil-model.md`
+   v1/v2 ideas are unbuilt.
+4. **Single signer = catastrophic single point of failure.** One key mints every
+   score; leak it and every vault is drainable. It's a plaintext secret in
+   `.env`. It was already silently misconfigured on Render for days.
+5. **No scale/persistence.** In-memory store; on-demand indexer with ~1 day
+   retention, manual `fromLedger`, no DB, no backfill. Can't onboard at volume.
+6. **Contracts unaudited.** No audit, no formal verification, no fuzzing, no
+   invariant tests, no caps, no pause switch.
+7. **Fragile external deps** in the critical path: OZ Channels facilitator
+   (single third party, API key, hangs), Reclaim attestor (hangs 120s+).
+8. **No product/users/distribution.** No zero-code tiers, no Python SDK, no API
+   auth/rate-limiting. One agent has used it and we built it.
+9. **Regulatory landmine untouched** (uncollateralized lending, LP capital,
+   KYC/AML, money transmission) — gated on leaving testnet, possibly existential.
+
+---
+
+## Part 3 — The plan: production-grade, on testnet
+
+Three tracks, all buildable + adversarially testable on testnet for free. Pick
+one and go deep; don't spread thin. Each ends with an **adversarial/failure test**
+because that's the actual proof.
+
+### Track A — Credit & risk engine (contracts + backend + `revenue_math`)
+The missing organ. Build in `lending_vault` + scoring:
+- **Default lifecycle:** loan due-date / max-term, overdue → default state,
+  per-loan status. Event on default.
+- **Loss handling on default:** socialize the loss to that isolated vault's
+  lenders, record it, and **drop the agent's on-chain score** (wire the existing
+  `score_registry.record_repayment` — on-time AND missed — into scoring so limits
+  ramp up with good history and collapse on default).
+- **Reserve / first-loss buffer:** route a cut of interest into a per-vault
+  reserve that absorbs defaults before lenders do.
+- **Dynamic APR:** utilization-based rate (currently a fixed number per tier).
+- **Credit ramps:** new agents start with a small limit that grows only with
+  proven on-time repayment — caps `value_unlocked` for a cold attacker.
+- **TEST:** have an agent borrow and deliberately NOT repay past the deadline →
+  verify default fires, reserve draws, score drops, isolation holds.
+
+### Track B — Robust independence (the moat) — `backend/src/scoring/independence.ts`
+Turn the one heuristic into a real model (spec: `docs/sybil-model.md`):
+- **Payer reputation weight** `w_i`: account age (first-activity ledger),
+  out-degree (distinct counterparties a payer transacts with), penalize
+  puppets that only ever pay this agent.
+- **Concentration cap (HHI):** no single payer counts past X% of revenue.
+- **Temporal organicity:** irregular/bursty (real) vs periodic (scripted).
+- **Deeper/weighted fund-flow graph**, funding-source clustering, ring detection
+  (mutual/cyclic payment graphs = collusion).
+- **Economic-security framing:** cost_to_fake > value_unlocked (pair with Track
+  A credit ramps).
+- **TEST (this is the real validation):** build a set of ATTACKER agents that
+  each run a distinct attack — directly-funded Sybil, aged-wallet Sybil,
+  4th-hop-funded, concentrated single payer, a 3-agent collusion ring — and prove
+  each is caught or discounted while a genuinely independent agent passes. This
+  is free on testnet and is the single most convincing thing you can build.
+
+### Track C — Scale & persistence (backend)
+- **Kill the in-memory store → Postgres** (`agents`, `scores`,
+  `underwriting_results`, `payments`, `accounts`). First and cheapest win.
+- **Persistent incremental indexer:** stream new ledgers, decode USDC SAC
+  transfers ONCE into `payments`, keep the payment graph. Backfill from Hubble /
+  history archives (note: Hubble is BigQuery, first 1TB/mo free; verify it
+  actually carries SAC contract-transfer events before relying on it — may need
+  a captive-core / Galexie ingester instead).
+- **BullMQ + Redis:** async underwrite jobs (retry the flaky zkTLS step),
+  scheduled re-underwriting, per-agent locks, hot-read cache.
+- Unblocks onboarding many agents + full history + the graph Track B needs.
+
+### Also do (cheap, high-value, testnet):
+- Contract hardening: `cargo`/soroban invariant + property + fuzz tests, per-vault
+  caps, a global pause switch, admin controls. (Not a paid audit — that's later —
+  but stop flying blind.)
+- API auth + rate-limiting (anyone can spam `/underwrite` today).
+- CI (build+typecheck+contract tests on push), basic monitoring/uptime.
+
+### Explicitly OUT until you leave testnet (do NOT start these now):
+Real-money mainnet pilot, real LPs/users, paid security + economic audit,
+legal/compliance/KYC-AML, the zero-code gateway/managed-wallet tiers, Python SDK
+(nice-to-have, not blocking the three tracks).
+
+---
+
+## Part 4 — Operational ground truth (so you don't break things)
+
+**Environment / how to run anything:**
+- Code lives on **native WSL ext4** at `~/stellar`
+  (`\\wsl.localhost\ubuntu-24.04\home\divyanshh1\stellar`). **Never build over the
+  UNC mount or `/mnt/c`** (koffi/native deps fail).
+- Run commands as `wsl -d ubuntu-24.04 -- bash -lc 'source ~/.profile; <cmd>'`.
+- Stellar CLI at `~/.local/bin/stellar`; deployer identity `deployer` =
+  the funded signer.
+
+**Key addresses (testnet):**
+- USDC SAC `CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA`;
+  USDC issuer (classic) `GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5`.
+- **Score signer (funded)** `GCNFNO4A4WPHUNNT3YJ36J4NIW4SV46XNO35Y355TMJF6DVPVXM3KWXF`
+  — secret is `SCORE_SIGNER_SECRET` in `backend/.env`. **This MUST be set on
+  Render** or publishing silently uses a fresh unfunded key (this bit us —
+  verify `/config`'s `signer` matches the above after any Render change).
+- Demo agents (public, in Render env): honest
+  `GB2FTLU3SE6GVATDG2TZMGRYJTRXLZJJM6PKYNZUV3PE6BSATL3PN5L3`, sybil
+  `GAXCQ2B6MLJSP6IHB3DLMARUJMJLWMCEUV5ZMI4OHJ3FZGMYO55F5NLN`, `DEMO_FROM_LEDGER=3369652`.
+- Scout fleet (secrets in `agents/.env`): Scout
+  `GC654YOQQWSOYVDJKIYY726J3ULZBAQJYJXNUCXZPJ4EBCTFFLNTZOS5` (Tier B, has a small
+  open loan), DataCo `GDAL5EDBD7ES6YGCTM767NHJQ7KG4ICTJ76LS7JQJV3G6KWDDH3WG53E`,
+  Scout's lender `GAEXGDYLIYAOISITB4HCCDHQ7EN6G6K4CO6JBBYW7KFN7OBKLENISR77`
+  (deposited 15 USDC into Scout's vault), 3 customer wallets.
+
+**Secrets & where they live (ALL gitignored — never commit, never screenshot with
+values shown):**
+- `backend/.env` — `SCORE_SIGNER_SECRET`, contract ids, `SCORE_BAND_DIVISOR=1000`
+  (testnet band calibration), `X402_EXCLUDE_ADDRESSES` (facilitators + the seeder
+  funder + the vault contract), OZ key, Reclaim/Stripe.
+- `agents/.env` — Groq + Gemini API keys, all Scout/DataCo/customer/lender wallet
+  secrets, OZ key. **Back this up somewhere durable — `/tmp` key loss already
+  happened once.**
+- `spikes/.env`, `spikes/spike2-reclaim-revenue/.env` — SEEDPHRASE, Stripe key, OZ.
+- On Render: same as `backend/.env`, set in the dashboard; `render.yaml` locks
+  non-secret vars + build (`npm install && npm run build`) / start (`npm start`).
+- On Vercel: `NEXT_PUBLIC_API_BASE_URL=https://trustline.onrender.com`.
+
+**Running services right now:** Scout `:3020`, DataCo `:3021` (local only).
+Backend is on Render, not local. Nothing else local.
+
+---
+
+## Part 5 — Traps discovered this session (do NOT repeat)
+
+- **`wsl -d ubuntu-24.04 -- bash -lc '...$VAR...'` MANGLES shell variables and
+  command substitution** — they come back empty. Use literal values inline, or
+  put logic in a script file and run `bash file.sh`. This wasted a lot of time.
+- **`pkill -f` inside wsl is unreliable** — it left stale node servers squatting
+  on ports serving stale env (caused a fake "bug"). After any pkill, verify with
+  `ss -ltnp` and kill by exact PID.
+- **`python3` is NOT installed in WSL** — parse JSON with `node -e`, not python.
+- **Fastify rejects a bodyless POST that sends `content-type: application/json`**
+  (400). The frontend api client now only sets it when there's a body — keep it.
+- **Classic USDC payments ALSO emit SAC transfer events** on this protocol, so
+  the indexer counts them too — you cannot hide funding by using a classic
+  payment; use the exclude list.
+- **The signer misconfig canary:** if scores compute but don't publish, check
+  `/config` `signer` first — an ephemeral unfunded key means `SCORE_SIGNER_SECRET`
+  isn't set in that environment.
+- Commit style: terse messages, **no Co-Authored-By / AI trailers**. Currently
+  committing straight to `main`.
+
+---
+
+## Part 6 — Immediate state & first actions for a new session
+
+- Latest pushed commit: `bea5d85`. **Uncommitted:** `packages/agent-sdk/src/index.ts`
+  (payWithCredit `init` param), `agents/` (entire fleet — source only; `.env` is
+  gitignored), `PROJECT_LOG.md`, this file. Commit these first (SDK `dist/` is
+  gitignored — rebuild with `cd packages/agent-sdk && npm run build`).
+- Task #17 (unfinished): deploy Scout + DataCo persistently + a public "Scout,
+  live" status page. Lower priority than the three tracks now.
+- **Recommended first move:** pick ONE of Track A / B / C and go deep. If unsure,
+  **Track A (credit/risk engine)** — it's the most glaring "this isn't a lending
+  product" hole and it's fully testnet-buildable, or **Track B** if the moat/
+  fundraise story matters more. Don't do all three at once.

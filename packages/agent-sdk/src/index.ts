@@ -212,12 +212,14 @@ export class TrustLineAgent {
    *
    * @param url        the x402-priced resource
    * @param priceUsdc  the resource price in USDC (the agent knows what it's buying)
-   * @param maxDraw    optional cap on how much credit a single call may draw
+   * @param opts.maxDraw  optional cap on how much credit a single call may draw
+   * @param opts.init     optional fetch RequestInit (method/headers/body) forwarded
+   *                      to the paid request — e.g. a POST with a JSON body.
    */
   async payWithCredit(
     url: string,
     priceUsdc: number,
-    opts: { maxDraw?: number } = {},
+    opts: { maxDraw?: number; init?: RequestInit } = {},
   ): Promise<Response> {
     const bal = await this.usdcBalanceUsdc();
     if (bal < priceUsdc) {
@@ -236,7 +238,7 @@ export class TrustLineAgent {
     const fetchWithPayment = wrapFetchWithPaymentFromConfig(fetch, {
       schemes: [{ network: caip, client: new ExactStellarScheme(signer) }],
     });
-    return fetchWithPayment(url);
+    return fetchWithPayment(url, opts.init);
   }
 
   // ---- On-chain writes (signed by this agent) ----
