@@ -22,7 +22,7 @@ interface Scenario {
 function payers(
   n: number,
   each: number,
-  t: { ageDays: number; outDegree: number; fundedByAgent?: boolean },
+  t: { ageDays: number; outDegree: number; fundedByAgent?: boolean; agentPaid?: number },
 ): PayerFacts[] {
   return Array.from({ length: n }, (_, i) => ({
     payer: `P${i}`,
@@ -30,6 +30,7 @@ function payers(
     ageDays: t.ageDays,
     outDegree: t.outDegree,
     fundedByAgent: t.fundedByAgent ?? false,
+    agentPaidStroops: usdc(t.agentPaid ?? 0),
   }));
 }
 
@@ -63,8 +64,17 @@ const scenarios: Scenario[] = [
     expect: "discounted",
   },
   {
-    name: "A7 collusion ring — 3 real, aged, diverse operators cross-paying (v1 GAP)",
-    facts: payers(3, 33, { ageDays: 90, outDegree: 6 }),
+    name: "A7a collusion ring (mutual) — 3 aged operators cross-paying each other",
+    // Each looks externally diverse, but the agent pays them back ~what they pay
+    // it (the ring inflates both sides) → net-flow/reciprocity zeroes it.
+    facts: payers(3, 33, { ageDays: 90, outDegree: 6, agentPaid: 33 }),
+    expect: "caught",
+  },
+  {
+    name: "A7b sophisticated ring — non-reciprocal, laundered external diversity (REMAINING GAP)",
+    // No reciprocated flow, real external counterparties, not agent-funded — this
+    // is genuinely hard and still passes. Needs staking / global-graph (v2+).
+    facts: payers(3, 33, { ageDays: 120, outDegree: 8 }),
     expect: "gap",
   },
 ];

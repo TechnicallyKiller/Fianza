@@ -56,7 +56,7 @@ price it.
 | A4 | **Concentration** | 2–3 "payers" supply ~all revenue | HHI / per-payer contribution cap |
 | A5 | **Synthetic cadence** | Scripted regular payments to look like volume | Temporal organicity penalty |
 | A6 | **Off-chain self-charge** | Self-funded Stripe charges via own cards | Off-chain independence signals (§4, partial) |
-| A7 | **Collusion ring** | K real operators cross-pay to inflate each other | Out of scope v1 — see §5 |
+| A7 | **Collusion ring** | K real operators cross-pay to inflate each other | Net-flow reciprocity + co-payer-excluded diversity catch *mutual* rings; sophisticated non-reciprocal rings remain a gap — see §5 |
 
 ---
 
@@ -159,8 +159,16 @@ These are explicitly partial. Robust off-chain independence is a v2 research lin
 ---
 
 ## 5. What v1 does NOT solve (be honest in the pitch)
-- **Collusion rings (A7):** K genuinely-distinct operators cross-paying to inflate
-  each other defeats per-payer reputation. Needs global graph analysis / stake.
+- **Collusion rings (A7):** *partially solved.* Two signals now catch the common
+  cases: (1) **net-flow reciprocity** — the agent paying a "payer" back nets the
+  revenue toward zero, killing mutual cross-pay rings; (2) **co-payer-excluded
+  out-degree** — a ring member whose only counterparties are the agent + fellow
+  members scores ~0 diversity. The **remaining gap** is a *sophisticated,
+  non-reciprocal* ring: distinct aged operators who each pay the agent one-way
+  (no reciprocated flow) and launder genuine external diversity so co-payer
+  exclusion still leaves real counterparties. That is indistinguishable from real
+  customers at the graph level and needs **staking / skin-in-the-game** or global
+  community detection over a persistent graph (Track C dependency).
 - **Patient capital:** an attacker who ages wallets and scripts diverse activity
   for months can still pass — but now at real time/capital cost, which is the
   point (§2). We raise the cost; we don't make it infinite.

@@ -41,11 +41,17 @@ export interface PayerFacts {
   revenueStroops: bigint;
   /** Account age in days (0 = brand new). Defeats fresh-wallet farms (A2). */
   ageDays: number;
-  /** Distinct other counterparties the payer transacts with, excluding this
-   *  agent. A payer that only ever pays this agent is a puppet (A1). */
+  /** Distinct counterparties the payer transacts with, EXCLUDING this agent and
+   *  the agent's *other* payers. A payer that only deals with this agent is a
+   *  puppet (A1); one that only deals with the agent + co-payers is a ring
+   *  member (A7) — both show low external out-degree. */
   outDegree: number;
   /** True if the payer's USDC was funded by the agent within K hops (A3). */
   fundedByAgent: boolean;
+  /** How much the agent paid THIS payer back over the window (stroops). Real
+   *  customers aren't paid by the vendor; a collusion ring cross-pays, so a high
+   *  reciprocated flow nets the "revenue" toward zero (A7). */
+  agentPaidStroops?: bigint;
   /** Inter-payment gaps (secs) for this payer, for the temporal signal (A5). */
   intervalsSecs?: number[];
 }
@@ -57,6 +63,7 @@ export interface PayerWeight {
   ageFactor: number;
   diversityFactor: number;
   notFundedFactor: number;
+  reciprocityFactor: number;
   weight: number; // w_i
   effectiveStroops: string; // w_i · capped
   independent: boolean;
@@ -144,7 +151,14 @@ export function scoreIndependence(facts: PayerFacts[]): IndependenceResult {
     const ageFactor = clamp01(f.ageDays / AGE_FULL_DAYS);
     const diversityFactor = clamp01(f.outDegree / DIVERSITY_FULL);
     const notFundedFactor = f.fundedByAgent ? 0 : 1;
-    const weight = ageFactor * diversityFactor * notFundedFactor;
+    // Net-flow / reciprocity: subtract what the agent paid this payer back. A
+    // mutual-paying collusion ring (A7) nets toward zero here.
+    const agentPaid = f.agentPaidStroops ?? 0n;
+    const reciprocityFactor =
+      f.revenueStroops > 0n
+        ? clamp01(1 - Number(agentPaid) / Number(f.revenueStroops))
+        : 1;
+    const weight = ageFactor * diversityFactor * notFundedFactor * reciprocityFactor;
     const effective = BigInt(Math.floor(weight * Number(capped)));
     effectiveSum += effective;
 
@@ -154,11 +168,13 @@ export function scoreIndependence(facts: PayerFacts[]): IndependenceResult {
 
     const reason = f.fundedByAgent
       ? "funded by the agent within K hops — circular (A3)"
-      : weight < 0.05
-        ? `discounted: age=${f.ageDays.toFixed(1)}d, out-degree=${f.outDegree} (fresh/puppet, A1/A2)`
-        : independent
-          ? "independent counterparty"
-          : `partially discounted (age/diversity), weight=${weight.toFixed(2)}`;
+      : reciprocityFactor < 0.3
+        ? `discounted: agent pays this payer back (reciprocity ${(1 - reciprocityFactor).toFixed(2)}) — ring/wash (A7)`
+        : weight < 0.05
+          ? `discounted: age=${f.ageDays.toFixed(1)}d, external out-degree=${f.outDegree} (fresh/puppet/ring, A1/A2/A7)`
+          : independent
+            ? "independent counterparty"
+            : `partially discounted, weight=${weight.toFixed(2)}`;
 
     perPayer.push({
       payer: f.payer,
@@ -167,6 +183,7 @@ export function scoreIndependence(facts: PayerFacts[]): IndependenceResult {
       ageFactor,
       diversityFactor,
       notFundedFactor,
+      reciprocityFactor,
       weight,
       effectiveStroops: effective.toString(),
       independent,
@@ -323,9 +340,16 @@ async function ageDaysOf(account: string): Promise<number> {
   }
 }
 
-/** Out-degree: distinct counterparties (both directions) besides this agent. */
-async function outDegreeOf(payer: string, agent: string, fromLedger: number): Promise<number> {
-  const exclude = new Set([...config.excludeAddresses, agent, payer]);
+/** External out-degree: distinct counterparties (both directions) EXCLUDING the
+ *  agent and the agent's co-payers (`coPayers`). A ring member whose only
+ *  counterparties are the agent + fellow ring members scores ~0 here (A7). */
+async function outDegreeOf(
+  payer: string,
+  agent: string,
+  fromLedger: number,
+  coPayers: Set<string>,
+): Promise<number> {
+  const exclude = new Set([...config.excludeAddresses, agent, payer, ...coPayers]);
   const [sent, recv] = await Promise.all([
     usdcCounterparties(payer, "from", fromLedger),
     usdcCounterparties(payer, "to", fromLedger),
@@ -334,6 +358,48 @@ async function outDegreeOf(payer: string, agent: string, fromLedger: number): Pr
   for (const a of sent) if (!exclude.has(a)) others.add(a);
   for (const a of recv) if (!exclude.has(a)) others.add(a);
   return others.size;
+}
+
+/** Total USDC sent `from → to` over the window (summed transfer amounts). */
+async function sumTransfers(from: string, to: string, fromLedger: number): Promise<bigint> {
+  const transferSym = xdr.ScVal.scvSymbol("transfer").toXDR("base64");
+  const fromTopic = Address.fromString(from).toScVal().toXDR("base64");
+  const toTopic = Address.fromString(to).toScVal().toXDR("base64");
+  const filters = [
+    {
+      type: "contract" as const,
+      contractIds: [config.usdcSac],
+      topics: [[transferSym, fromTopic, toTopic, "*"]],
+    },
+  ];
+  let total = 0n;
+  let start = fromLedger;
+  let cursor: string | undefined;
+  for (let page = 0; page < 20; page++) {
+    let resp: rpc.Api.GetEventsResponse;
+    try {
+      resp = cursor
+        ? await getEventsRetry({ filters, limit: 200, cursor } as rpc.Server.GetEventsRequest)
+        : await getEventsRetry({ startLedger: start, filters, limit: 200 });
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      const m = /ledger range:\s*(\d+)\s*-\s*(\d+)/.exec(msg);
+      if (m && !cursor) {
+        start = Math.min(Math.max(start, Number(m[1])), Number(m[2]));
+        resp = await getEventsRetry({ startLedger: start, filters, limit: 200 });
+      } else {
+        throw e;
+      }
+    }
+    for (const e of resp.events ?? []) {
+      const amt = native(e.value);
+      if (typeof amt === "bigint") total += amt;
+      else if (typeof amt === "number") total += BigInt(amt);
+    }
+    cursor = resp.cursor;
+    if (!cursor || (resp.events ?? []).length === 0) break;
+  }
+  return total;
 }
 
 /** Gather the on-chain facts for each payer (age, out-degree, circular). */
@@ -351,12 +417,14 @@ async function gatherPayerFacts(
     ledgersByPayer.set(p.from, arr);
   }
 
+  const coPayers = new Set(report.payers);
   return Promise.all(
     report.payers.map(async (payer) => {
-      const [ageDays, outDegree, funded] = await Promise.all([
+      const [ageDays, outDegree, funded, agentPaid] = await Promise.all([
         ageDaysOf(payer),
-        outDegreeOf(payer, agent, fromLedger),
+        outDegreeOf(payer, agent, fromLedger, coPayers),
         fundedByAgent(payer, agent, fromLedger),
+        sumTransfers(agent, payer, fromLedger), // agent → payer (reciprocity)
       ]);
       // Approximate inter-payment gaps from ledger spacing (~5s/ledger).
       const ledgers = (ledgersByPayer.get(payer) ?? []).sort((a, b) => a - b);
@@ -367,6 +435,7 @@ async function gatherPayerFacts(
         ageDays,
         outDegree,
         fundedByAgent: funded,
+        agentPaidStroops: agentPaid,
         intervalsSecs,
       };
     }),
