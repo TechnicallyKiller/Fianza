@@ -30,3 +30,56 @@ services:
         sync: false
       - key: FACILITATOR_URL
         value: https://channels.openzeppelin.com/x402/testnet
+
+  # Analyst and Reviewer — the same proven Scout-shaped agent (Express + x402
+  # payment middleware + shared LLM brain + TrustLineAgent SDK), publicly
+  # hosted so real testnet wallets can actually pay them, not just localhost.
+  # NOTE: free-tier Render services sleep after ~15min idle, same as the
+  # backend — the first request after a sleep will hang 30-60s.
+  - type: web
+    name: trustline-analyst
+    runtime: node
+    rootDir: agents
+    buildCommand: npm install && (cd ../packages/agent-sdk && npm install && npm run build)
+    startCommand: node analyst/server.mjs
+    envVars:
+      - key: ANALYST_WALLET_SECRET
+        sync: false
+      - key: ANALYST_WALLET_PUBLIC
+        sync: false
+      - key: OZ_API_KEY
+        sync: false
+      - key: FACILITATOR_URL
+        value: https://channels.openzeppelin.com/x402/testnet
+      - key: GROQ_API_KEY
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: TRUSTLINE_API
+        value: https://trustline.onrender.com
+      - key: ANALYST_PRICE_USDC
+        value: "0.3"
+
+  - type: web
+    name: trustline-reviewer
+    runtime: node
+    rootDir: agents
+    buildCommand: npm install && (cd ../packages/agent-sdk && npm install && npm run build)
+    startCommand: node reviewer/server.mjs
+    envVars:
+      - key: REVIEWER_WALLET_SECRET
+        sync: false
+      - key: REVIEWER_WALLET_PUBLIC
+        sync: false
+      - key: OZ_API_KEY
+        sync: false
+      - key: FACILITATOR_URL
+        value: https://channels.openzeppelin.com/x402/testnet
+      - key: GROQ_API_KEY
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: TRUSTLINE_API
+        value: https://trustline.onrender.com
+      - key: REVIEWER_PRICE_USDC
+        value: "0.3"

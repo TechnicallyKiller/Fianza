@@ -17,7 +17,9 @@ import { TrustLineAgent } from "../../packages/agent-sdk/dist/index.js";
 import { think } from "../shared/brain.mjs";
 
 const NETWORK = "stellar:testnet";
-const PORT = Number(process.env.ANALYST_PORT || 3022);
+// Render (and most PaaS hosts) assign their own PORT and expect the app to
+// bind to it; ANALYST_PORT is the local-dev override.
+const PORT = Number(process.env.PORT || process.env.ANALYST_PORT || 3022);
 const PRICE = "$" + (process.env.ANALYST_PRICE_USDC || "0.3");
 const PAYTO = process.env.ANALYST_WALLET_PUBLIC;
 
