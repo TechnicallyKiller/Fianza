@@ -12,6 +12,7 @@
     "start": "node dist/index.js",
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test:independence": "tsx src/scoring/independence.adversarial.ts",
     "download-zk-files": "node node_modules/@reclaimprotocol/zk-symmetric-crypto/lib/scripts/download-files"
   },
   "dependencies": {

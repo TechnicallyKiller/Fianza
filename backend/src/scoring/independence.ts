@@ -1,15 +1,18 @@
 // independence/ — counterparty-independence (anti-Sybil) analysis.
 //
 // zkTLS + the indexer prove revenue is REAL. This proves it's INDEPENDENT — that
-// the agent isn't paying itself from wallets it controls to manufacture a score.
-// See docs/sybil-model.md. v1 ships the cheapest high-signal slice: **fund-flow
-// loop detection** — if an agent's "revenue" comes from payers the agent itself
-// funded (directly or within K hops), that revenue is circular and excluded.
+// the agent isn't manufacturing a score from wallets/relationships it controls.
+// See docs/sybil-model.md. This is the moat: reading inflows is a SELECT; judging
+// whether they're genuine independent economic activity is the hard part.
 //
-// Detection is exact and on-chain: for each payer, we walk its USDC funding
-// ancestry (transfers where `to == payer`, filtered cheaply by topic) and ask
-// "did this money originate from the agent?" Only revenue from payers with no
-// path back to the agent counts toward the score.
+// The model turns raw per-payer revenue into **effective independent revenue**
+// (`R_eff`) via a per-payer weight `w_i = age · diversity · not_funded`, a
+// concentration penalty (HHI), and a coarse temporal-organicity factor. `R_eff`
+// (not raw on-chain revenue) is what feeds `computeScore`.
+//
+// Design note: the pure scoring math (`scoreIndependence`) is separated from the
+// on-chain graph gathering so the adversarial attack catalog can be tested
+// deterministically without funding testnet wallets.
 
 import { rpc, xdr, scValToNative, Address } from "@stellar/stellar-sdk";
 import { config } from "../config.js";
@@ -17,28 +20,225 @@ import type { RevenueReport } from "../indexer/index.js";
 
 const server = new rpc.Server(config.sorobanRpcUrl, { allowHttp: false });
 
-/** Max hops to walk back through a payer's funding ancestry. */
-const MAX_HOPS = 3;
+// ---- Tunable parameters (docs/sybil-model.md §7) ---------------------------
+const MAX_HOPS = Number(process.env.INDEP_MAX_HOPS ?? "3"); // loop-detection depth
+const AGE_FULL_DAYS = Number(process.env.INDEP_AGE_FULL_DAYS ?? "30"); // age → full weight
+const DIVERSITY_FULL = Number(process.env.INDEP_DIVERSITY_FULL ?? "3"); // out-degree → full
+const MAX_PAYER_SHARE = Number(process.env.INDEP_MAX_PAYER_SHARE ?? "0.40"); // per-payer cap
+const HHI_FLOOR = Number(process.env.INDEP_HHI_FLOOR ?? "0.15"); // concentration tolerance
+const ORGANICITY_FLOOR = Number(process.env.INDEP_ORGANICITY_FLOOR ?? "0.50");
+// A payer counts as an "independent counterparty" (for the counterparty count)
+// once its weight clears this.
+const INDEPENDENT_WEIGHT_THRESHOLD = 0.5;
+
+const clamp01 = (x: number) => Math.max(0, Math.min(1, x));
+
+// ---- Pure facts → independence score (deterministic, unit-tested) ----------
+
+/** Everything the model needs to know about one payer, gathered from-chain. */
+export interface PayerFacts {
+  payer: string;
+  revenueStroops: bigint;
+  /** Account age in days (0 = brand new). Defeats fresh-wallet farms (A2). */
+  ageDays: number;
+  /** Distinct other counterparties the payer transacts with, excluding this
+   *  agent. A payer that only ever pays this agent is a puppet (A1). */
+  outDegree: number;
+  /** True if the payer's USDC was funded by the agent within K hops (A3). */
+  fundedByAgent: boolean;
+  /** Inter-payment gaps (secs) for this payer, for the temporal signal (A5). */
+  intervalsSecs?: number[];
+}
+
+export interface PayerWeight {
+  payer: string;
+  revenueStroops: string;
+  cappedStroops: string;
+  ageFactor: number;
+  diversityFactor: number;
+  notFundedFactor: number;
+  weight: number; // w_i
+  effectiveStroops: string; // w_i · capped
+  independent: boolean;
+  reason: string;
+}
+
+export interface IndependenceResult {
+  independentPayers: string[];
+  circularPayers: string[];
+  /** Effective independent revenue (R_eff), in stroops — this feeds scoring. */
+  independentRevenueStroops: string;
+  /** independence_score = R_eff / Σ raw revenue, in [0,1]. */
+  independenceScore: number;
+  concentrationFactor: number;
+  organicityFactor: number;
+  hhi: number;
+  perPayer: PayerWeight[];
+  params: {
+    maxHops: number;
+    ageFullDays: number;
+    diversityFull: number;
+    maxPayerShare: number;
+    hhiFloor: number;
+  };
+  maxHops: number;
+}
+
+/** Coefficient-of-variation-based organicity: scripted (regular) cadence scores
+ *  lower than bursty/organic. Soft signal, floored so it never hard-fails. */
+function organicityFactor(allIntervals: number[]): number {
+  if (allIntervals.length < 3) return 1; // too little data to penalize
+  const mean = allIntervals.reduce((a, b) => a + b, 0) / allIntervals.length;
+  if (mean <= 0) return 1;
+  const variance =
+    allIntervals.reduce((a, b) => a + (b - mean) ** 2, 0) / allIntervals.length;
+  const cv = Math.sqrt(variance) / mean; // 0 = perfectly regular (scripted)
+  // Map CV∈[0,~1] → factor∈[floor,1]: low CV (regular) → floor, high CV → 1.
+  return ORGANICITY_FLOOR + (1 - ORGANICITY_FLOOR) * clamp01(cv);
+}
+
+/**
+ * Pure independence scoring: per-payer facts → R_eff + per-payer breakdown.
+ * No I/O — this is the deterministically-testable core of the moat.
+ */
+export function scoreIndependence(facts: PayerFacts[]): IndependenceResult {
+  const totalRaw = facts.reduce((a, f) => a + f.revenueStroops, 0n);
+  const params = {
+    maxHops: MAX_HOPS,
+    ageFullDays: AGE_FULL_DAYS,
+    diversityFull: DIVERSITY_FULL,
+    maxPayerShare: MAX_PAYER_SHARE,
+    hhiFloor: HHI_FLOOR,
+  };
+
+  if (totalRaw <= 0n) {
+    return {
+      independentPayers: [],
+      circularPayers: [],
+      independentRevenueStroops: "0",
+      independenceScore: 0,
+      concentrationFactor: 1,
+      organicityFactor: 1,
+      hhi: 0,
+      perPayer: [],
+      params,
+      maxHops: MAX_HOPS,
+    };
+  }
+
+  // Per-payer contribution cap (defeats concentration, A4).
+  const capStroops = BigInt(Math.floor(MAX_PAYER_SHARE * Number(totalRaw)));
+
+  const perPayer: PayerWeight[] = [];
+  const independentPayers: string[] = [];
+  const circularPayers: string[] = [];
+  let cappedTotal = 0n;
+  let effectiveSum = 0n;
+  const cappedByPayer: bigint[] = [];
+
+  for (const f of facts) {
+    const capped = f.revenueStroops < capStroops ? f.revenueStroops : capStroops;
+    cappedTotal += capped;
+    cappedByPayer.push(capped);
+
+    const ageFactor = clamp01(f.ageDays / AGE_FULL_DAYS);
+    const diversityFactor = clamp01(f.outDegree / DIVERSITY_FULL);
+    const notFundedFactor = f.fundedByAgent ? 0 : 1;
+    const weight = ageFactor * diversityFactor * notFundedFactor;
+    const effective = BigInt(Math.floor(weight * Number(capped)));
+    effectiveSum += effective;
+
+    const independent = weight >= INDEPENDENT_WEIGHT_THRESHOLD;
+    if (f.fundedByAgent) circularPayers.push(f.payer);
+    if (independent) independentPayers.push(f.payer);
+
+    const reason = f.fundedByAgent
+      ? "funded by the agent within K hops — circular (A3)"
+      : weight < 0.05
+        ? `discounted: age=${f.ageDays.toFixed(1)}d, out-degree=${f.outDegree} (fresh/puppet, A1/A2)`
+        : independent
+          ? "independent counterparty"
+          : `partially discounted (age/diversity), weight=${weight.toFixed(2)}`;
+
+    perPayer.push({
+      payer: f.payer,
+      revenueStroops: f.revenueStroops.toString(),
+      cappedStroops: capped.toString(),
+      ageFactor,
+      diversityFactor,
+      notFundedFactor,
+      weight,
+      effectiveStroops: effective.toString(),
+      independent,
+      reason,
+    });
+  }
+
+  // Concentration penalty via normalized Herfindahl index over capped shares.
+  let hhi = 0;
+  if (cappedTotal > 0n) {
+    for (const c of cappedByPayer) {
+      const share = Number(c) / Number(cappedTotal);
+      hhi += share * share;
+    }
+  }
+  const concentrationFactor = 1 - clamp01((hhi - HHI_FLOOR) / (1 - HHI_FLOOR));
+
+  const allIntervals = facts.flatMap((f) => f.intervalsSecs ?? []);
+  const organicity = organicityFactor(allIntervals);
+
+  // R_eff = concentration · organicity · Σ (w_i · capped_i)
+  const rEff = BigInt(
+    Math.floor(concentrationFactor * organicity * Number(effectiveSum)),
+  );
+  const independenceScore = clamp01(Number(rEff) / Number(totalRaw));
+
+  return {
+    independentPayers,
+    circularPayers,
+    independentRevenueStroops: rEff.toString(),
+    independenceScore,
+    concentrationFactor,
+    organicityFactor: organicity,
+    hhi,
+    perPayer,
+    params,
+    maxHops: MAX_HOPS,
+  };
+}
+
+// ---- On-chain graph gathering (I/O; exercised live) ------------------------
 
 function native(t: unknown): unknown {
   const sv = typeof t === "string" ? xdr.ScVal.fromXDR(t, "base64") : (t as xdr.ScVal);
   return scValToNative(sv);
 }
 
-/** Distinct accounts that have sent USDC *to* `account` (one cheap, topic-filtered scan). */
+/** Distinct accounts that have sent USDC *to* `account` (topic-filtered scan). */
 async function fundersOf(account: string, fromLedger: number): Promise<Set<string>> {
+  return usdcCounterparties(account, "to", fromLedger);
+}
+
+/**
+ * Distinct USDC counterparties of `account` on one side of the transfer:
+ * side="to" → who sent it money (funders); side="from" → who it sent money to.
+ */
+async function usdcCounterparties(
+  account: string,
+  side: "from" | "to",
+  fromLedger: number,
+): Promise<Set<string>> {
   const transferSym = xdr.ScVal.scvSymbol("transfer").toXDR("base64");
-  const toTopic = Address.fromString(account).toScVal().toXDR("base64");
-  const filters = [
-    {
-      type: "contract" as const,
-      contractIds: [config.usdcSac],
-      topics: [[transferSym, "*", toTopic, "*"]],
-    },
-  ];
-  const funders = new Set<string>();
+  const acctTopic = Address.fromString(account).toScVal().toXDR("base64");
+  const topics =
+    side === "to"
+      ? [[transferSym, "*", acctTopic, "*"]] // transfers TO account → senders (topic[1])
+      : [[transferSym, acctTopic, "*", "*"]]; // transfers FROM account → recipients (topic[2])
+  const filters = [{ type: "contract" as const, contractIds: [config.usdcSac], topics }];
+  const others = new Set<string>();
   let start = fromLedger;
   let cursor: string | undefined;
+  const otherIdx = side === "to" ? 1 : 2;
 
   for (let page = 0; page < 20; page++) {
     let resp: rpc.Api.GetEventsResponse;
@@ -47,7 +247,6 @@ async function fundersOf(account: string, fromLedger: number): Promise<Set<strin
         ? await server.getEvents({ filters, limit: 200, cursor } as rpc.Server.GetEventsRequest)
         : await server.getEvents({ startLedger: start, filters, limit: 200 });
     } catch (e) {
-      // Clamp the start ledger into the RPC retention window if we overshot.
       const msg = e instanceof Error ? e.message : String(e);
       const m = /ledger range:\s*(\d+)\s*-\s*(\d+)/.exec(msg);
       if (m && !cursor) {
@@ -58,25 +257,17 @@ async function fundersOf(account: string, fromLedger: number): Promise<Set<strin
       }
     }
     for (const e of resp.events ?? []) {
-      const from = native((e.topic as unknown[])[1]);
-      if (typeof from === "string") funders.add(from);
+      const other = native((e.topic as unknown[])[otherIdx]);
+      if (typeof other === "string") others.add(other);
     }
     cursor = resp.cursor;
     if (!cursor || (resp.events ?? []).length === 0) break;
   }
-  return funders;
+  return others;
 }
 
 /** Does `payer`'s USDC funding trace back to `agent` within MAX_HOPS? (a loop) */
-async function fundedByAgent(
-  payer: string,
-  agent: string,
-  fromLedger: number,
-): Promise<boolean> {
-  // Excluded addresses (faucets / facilitators / funding hubs) are NOT traversed
-  // through — a real self-pay loop routes the agent's OWN funds back to it, not
-  // through a shared funding source. Traversing hubs causes false positives
-  // (two agents funded by the same faucet would look linked).
+async function fundedByAgent(payer: string, agent: string, fromLedger: number): Promise<boolean> {
   const exclude = new Set(config.excludeAddresses);
   const visited = new Set<string>([agent]);
   let frontier = [payer];
@@ -87,80 +278,88 @@ async function fundedByAgent(
       visited.add(acct);
       const funders = await fundersOf(acct, fromLedger);
       if (funders.has(agent)) return true; // agent → … → payer → agent
-      for (const f of funders) {
-        if (!visited.has(f) && !exclude.has(f)) next.push(f);
-      }
+      for (const f of funders) if (!visited.has(f) && !exclude.has(f)) next.push(f);
     }
     frontier = next;
   }
   return false;
 }
 
-export interface PayerVerdict {
-  payer: string;
-  revenueStroops: string;
-  independent: boolean;
-  reason: string;
+/** Account age in days from the first Horizon operation (best-effort). */
+async function ageDaysOf(account: string): Promise<number> {
+  try {
+    const url = `${config.horizonUrl}/accounts/${account}/operations?order=asc&limit=1`;
+    const r = await fetch(url);
+    if (!r.ok) return 0;
+    const j = (await r.json()) as { _embedded?: { records?: { created_at?: string }[] } };
+    const createdAt = j._embedded?.records?.[0]?.created_at;
+    if (!createdAt) return 0;
+    return Math.max(0, (Date.now() - new Date(createdAt).getTime()) / 86_400_000);
+  } catch {
+    return 0;
+  }
 }
 
-export interface IndependenceResult {
-  independentPayers: string[];
-  circularPayers: string[];
-  /** Revenue from independent payers only, in stroops (feeds scoring). */
-  independentRevenueStroops: string;
-  perPayer: PayerVerdict[];
-  maxHops: number;
+/** Out-degree: distinct counterparties (both directions) besides this agent. */
+async function outDegreeOf(payer: string, agent: string, fromLedger: number): Promise<number> {
+  const exclude = new Set([...config.excludeAddresses, agent, payer]);
+  const [sent, recv] = await Promise.all([
+    usdcCounterparties(payer, "from", fromLedger),
+    usdcCounterparties(payer, "to", fromLedger),
+  ]);
+  const others = new Set<string>();
+  for (const a of sent) if (!exclude.has(a)) others.add(a);
+  for (const a of recv) if (!exclude.has(a)) others.add(a);
+  return others.size;
+}
+
+/** Gather the on-chain facts for each payer (age, out-degree, circular). */
+async function gatherPayerFacts(
+  agent: string,
+  report: RevenueReport,
+  fromLedger: number,
+): Promise<PayerFacts[]> {
+  const revByPayer = new Map<string, bigint>();
+  const ledgersByPayer = new Map<string, number[]>();
+  for (const p of report.payments) {
+    revByPayer.set(p.from, (revByPayer.get(p.from) ?? 0n) + BigInt(p.amount));
+    const arr = ledgersByPayer.get(p.from) ?? [];
+    arr.push(p.ledger);
+    ledgersByPayer.set(p.from, arr);
+  }
+
+  return Promise.all(
+    report.payers.map(async (payer) => {
+      const [ageDays, outDegree, funded] = await Promise.all([
+        ageDaysOf(payer),
+        outDegreeOf(payer, agent, fromLedger),
+        fundedByAgent(payer, agent, fromLedger),
+      ]);
+      // Approximate inter-payment gaps from ledger spacing (~5s/ledger).
+      const ledgers = (ledgersByPayer.get(payer) ?? []).sort((a, b) => a - b);
+      const intervalsSecs = ledgers.slice(1).map((l, i) => (l - ledgers[i]) * 5);
+      return {
+        payer,
+        revenueStroops: revByPayer.get(payer) ?? 0n,
+        ageDays,
+        outDegree,
+        fundedByAgent: funded,
+        intervalsSecs,
+      };
+    }),
+  );
 }
 
 /**
- * Classify each of an agent's payers as independent or circular, and return the
- * revenue that survives (independent payers only). Circular revenue — money the
- * agent routed to wallets that then "paid" it — is excluded, defeating the
- * cheapest Sybil attack.
+ * Full independence analysis: gather each payer's on-chain facts, then score.
+ * Returns R_eff (effective independent revenue) + a per-payer breakdown the API
+ * surfaces so the dashboard can show *why* revenue was discounted.
  */
 export async function analyzeIndependence(
   agent: string,
   report: RevenueReport,
   fromLedger: number,
 ): Promise<IndependenceResult> {
-  const revByPayer = new Map<string, bigint>();
-  for (const p of report.payments) {
-    revByPayer.set(p.from, (revByPayer.get(p.from) ?? 0n) + BigInt(p.amount));
-  }
-
-  const perPayer: PayerVerdict[] = [];
-  const independentPayers: string[] = [];
-  const circularPayers: string[] = [];
-  let independentRevenue = 0n;
-
-  for (const payer of report.payers) {
-    const rev = revByPayer.get(payer) ?? 0n;
-    const circular = await fundedByAgent(payer, agent, fromLedger);
-    if (circular) {
-      circularPayers.push(payer);
-      perPayer.push({
-        payer,
-        revenueStroops: rev.toString(),
-        independent: false,
-        reason: "funded by the agent — circular (Sybil)",
-      });
-    } else {
-      independentPayers.push(payer);
-      independentRevenue += rev;
-      perPayer.push({
-        payer,
-        revenueStroops: rev.toString(),
-        independent: true,
-        reason: "independent counterparty",
-      });
-    }
-  }
-
-  return {
-    independentPayers,
-    circularPayers,
-    independentRevenueStroops: independentRevenue.toString(),
-    perPayer,
-    maxHops: MAX_HOPS,
-  };
+  const facts = await gatherPayerFacts(agent, report, fromLedger);
+  return scoreIndependence(facts);
 }

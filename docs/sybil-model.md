@@ -1,6 +1,10 @@
 # Sybil / counterparty-independence model
 
-> Status: **v1 design spec** (supersedes the MVP minimum-counterparty heuristic).
+> Status: **v1 IMPLEMENTED** in `backend/src/scoring/independence.ts` (per-payer
+> `w_i` = age · diversity · not_funded, concentration/HHI penalty, coarse temporal
+> organicity → `R_eff`). Proven against the §1.3 attack catalog by
+> `npm run test:independence` (honest passes; A1–A4 caught/discounted; A7
+> collusion is the documented gap, §5). Supersedes the MVP min-counterparty gate.
 > This is the defensible core of TrustLine — see the root README "Risk model and
 > economics". zkTLS and on-chain indexing prove revenue is **real**; this model
 > is what argues revenue is **independent**. The two are different problems and
