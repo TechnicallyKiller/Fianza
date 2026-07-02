@@ -27,18 +27,40 @@ fn setup() -> Setup {
     }
 }
 
+/// Give the agent enough on-time history to unlock its full (100%) ramp.
+fn season_full(s: &Setup, agent: &Address) {
+    for _ in 0..6 {
+        s.registry.record_repayment(agent, &true);
+    }
+}
+
+#[test]
+fn cold_agent_terms_are_ramped_down() {
+    let s = setup();
+    let agent = Address::generate(&s.env);
+    s.registry.register(&agent);
+    s.registry.publish_score(&agent, &720, &25_000_0000000i128);
+
+    // No repayment history → 15% of the 50k sized limit = 7,500.
+    let terms = s.credit.terms(&agent);
+    assert_eq!(terms.tier, Tier::B);
+    assert_eq!(terms.limit, 7_500_0000000i128);
+    assert_eq!(terms.apr_bps, 850); // APR is not ramped
+}
+
 #[test]
 fn derives_terms_from_published_score() {
     let s = setup();
     let agent = Address::generate(&s.env);
     s.registry.register(&agent);
     s.registry.publish_score(&agent, &720, &25_000_0000000i128);
+    season_full(&s, &agent);
 
     assert_eq!(
         s.credit.terms(&agent),
         CreditTerms {
             tier: Tier::B,
-            limit: 50_000_0000000i128, // 2.0× revenue
+            limit: 50_000_0000000i128, // 2.0× revenue, fully ramped
             apr_bps: 850,              // 8.5%
         }
     );
@@ -52,6 +74,7 @@ fn tier_a_gets_higher_limit_lower_apr() {
     let agent = Address::generate(&s.env);
     s.registry.register(&agent);
     s.registry.publish_score(&agent, &800, &10_000_0000000i128);
+    season_full(&s, &agent);
 
     let terms = s.credit.terms(&agent);
     assert_eq!(terms.tier, Tier::A);

@@ -10,7 +10,7 @@ import cors from "@fastify/cors";
 import { config } from "../config.js";
 import { indexRevenue } from "../indexer/index.js";
 import { underwrite, getResult, listResults } from "../underwrite.js";
-import { signerPublicKey } from "../signer/index.js";
+import { signerPublicKey, recordRepayment } from "../signer/index.js";
 
 export async function buildServer() {
   const app = Fastify({ logger: true });
@@ -84,6 +84,23 @@ export async function buildServer() {
       skipProof: req.query.skipProof === "true",
       fromLedger: req.query.fromLedger ? Number(req.query.fromLedger) : undefined,
     }),
+  );
+
+  // Record a repayment outcome on-chain, then re-underwrite so the agent's score
+  // reflects it immediately. `onTime: false` is the default path — it records the
+  // miss (feeding the on-chain credit ramp) and the fresh score collapses below
+  // lending grade. Body: { onTime: boolean }.
+  app.post<{ Params: { address: string }; Body: { onTime?: boolean } }>(
+    "/agent/:address/repayment",
+    async (req, reply) => {
+      if (typeof req.body?.onTime !== "boolean") {
+        return reply.code(400).send({ error: "body must be { onTime: boolean }" });
+      }
+      const record = await recordRepayment(req.params.address, req.body.onTime);
+      // Re-underwrite (revenue-only, fast) so the stored score reflects the outcome.
+      const result = await underwrite(req.params.address, { skipProof: true });
+      return { record, score: result.score.score, tier: result.score.tier, defaulted: result.score.defaulted };
+    },
   );
 
   // Last stored underwriting result for an agent.

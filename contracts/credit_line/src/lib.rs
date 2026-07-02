@@ -38,13 +38,20 @@ impl CreditLine {
         env.storage().instance().set(&DataKey::Registry, &registry);
     }
 
-    /// Full derived terms for an agent.
+    /// Full derived terms for an agent. The advertised limit is the credit ramp
+    /// applied to the revenue-sized limit (grows with on-time repayment history,
+    /// collapses on defaults), so it matches exactly what `lending_vault` will
+    /// enforce at borrow time. The APR shown is the tier base rate; the vault
+    /// charges this plus a utilisation premium at draw time.
     pub fn terms(env: Env, agent: Address) -> CreditTerms {
         let registry = Self::registry(env.clone());
-        let data = ScoreRegistryClient::new(&env, &registry).get_score(&agent);
+        let client = ScoreRegistryClient::new(&env, &registry);
+        let data = client.get_score(&agent);
+        let rec = client.get_repayments(&agent);
+        let base_limit = revenue_math::limit_for(data.revenue, &data.tier);
         CreditTerms {
             tier: data.tier,
-            limit: revenue_math::limit_for(data.revenue, &data.tier),
+            limit: revenue_math::ramp_limit(base_limit, &rec),
             apr_bps: revenue_math::apr_bps(&data.tier),
         }
     }

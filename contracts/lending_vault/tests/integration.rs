@@ -1,12 +1,13 @@
 //! End-to-end integration test exercising all three TrustLine contracts plus
 //! the shared revenue_math policy, against the Soroban test host:
 //!
-//!   register -> score -> (terms) -> deposit -> borrow -> repay
+//!   register -> score -> season -> (terms) -> deposit -> borrow -> repay
 //!
 //! Asserts that the `credit_line` terms view and the `lending_vault` borrow
-//! enforcement agree (both driven by `revenue_math`), that USDC actually moves,
-//! that interest accrues and is repaid as lender yield, and that the registry
-//! records the repayment outcome.
+//! enforcement agree (both driven by `revenue_math`, including the credit ramp),
+//! that USDC actually moves, that interest accrues at the utilisation-adjusted
+//! rate and is repaid as reserve + lender yield, and that the registry records
+//! the repayment outcome.
 
 use credit_line::{CreditLine, CreditLineClient, CreditTerms};
 use lending_vault::{LendingVault, LendingVaultClient};
@@ -15,6 +16,7 @@ use score_registry::{RepaymentRecord, ScoreRegistry, ScoreRegistryClient};
 use soroban_sdk::{testutils::Address as _, testutils::Ledger as _, token, Address, Env};
 
 const YEAR: u64 = 31_536_000;
+const TERM: u64 = 100 * YEAR; // long enough not to interfere with this flow
 
 fn usdc(n: i128) -> i128 {
     n * 10_000_000
@@ -39,7 +41,7 @@ fn full_protocol_flow() {
 
     let registry_id = env.register(ScoreRegistry, (admin.clone(), signer.clone()));
     let credit_id = env.register(CreditLine, (registry_id.clone(),));
-    let vault_id = env.register(LendingVault, (registry_id.clone(), usdc_addr.clone()));
+    let vault_id = env.register(LendingVault, (registry_id.clone(), usdc_addr.clone(), TERM));
 
     let registry = ScoreRegistryClient::new(&env, &registry_id);
     let credit = CreditLineClient::new(&env, &credit_id);
@@ -56,55 +58,64 @@ fn full_protocol_flow() {
     let data = registry.get_score(&agent);
     assert_eq!(data.tier, Tier::B);
 
-    // ===== 3. credit_line derives the public terms (must match policy) =====
+    // A cold agent is ramped to 15% of its sized limit (7,500).
+    assert_eq!(credit.terms(&agent).limit, usdc(7_500));
+
+    // ===== 3. Proven on-time history lifts the ramp to the full line =====
+    for _ in 0..6 {
+        registry.record_repayment(&agent, &true);
+    }
+    // credit_line now advertises the full revenue-sized terms...
     assert_eq!(
         credit.terms(&agent),
         CreditTerms {
             tier: Tier::B,
-            limit: usdc(50_000), // 2.0× revenue
-            apr_bps: 850,        // 8.5%
+            limit: usdc(50_000), // 2.0× revenue, fully ramped
+            apr_bps: 850,        // 8.5% tier base (vault adds a utilisation premium)
         }
     );
 
     // ===== 4. Lender deposits USDC into the agent's isolated vault =====
     token_admin.mint(&lender, &usdc(100_000));
-    vault.deposit(&lender, &agent, &usdc(60_000));
-    assert_eq!(vault.liquidity(&agent), usdc(60_000));
-    assert_eq!(token.balance(&vault_id), usdc(60_000));
+    vault.deposit(&lender, &agent, &usdc(50_000));
+    assert_eq!(vault.liquidity(&agent), usdc(50_000));
+    assert_eq!(token.balance(&vault_id), usdc(50_000));
 
-    // ===== 5. Agent borrows up to the limit; vault disburses USDC =====
+    // ===== 5. Agent borrows the full line; the vault agrees with credit_line ==
     env.ledger().set_timestamp(10_000);
-    // The vault enforces exactly the limit credit_line advertised.
     assert_eq!(vault.available_credit(&agent), usdc(50_000));
     vault.borrow(&agent, &usdc(50_000));
     assert_eq!(token.balance(&agent), usdc(50_000));
     assert_eq!(vault.available_credit(&agent), 0);
 
     // ===== 6. A year later the agent repays principal + interest =====
+    // Fully drawn (100% utilisation) → APR = 8.5% base + 10% premium = 18.5%.
     env.ledger().set_timestamp(10_000 + YEAR);
     let owed = vault.amount_owed(&agent);
-    assert_eq!(owed, usdc(54_250)); // 50,000 + 8.5%
+    assert_eq!(owed, usdc(59_250)); // 50,000 + 18.5%
 
-    token_admin.mint(&agent, &usdc(4_250)); // agent's earned revenue covers interest
+    token_admin.mint(&agent, &usdc(9_250)); // agent's earned revenue covers interest
     vault.repay(&agent, &owed);
     assert_eq!(vault.amount_owed(&agent), 0);
-    assert_eq!(vault.liquidity(&agent), usdc(60_000)); // principal returned
-    assert_eq!(vault.yield_pool(&agent), usdc(4_250)); // interest is lender yield
+    assert_eq!(vault.liquidity(&agent), usdc(50_000)); // principal returned
+    // Interest 9,250 splits: 20% → reserve (1,850), 80% → lender yield (7,400).
+    assert_eq!(vault.reserve(&agent), usdc(1_850));
+    assert_eq!(vault.yield_pool(&agent), usdc(7_400));
 
     // ===== 7. Engine records the repayment outcome on the registry =====
     registry.record_repayment(&agent, &true);
     assert_eq!(
         registry.get_repayments(&agent),
         RepaymentRecord {
-            on_time: 1,
-            total: 1
+            on_time: 7, // 6 seasoning + this one
+            total: 7
         }
     );
 
     // ===== 8. Lender realizes yield and withdraws principal =====
-    assert_eq!(vault.claim_yield(&lender, &agent), usdc(4_250));
-    vault.withdraw(&lender, &agent, &usdc(60_000));
-    // Lender ends with original 100k + 4,250 interest earned.
-    assert_eq!(token.balance(&lender), usdc(104_250));
+    assert_eq!(vault.claim_yield(&lender, &agent), usdc(7_400));
+    vault.withdraw(&lender, &agent, &usdc(50_000));
+    // Lender: minted 100k, deposited 50k (kept 50k), back 50k principal + 7,400 yield.
+    assert_eq!(token.balance(&lender), usdc(100_000) + usdc(7_400));
     assert_eq!(vault.liquidity(&agent), 0);
 }

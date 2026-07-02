@@ -6,6 +6,7 @@ import type { ProofResult } from "./zktls/index.js";
 import { computeScoreResult, type ScoreResult } from "./scoring/index.js";
 import { analyzeIndependence, type IndependenceResult } from "./scoring/independence.js";
 import { attestScore, submitScore, type Attestation, type SubmitResult } from "./signer/index.js";
+import { readRepayments } from "./chain/registry.js";
 
 export interface UnderwritingResult {
   agent: string;
@@ -70,12 +71,17 @@ export async function underwrite(
     }
   }
 
+  // Proven repayment history (on-time lifts the score, a default collapses it).
+  // Resilient: a read failure falls back to "no history".
+  const repayments = await readRepayments(agent);
+
   const score = computeScoreResult({
     agent,
     onchainRevenueStroops,
     distinctPayers,
     offchainRevenueStroops: proof?.amountStroops ?? "0",
     offchainVerified: proof?.verified ?? false,
+    repayments,
   });
 
   const attestation = attestScore(score);

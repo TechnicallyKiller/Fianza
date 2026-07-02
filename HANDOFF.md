@@ -30,15 +30,28 @@ free to be adversarial in. Real-money/legal/audit work is explicitly deferred
 
 **Contracts (Soroban, deployed to testnet, tested):**
 - `score_registry` `CAZUPW5MWHG5XCE7BM6YP6M52NPB6TPRRAXU3GEV4TL2AR2ZMYE7TRSX` —
-  registration + signed scores + `record_repayment` (repayment tally EXISTS but
-  is NOT yet fed into scoring).
+  registration + signed scores + `record_repayment`. **Track A wired the
+  repayment tally into scoring** (on-chain: the vault/credit_line credit ramp
+  reads `get_repayments`; off-chain: the scorer lifts on on-time history and
+  collapses below lending grade on a recorded default). NOT redeployed for
+  Track A — address preserved, so all history (Scout, demo agents) survives.
 - `credit_line` `CA2HOO3KKDPQB4URKDJGVP4QD57UTCSKA2XN7U76RAN4VATOKXZV4QSV` —
   reads score → tier/limit/APR via `revenue_math`.
-- `lending_vault` `CD5RQFFYF57MLI3JI2PHUROMYFWLGDB7RPMGIK5JRWAO6NWHEUE3EC6C` —
-  isolated per-agent vaults: deposit/borrow/repay/withdraw/claim_yield, simple
-  interest → yield_pool. Isolation is real (proven by test). **No default,
-  liquidation, or reserve logic.**
-- `revenue_math` (lib, single source of truth for tiers/limits/APR),
+- `lending_vault` (Track A) `CA7QGIAUGENZU3V63CVUT2N56X3ASZ774E3RCAHFZ2WKAQGOCKTDIQOA` —
+  isolated per-agent vaults with a full credit-risk lifecycle: **shares-based
+  lender accounting** (defaults socialize loss pro-rata without iterating
+  lenders), **first-loss reserve** (funded from an interest cut), **due dates +
+  permissionless `mark_default`**, **dynamic (utilization-based) APR**, and an
+  on-chain **credit ramp** enforced in `borrow`. deposit/borrow/repay/withdraw/
+  claim_yield/mark_default. Isolation + the whole default lifecycle proven by
+  35 Rust tests AND a live testnet adversarial default run. Term is a
+  constructor param (deployed at 300s for fast live default testing).
+  _(pre-Track-A vault `CD5RQFF…EUE3EC6C` still holds Scout's historical loan.)_
+- `credit_line` (Track A) `CC4ZAKREYMCDEONIQMSSBYOBFC75LL5NPYVEBRZ5SACHYWLYGK2R7GDO` —
+  terms view; now advertises the ramped limit so it matches the vault.
+  _(pre-Track-A `CA2HOO3K…OKXZV4QSV`.)_
+- `revenue_math` (lib, single source of truth for tiers/limits/APR + Track A
+  risk math: dynamic APR, reserve split, credit ramp, `RepaymentRecord`),
   `stellar8004_identity` (interface stub, unused).
 
 **Backend** (`backend/`, TS/Fastify, on Render): indexer (on-demand `getEvents`
@@ -74,10 +87,14 @@ SLEEPS after ~15 min, first request wakes it ~30–60s). Frontend
 1. **Zero real money, zero real adversary.** All "revenue" was free testnet USDC
    we moved around. The whole thesis (underwriting survives attackers) is
    UNTESTED because nothing is at stake. This is the #1 gap.
-2. **No credit-risk engine at all.** No default state, no liquidation, no
-   recovery, no reserve/first-loss, no dynamic rates, no loss provisioning. If an
-   agent doesn't repay, the lender silently eats it. **A lending protocol with no
-   default handling is not a lending protocol.**
+2. ~~**No credit-risk engine at all.**~~ **BUILT (Track A, on testnet).** Default
+   state + permissionless `mark_default`, first-loss reserve, shares-based loss
+   socialization, dynamic (utilization) APR, credit ramps, and repayment history
+   wired into scoring — all deployed and proven live (see Part 1). Still missing
+   under this heading: it has never faced a REAL default with REAL money or a
+   real adversary (gap #1 stands), no partial-recovery/collections, no
+   liquidation of collateral (N/A — uncollateralized by design), reserve
+   parameters are unaudited/uncalibrated.
 3. **The moat is one shallow heuristic.** Loop detection at k=3 hops catches only
    directly-self-funded Sybils. It does NOT catch collusion rings, aged wallets,
    funding routed via exchange/4th hop, or bought revenue. `docs/sybil-model.md`
@@ -180,6 +197,13 @@ legal/compliance/KYC-AML, the zero-code gateway/managed-wallet tiers, Python SDK
   — secret is `SCORE_SIGNER_SECRET` in `backend/.env`. **This MUST be set on
   Render** or publishing silently uses a fresh unfunded key (this bit us —
   verify `/config`'s `signer` matches the above after any Render change).
+- **Track A contracts (testnet, current):** vault
+  `CA7QGIAUGENZU3V63CVUT2N56X3ASZ774E3RCAHFZ2WKAQGOCKTDIQOA` (term 300s),
+  credit_line `CC4ZAKREYMCDEONIQMSSBYOBFC75LL5NPYVEBRZ5SACHYWLYGK2R7GDO`,
+  registry unchanged. `backend/.env` points here; **Render must be updated to
+  these too** + the new vault added to `X402_EXCLUDE_ADDRESSES`. Redeploy via
+  `contracts/_trackA_deploy.sh` (reuses the registry). Live default-run agent
+  `GB24RHGT…EJNMP2ZC` is defaulted/frozen on this vault (evidence).
 - Demo agents (public, in Render env): honest
   `GB2FTLU3SE6GVATDG2TZMGRYJTRXLZJJM6PKYNZUV3PE6BSATL3PN5L3`, sybil
   `GAXCQ2B6MLJSP6IHB3DLMARUJMJLWMCEUV5ZMI4OHJ3FZGMYO55F5NLN`, `DEMO_FROM_LEDGER=3369652`.
@@ -231,10 +255,19 @@ Backend is on Render, not local. Nothing else local.
 
 ## Part 6 — Immediate state & first actions for a new session
 
-- Latest pushed commit: `bea5d85`. **Uncommitted:** `packages/agent-sdk/src/index.ts`
-  (payWithCredit `init` param), `agents/` (entire fleet — source only; `.env` is
-  gitignored), `PROJECT_LOG.md`, this file. Commit these first (SDK `dist/` is
-  gitignored — rebuild with `cd packages/agent-sdk && npm run build`).
+- Latest pushed commit: `bea5d85`. **Uncommitted (Track A + prior):** the
+  Track A changes — `contracts/libraries/revenue_math`, `contracts/lending_vault`,
+  `contracts/credit_line`, `contracts/score_registry` (RepaymentRecord moved to
+  revenue_math), `backend/src/{chain,scoring,signer,underwrite,api}`, deploy
+  scripts `contracts/_trackA_*.sh` + `_trackA_ids.txt`, `backend/.env` (new ids);
+  plus prior `packages/agent-sdk/src/index.ts`, `agents/` (source only), docs.
+  Track A build+deploy+live-test is DONE and green (35 Rust tests + a live
+  testnet default run). SDK `dist/` gitignored — rebuild with
+  `cd packages/agent-sdk && npm run build`.
+- **Track A next steps:** update Render env to the new contract ids (above);
+  optionally re-run the live default demo with an interest-repay step first to
+  show a non-zero reserve draw (was 0 live because the agent never repaid before
+  defaulting). Then pick Track B or C.
 - Task #17 (unfinished): deploy Scout + DataCo persistently + a public "Scout,
   live" status page. Lower priority than the three tracks now.
 - **Recommended first move:** pick ONE of Track A / B / C and go deep. If unsure,

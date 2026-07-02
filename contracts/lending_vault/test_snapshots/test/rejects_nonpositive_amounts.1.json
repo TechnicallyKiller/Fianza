@@ -311,6 +311,18 @@
                       "key": {
                         "vec": [
                           {
+                            "symbol": "TermSecs"
+                          }
+                        ]
+                      },
+                      "val": {
+                        "u64": "3153600000"
+                      }
+                    },
+                    {
+                      "key": {
+                        "vec": [
+                          {
                             "symbol": "Token"
                           }
                         ]

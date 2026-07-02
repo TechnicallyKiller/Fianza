@@ -20,6 +20,8 @@ export interface ScoreInputs {
   distinctPayers: number;
   offchainRevenueStroops: string;
   offchainVerified: boolean;
+  /** On-chain repayment history: on-time count, total, and missed (defaults). */
+  repayments?: { onTime: number; total: number; missed: number };
 }
 
 export interface ScoreResult {
@@ -35,10 +37,16 @@ export interface ScoreResult {
   distinctPayers: number;
   minCounterparties: number;
   onchainCounts: boolean;
+  /** Repayment history reflected in the score (present when any is on file). */
+  repayments: { onTime: number; total: number; missed: number };
+  /** True when a recorded default has collapsed the score below lending grade. */
+  defaulted: boolean;
   components: {
     onchainUsdc: number;
     offchainUsdc: number;
     offchainWeight: number;
+    /** Score delta contributed by repayment history (+on-time, −defaults). */
+    historyDelta: number;
   };
   issuedAt: number;
 }
@@ -47,6 +55,12 @@ export interface ScoreResult {
 const MIN_COUNTERPARTIES = Number(process.env.MIN_COUNTERPARTIES ?? "3");
 const OFFCHAIN_WEIGHT = 1.5; // zkTLS revenue trusted more than raw on-chain
 const ONCHAIN_WEIGHT = 1.0;
+// Repayment-history policy (mirrors the on-chain credit ramp's intent).
+const HISTORY_ONTIME_BONUS = 15; // +15 score per proven on-time repayment...
+const HISTORY_ONTIME_CAP = 90; // ...up to +90 (≈ one tier of lift for good history)
+// A recorded default collapses the score below the C threshold (550): the
+// portable artifact reflects the loss, so limits collapse everywhere it's read.
+const DEFAULT_SCORE_CEILING = 500;
 // Revenue bands are calibrated for mainnet $-scale revenue. On testnet, faucet
 // USDC caps demo revenue at single digits, so SCORE_BAND_DIVISOR rescales the
 // thresholds (e.g. 1000 → a few USDC clears Tier C). Defaults to 1 (mainnet).
@@ -99,7 +113,17 @@ export function computeScoreResult(inputs: ScoreInputs): ScoreResult {
   const effectiveUsdc =
     (onchainCounts ? onchainUsdc * ONCHAIN_WEIGHT : 0) + offchainUsdc * offchainWeight;
 
-  const score = computeScore(effectiveUsdc, inputs.distinctPayers, onchainCounts);
+  const repayments = inputs.repayments ?? { onTime: 0, total: 0, missed: 0 };
+  const revenueScore = computeScore(effectiveUsdc, inputs.distinctPayers, onchainCounts);
+
+  // Repayment history adjusts the revenue-derived score: on-time history lifts
+  // it; a recorded default collapses it below lending grade.
+  const onTimeBonus = Math.min(repayments.onTime * HISTORY_ONTIME_BONUS, HISTORY_ONTIME_CAP);
+  const defaulted = repayments.missed > 0;
+  let score = Math.min(850, revenueScore + onTimeBonus);
+  if (defaulted) score = Math.min(score, DEFAULT_SCORE_CEILING);
+  const historyDelta = score - revenueScore;
+
   const tier = tierFromScore(score);
 
   // Limit is sized off the effective verified revenue × tier multiple.
@@ -118,7 +142,9 @@ export function computeScoreResult(inputs: ScoreInputs): ScoreResult {
     distinctPayers: inputs.distinctPayers,
     minCounterparties: MIN_COUNTERPARTIES,
     onchainCounts,
-    components: { onchainUsdc, offchainUsdc, offchainWeight },
+    repayments,
+    defaulted,
+    components: { onchainUsdc, offchainUsdc, offchainWeight, historyDelta },
     issuedAt: Math.floor(Date.now() / 1000),
   };
 }

@@ -111,3 +111,38 @@ export async function submitScore(s: ScoreResult): Promise<SubmitResult> {
   const sent = await server.sendTransaction(prepared);
   return { submitted: true, txHash: sent.hash };
 }
+
+/**
+ * Record a repayment outcome on score_registry, authorized by the signer. This
+ * is how a default (`onTime = false`) becomes part of the agent's on-chain
+ * history — which the credit ramp and the next re-underwrite both read. No-op
+ * until the registry is wired.
+ */
+export async function recordRepayment(agent: string, onTime: boolean): Promise<SubmitResult> {
+  if (!config.scoreRegistryContractId) {
+    return { submitted: false, reason: "SCORE_REGISTRY_CONTRACT_ID not set" };
+  }
+  const server = new rpc.Server(config.sorobanRpcUrl);
+  const kp = signerKeypair();
+  const account = await server.getAccount(kp.publicKey());
+  const contract = new Contract(config.scoreRegistryContractId);
+
+  const tx = new TransactionBuilder(account, {
+    fee: "100",
+    networkPassphrase: config.networkPassphrase,
+  })
+    .addOperation(
+      contract.call(
+        "record_repayment",
+        Address.fromString(agent).toScVal(),
+        nativeToScVal(onTime),
+      ),
+    )
+    .setTimeout(TimeoutInfinite)
+    .build();
+
+  const prepared = await server.prepareTransaction(tx);
+  prepared.sign(kp);
+  const sent = await server.sendTransaction(prepared);
+  return { submitted: true, txHash: sent.hash };
+}

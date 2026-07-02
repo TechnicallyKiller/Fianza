@@ -39,13 +39,10 @@ enum DataKey {
     Repayments(Address),
 }
 
-/// Running tally of an agent's repayment history.
-#[contracttype]
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct RepaymentRecord {
-    pub on_time: u32,
-    pub total: u32,
-}
+// `RepaymentRecord` is defined in `revenue_math` (the shared-types home) so the
+// vault's credit ramp and this registry agree on its shape; re-exported here for
+// existing callers/tests.
+pub use revenue_math::RepaymentRecord;
 
 #[contractevent(topics = ["registered"])]
 pub struct Registered {
