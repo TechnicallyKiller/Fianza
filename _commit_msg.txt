@@ -1,0 +1,22 @@
+Contract safety rails: pause switch, deposit cap, invariant fuzz test
+
+lending_vault:
+- admin (new constructor param) + pause/unpause: halts NEW deposits and
+  borrows only. repay, withdraw, claim_yield, and mark_default always work
+  while paused -- pausing can never trap anyone's funds, it only stops new
+  risk from being taken.
+- admin-adjustable global deposit_cap per agent vault (capital at risk =
+  liquidity + principal), caps the blast radius of an undiscovered bug.
+  0 = uncapped (existing tests use 0 so behavior is unchanged).
+- invariant fuzz test: a tiny seeded xorshift PRNG (no new crate dependency)
+  drives 5 seeds x 300 random deposit/borrow/repay/withdraw/claim_yield calls
+  each, asserting after every single call that
+  token.balance(vault) == liquidity + reserve + yield_pool.
+  1500 checks, zero breaks.
+- 17 unit tests total (was 12) + integration test, all green.
+
+Deployed to testnet reusing the existing registry (all history preserved):
+vault CAMF3BS23WXYMA6W6E55VSX577GIPSRKJXJKLL2G46TABUQ4GIRGHIL3, term 300s,
+deposit_cap 10,000 USDC, admin = deployer. backend/.env and render.yaml
+updated to the new vault id + exclude list. Prior vault CA7QGIAU...KTDIQOA
+kept as-is -- it holds the live default-run evidence.

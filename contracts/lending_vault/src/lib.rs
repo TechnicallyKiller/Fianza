@@ -53,6 +53,11 @@ pub enum Error {
     NotOverdue = 6,
     /// `mark_default` called on an agent with no outstanding principal.
     NothingOwed = 7,
+    /// New deposits/borrows are halted (admin circuit breaker). Exits
+    /// (repay/withdraw/claim_yield) and mark_default are never paused.
+    Paused = 8,
+    /// Deposit would push this agent's vault past the global cap.
+    DepositCapExceeded = 9,
 }
 
 #[contracttype]
@@ -61,6 +66,9 @@ enum DataKey {
     Registry,
     Token,
     TermSecs,                  // loan term applied on a fresh draw
+    Admin,                     // can pause/unpause and set the deposit cap
+    Paused,                    // bool: new deposits/borrows halted
+    DepositCap,                // i128: max TotalDeposited per agent vault (0 = no cap)
     Liquidity(Address),        // agent -> USDC available to lend
     Principal(Address),        // agent -> outstanding borrowed principal
     InterestOwed(Address),     // agent -> accrued unpaid interest
@@ -146,23 +154,73 @@ pub struct LendingVault;
 
 #[contractimpl]
 impl LendingVault {
-    /// Bind the vault to a score_registry (for limits), the USDC SEP-41 SAC, and
-    /// the loan term (seconds) a fresh draw must be repaid within.
-    pub fn __constructor(env: Env, registry: Address, token: Address, term_secs: u64) {
+    /// Bind the vault to a score_registry (for limits), the USDC SEP-41 SAC, the
+    /// loan term (seconds) a fresh draw must be repaid within, an admin (can
+    /// pause/unpause and adjust the deposit cap), and an initial global deposit
+    /// cap per agent vault (0 = uncapped).
+    pub fn __constructor(
+        env: Env,
+        registry: Address,
+        token: Address,
+        term_secs: u64,
+        admin: Address,
+        deposit_cap: i128,
+    ) {
         env.storage().instance().set(&DataKey::Registry, &registry);
         env.storage().instance().set(&DataKey::Token, &token);
         env.storage().instance().set(&DataKey::TermSecs, &term_secs);
+        env.storage().instance().set(&DataKey::Admin, &admin);
+        env.storage().instance().set(&DataKey::DepositCap, &deposit_cap);
+        env.storage().instance().set(&DataKey::Paused, &false);
+    }
+
+    /// Circuit breaker: halt new deposits and new borrows. Exits (repay,
+    /// withdraw, claim_yield) and mark_default always keep working — pausing
+    /// can never trap anyone's funds, it only stops NEW risk from being taken.
+    pub fn pause(env: Env) {
+        Self::admin(&env).require_auth();
+        env.storage().instance().set(&DataKey::Paused, &true);
+    }
+
+    pub fn unpause(env: Env) {
+        Self::admin(&env).require_auth();
+        env.storage().instance().set(&DataKey::Paused, &false);
+    }
+
+    pub fn paused(env: Env) -> bool {
+        env.storage().instance().get(&DataKey::Paused).unwrap_or(false)
+    }
+
+    /// Admin-adjustable global cap on capital at risk (liquidity + principal)
+    /// per agent vault. Caps the blast radius of an undiscovered bug: no single
+    /// vault can ever hold more than this, no matter how much lenders want to
+    /// deposit. 0 = uncapped.
+    pub fn set_deposit_cap(env: Env, new_cap: i128) {
+        Self::admin(&env).require_auth();
+        env.storage().instance().set(&DataKey::DepositCap, &new_cap);
+    }
+
+    pub fn deposit_cap(env: Env) -> i128 {
+        env.storage().instance().get(&DataKey::DepositCap).unwrap_or(0)
     }
 
     /// Lender deposits USDC into a specific agent's isolated vault, receiving
-    /// shares priced against the vault's current assets. Frozen after default.
+    /// shares priced against the vault's current assets. Frozen after default,
+    /// blocked while paused, and capped at the global per-vault deposit cap.
     pub fn deposit(env: Env, lender: Address, agent: Address, amount: i128) -> Result<(), Error> {
         lender.require_auth();
         if amount <= 0 {
             return Err(Error::InvalidAmount);
         }
+        if Self::is_paused(&env) {
+            return Err(Error::Paused);
+        }
         if Self::is_defaulted(&env, &agent) {
             return Err(Error::Defaulted);
+        }
+        let cap = Self::read_cap(&env);
+        if cap > 0 && Self::assets(&env, &agent) + amount > cap {
+            return Err(Error::DepositCapExceeded);
         }
         Self::token_client(&env).transfer(&lender, &env.current_contract_address(), &amount);
 
@@ -193,11 +251,15 @@ impl LendingVault {
 
     /// Agent draws against its credit line; USDC is disbursed from its vault. The
     /// drawable limit is ramped by repayment history; the first draw from a zero
-    /// balance starts the repayment clock.
+    /// balance starts the repayment clock. Blocked while paused (new risk-taking
+    /// only — an agent that already has a loan can still repay it while paused).
     pub fn borrow(env: Env, agent: Address, amount: i128) -> Result<(), Error> {
         agent.require_auth();
         if amount <= 0 {
             return Err(Error::InvalidAmount);
+        }
+        if Self::is_paused(&env) {
+            return Err(Error::Paused);
         }
         if Self::is_defaulted(&env, &agent) {
             return Err(Error::Defaulted);
@@ -498,6 +560,18 @@ impl LendingVault {
     }
 
     // ---- Internals ----
+
+    fn admin(env: &Env) -> Address {
+        env.storage().instance().get(&DataKey::Admin).unwrap()
+    }
+
+    fn is_paused(env: &Env) -> bool {
+        env.storage().instance().get(&DataKey::Paused).unwrap_or(false)
+    }
+
+    fn read_cap(env: &Env) -> i128 {
+        env.storage().instance().get(&DataKey::DepositCap).unwrap_or(0)
+    }
 
     fn is_defaulted(env: &Env, agent: &Address) -> bool {
         env.storage()

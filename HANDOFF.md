@@ -30,34 +30,44 @@ free to be adversarial in. Real-money/legal/audit work is explicitly deferred
 
 **Contracts (Soroban, deployed to testnet, tested):**
 - `score_registry` `CAZUPW5MWHG5XCE7BM6YP6M52NPB6TPRRAXU3GEV4TL2AR2ZMYE7TRSX` —
-  registration + signed scores + `record_repayment`. **Track A wired the
-  repayment tally into scoring** (on-chain: the vault/credit_line credit ramp
+  registration + signed scores + `record_repayment`. Track A wired the
+  repayment tally into scoring (on-chain: the vault/credit_line credit ramp
   reads `get_repayments`; off-chain: the scorer lifts on on-time history and
-  collapses below lending grade on a recorded default). NOT redeployed for
-  Track A — address preserved, so all history (Scout, demo agents) survives.
-- `credit_line` `CA2HOO3KKDPQB4URKDJGVP4QD57UTCSKA2XN7U76RAN4VATOKXZV4QSV` —
-  reads score → tier/limit/APR via `revenue_math`.
-- `lending_vault` (Track A) `CA7QGIAUGENZU3V63CVUT2N56X3ASZ774E3RCAHFZ2WKAQGOCKTDIQOA` —
-  isolated per-agent vaults with a full credit-risk lifecycle: **shares-based
-  lender accounting** (defaults socialize loss pro-rata without iterating
-  lenders), **first-loss reserve** (funded from an interest cut), **due dates +
-  permissionless `mark_default`**, **dynamic (utilization-based) APR**, and an
-  on-chain **credit ramp** enforced in `borrow`. deposit/borrow/repay/withdraw/
-  claim_yield/mark_default. Isolation + the whole default lifecycle proven by
-  35 Rust tests AND a live testnet adversarial default run. Term is a
-  constructor param (deployed at 300s for fast live default testing).
-  _(pre-Track-A vault `CD5RQFF…EUE3EC6C` still holds Scout's historical loan.)_
-- `credit_line` (Track A) `CC4ZAKREYMCDEONIQMSSBYOBFC75LL5NPYVEBRZ5SACHYWLYGK2R7GDO` —
-  terms view; now advertises the ramped limit so it matches the vault.
-  _(pre-Track-A `CA2HOO3K…OKXZV4QSV`.)_
+  collapses below lending grade on a recorded default). Never redeployed —
+  address preserved since day one, so all history (Scout, demo agents, the
+  live default) survives every downstream redeploy.
+- `credit_line` `CC4ZAKREYMCDEONIQMSSBYOBFC75LL5NPYVEBRZ5SACHYWLYGK2R7GDO` —
+  reads score → ramped tier/limit/APR via `revenue_math`.
+  _(superseded pre-Track-A id: `CA2HOO3K…OKXZV4QSV`.)_
+- `lending_vault` `CAMF3BS23WXYMA6W6E55VSX577GIPSRKJXJKLL2G46TABUQ4GIRGHIL3`
+  (current — safety-rails hardened) — isolated per-agent vaults with a full
+  credit-risk lifecycle: **shares-based lender accounting** (defaults
+  socialize loss pro-rata without iterating lenders), **first-loss reserve**
+  (funded from an interest cut), **due dates + permissionless `mark_default`**,
+  **dynamic (utilization-based) APR**, on-chain **credit ramp** enforced in
+  `borrow`, plus **safety rails**: admin `pause`/`unpause` (halts NEW
+  deposits/borrows only — repay/withdraw/claim_yield/mark_default always work,
+  so paused ≠ funds trapped) and an admin-adjustable global **deposit cap**
+  per agent vault (currently 10,000 USDC, caps the blast radius of an
+  undiscovered bug). 17 unit tests + a **1,500-step randomized invariant fuzz
+  test** (asserts `token.balance(vault) == liquidity + reserve + yield_pool`
+  after every single random deposit/borrow/repay/withdraw/claim_yield) + a
+  live testnet adversarial default run. Term is a constructor param (deployed
+  at 300s for fast live default testing).
+  _(superseded ids: Track A `CA7QGIAU…KTDIQOA` — holds the live default
+  evidence (agent `GB24RHGT…`), keep for reference; pre-Track-A `CD5RQFF…EUE3EC6C`
+  holds Scout's historical loan.)_
 - `revenue_math` (lib, single source of truth for tiers/limits/APR + Track A
   risk math: dynamic APR, reserve split, credit ramp, `RepaymentRecord`),
   `stellar8004_identity` (interface stub, unused).
 
 **Backend** (`backend/`, TS/Fastify, on Render): indexer (on-demand `getEvents`
-of USDC SAC), `scoring/independence.ts` (fund-flow loop detection — ONE
-heuristic), scoring, signer, zktls (Reclaim, lazy-loaded, flaky), REST API.
-**In-memory store — all state lost on restart.**
+of USDC SAC) + a **persistent payment-graph indexer** (Track C, Postgres/Neon,
+runs continuously), `scoring/independence.ts` (full independence model — age ·
+diversity · not-funded · reciprocity · concentration — Track B), scoring,
+signer, zktls (Reclaim, lazy-loaded, flaky), REST API. Underwriting results now
+**persist to Postgres** (`results.ts`) when `DATABASE_URL` is set; falls back
+to in-memory otherwise.
 
 **SDK** (`packages/agent-sdk/`): `TrustLineAgent` — register/onboard/underwrite/
 creditLine/vaultState/borrow/repay/deposit/`payWithCredit`(draw-on-402, now
@@ -125,8 +135,15 @@ SLEEPS after ~15 min, first request wakes it ~30–60s). Frontend
    re-underwrite/retry), no Hubble/history backfill for pre-retention deep
    history, other tables (payments-graph aside) minimal. `DATABASE_URL` is in
    `backend/.env`; **must also be set on Render** (it's `sync:false` in render.yaml).
-6. **Contracts unaudited.** No audit, no formal verification, no fuzzing, no
-   invariant tests, no caps, no pause switch.
+6. ~~**Contracts unaudited. No fuzzing, no invariant tests, no caps, no pause
+   switch.**~~ **Safety rails added to `lending_vault`** (see Part 1): admin
+   pause/unpause (exits never blocked), an admin-adjustable per-vault deposit
+   cap (blast-radius limit), and a 1,500-step randomized invariant fuzz test
+   proving the core solvency identity holds after every random action. Still
+   true: **no PAID audit, no formal verification** — this is "stop flying
+   blind," not a substitute for professional review before real money.
+   `credit_line`/`score_registry` hold no funds and weren't in scope for
+   pause/caps.
 7. **Fragile external deps** in the critical path: OZ Channels facilitator
    (single third party, API key, hangs), Reclaim attestor (hangs 120s+).
 8. **No product/users/distribution.** No zero-code tiers, no Python SDK, no API
@@ -188,9 +205,9 @@ Turn the one heuristic into a real model (spec: `docs/sybil-model.md`):
 - Unblocks onboarding many agents + full history + the graph Track B needs.
 
 ### Also do (cheap, high-value, testnet):
-- Contract hardening: `cargo`/soroban invariant + property + fuzz tests, per-vault
-  caps, a global pause switch, admin controls. (Not a paid audit — that's later —
-  but stop flying blind.)
+- ~~Contract hardening: invariant + fuzz tests, per-vault caps, a pause
+  switch, admin controls.~~ **DONE** on `lending_vault` (see Part 1). Not a
+  paid audit — that's still later.
 - API auth + rate-limiting (anyone can spam `/underwrite` today).
 - CI (build+typecheck+contract tests on push), basic monitoring/uptime.
 
@@ -218,13 +235,18 @@ legal/compliance/KYC-AML, the zero-code gateway/managed-wallet tiers, Python SDK
   — secret is `SCORE_SIGNER_SECRET` in `backend/.env`. **This MUST be set on
   Render** or publishing silently uses a fresh unfunded key (this bit us —
   verify `/config`'s `signer` matches the above after any Render change).
-- **Track A contracts (testnet, current):** vault
-  `CA7QGIAUGENZU3V63CVUT2N56X3ASZ774E3RCAHFZ2WKAQGOCKTDIQOA` (term 300s),
-  credit_line `CC4ZAKREYMCDEONIQMSSBYOBFC75LL5NPYVEBRZ5SACHYWLYGK2R7GDO`,
-  registry unchanged. `backend/.env` points here; **Render must be updated to
-  these too** + the new vault added to `X402_EXCLUDE_ADDRESSES`. Redeploy via
-  `contracts/_trackA_deploy.sh` (reuses the registry). Live default-run agent
-  `GB24RHGT…EJNMP2ZC` is defaulted/frozen on this vault (evidence).
+- **Contracts (testnet, current):** vault
+  `CAMF3BS23WXYMA6W6E55VSX577GIPSRKJXJKLL2G46TABUQ4GIRGHIL3` (term 300s,
+  safety-rails hardened — pause + deposit cap), credit_line
+  `CC4ZAKREYMCDEONIQMSSBYOBFC75LL5NPYVEBRZ5SACHYWLYGK2R7GDO`, registry
+  unchanged (`CAZUPW5…MYE7TRSX`, never redeployed). `backend/.env` points
+  here; **Render must be updated to match** + the vault added to
+  `X402_EXCLUDE_ADDRESSES` (already reflected in `render.yaml`, but Render
+  still needs a redeploy to pick it up). Redeploy pattern: reuse the registry,
+  see `contracts/_trackA_deploy.sh` / `_safety_rails_ids.txt` for the exact
+  invocation shape. Live default-run agent `GB24RHGT…EJNMP2ZC` is
+  defaulted/frozen on the **prior** vault `CA7QGIAU…KTDIQOA` (kept as
+  standing evidence, not the active vault).
 - Demo agents (public, in Render env): honest
   `GB2FTLU3SE6GVATDG2TZMGRYJTRXLZJJM6PKYNZUV3PE6BSATL3PN5L3`, sybil
   `GAXCQ2B6MLJSP6IHB3DLMARUJMJLWMCEUV5ZMI4OHJ3FZGMYO55F5NLN`, `DEMO_FROM_LEDGER=3369652`.

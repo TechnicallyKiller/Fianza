@@ -41,7 +41,10 @@ fn full_protocol_flow() {
 
     let registry_id = env.register(ScoreRegistry, (admin.clone(), signer.clone()));
     let credit_id = env.register(CreditLine, (registry_id.clone(),));
-    let vault_id = env.register(LendingVault, (registry_id.clone(), usdc_addr.clone(), TERM));
+    let vault_id = env.register(
+        LendingVault,
+        (registry_id.clone(), usdc_addr.clone(), TERM, admin.clone(), 0i128),
+    );
 
     let registry = ScoreRegistryClient::new(&env, &registry_id);
     let credit = CreditLineClient::new(&env, &credit_id);

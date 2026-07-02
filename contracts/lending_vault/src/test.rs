@@ -23,7 +23,9 @@ struct Setup {
     token_admin: token::StellarAssetClient<'static>,
 }
 
-fn make_with_term(term: u64) -> (Setup, Address, Address) {
+/// deposit_cap = 0 (uncapped) by default so existing behavioural tests are
+/// unaffected; cap-specific tests pass a nonzero cap via `make_with_cap`.
+fn make_with_term_and_cap(term: u64, deposit_cap: i128) -> (Setup, Address, Address) {
     let env = Env::default();
     env.mock_all_auths();
     let admin = Address::generate(&env);
@@ -32,7 +34,10 @@ fn make_with_term(term: u64) -> (Setup, Address, Address) {
     let registry_id = env.register(ScoreRegistry, (admin.clone(), signer));
     let usdc = env.register_stellar_asset_contract_v2(admin.clone());
     let usdc_addr = usdc.address();
-    let vault_id = env.register(LendingVault, (registry_id.clone(), usdc_addr.clone(), term));
+    let vault_id = env.register(
+        LendingVault,
+        (registry_id.clone(), usdc_addr.clone(), term, admin.clone(), deposit_cap),
+    );
 
     let s = Setup {
         env: env.clone(),
@@ -44,6 +49,10 @@ fn make_with_term(term: u64) -> (Setup, Address, Address) {
     let lender = Address::generate(&env);
     let agent = Address::generate(&env);
     (s, lender, agent)
+}
+
+fn make_with_term(term: u64) -> (Setup, Address, Address) {
+    make_with_term_and_cap(term, 0)
 }
 
 fn make() -> (Setup, Address, Address) {
@@ -358,6 +367,93 @@ fn cannot_withdraw_funds_that_are_lent_out() {
 }
 
 #[test]
+fn pause_blocks_new_deposits_and_borrows_but_not_exits() {
+    let (s, lender, agent) = make();
+    full_credit(&s, &agent, 720, usdc(25_000));
+    s.token_admin.mint(&lender, &usdc(100_000));
+    s.vault.deposit(&lender, &agent, &usdc(50_000));
+    s.vault.borrow(&agent, &usdc(30_000));
+
+    s.vault.pause(); // admin circuit breaker
+    assert!(s.vault.paused());
+
+    // New risk-taking is blocked...
+    assert_eq!(
+        s.vault.try_deposit(&lender, &agent, &usdc(1)),
+        Err(Ok(Error::Paused))
+    );
+    assert_eq!(s.vault.try_borrow(&agent, &usdc(1)), Err(Ok(Error::Paused)));
+
+    // ...but every exit still works: repay, withdraw, claim_yield.
+    s.env.ledger().set_timestamp(1_000);
+    let owed = s.vault.amount_owed(&agent);
+    s.token_admin.mint(&agent, &usdc(1));
+    s.vault.repay(&agent, &owed);
+    assert_eq!(s.vault.amount_owed(&agent), 0);
+    s.vault.withdraw(&lender, &agent, &usdc(10_000));
+    assert_eq!(s.vault.liquidity(&agent), usdc(40_000));
+
+    // Unpause restores normal operation.
+    s.vault.unpause();
+    assert!(!s.vault.paused());
+    s.vault.borrow(&agent, &usdc(1_000));
+}
+
+#[test]
+fn pause_requires_genuine_authorization() {
+    // No mock_all_auths() here — pause() must genuinely fail without a real
+    // signature from the admin address, proving it isn't callable by anyone.
+    let env = Env::default();
+    let admin = Address::generate(&env);
+    let signer = Address::generate(&env);
+    let registry_id = env.register(ScoreRegistry, (admin.clone(), signer));
+    let usdc_addr = env.register_stellar_asset_contract_v2(admin.clone()).address();
+    let vault_id = env.register(
+        LendingVault,
+        (registry_id, usdc_addr, LONG_TERM, admin.clone(), 0i128),
+    );
+    let vault = LendingVaultClient::new(&env, &vault_id);
+    assert!(vault.try_pause().is_err()); // no auth provided at all -> rejected
+}
+
+#[test]
+fn deposit_cap_limits_capital_at_risk_per_vault() {
+    let (s, lender, agent) = make_with_term_and_cap(LONG_TERM, usdc(50_000));
+    full_credit(&s, &agent, 720, usdc(25_000));
+    s.token_admin.mint(&lender, &usdc(100_000));
+
+    // Up to the cap is fine.
+    s.vault.deposit(&lender, &agent, &usdc(50_000));
+    assert_eq!(s.vault.state(&agent).total_assets, usdc(50_000));
+
+    // One stroop past the cap is rejected, even though the lender has funds.
+    assert_eq!(
+        s.vault.try_deposit(&lender, &agent, &1),
+        Err(Ok(Error::DepositCapExceeded))
+    );
+
+    // Withdrawing frees up room under the cap again.
+    s.vault.withdraw(&lender, &agent, &usdc(10_000));
+    s.vault.deposit(&lender, &agent, &usdc(10_000));
+    assert_eq!(s.vault.state(&agent).total_assets, usdc(50_000));
+
+    // Admin can raise the cap.
+    s.vault.set_deposit_cap(&usdc(60_000));
+    s.vault.deposit(&lender, &agent, &usdc(10_000));
+    assert_eq!(s.vault.state(&agent).total_assets, usdc(60_000));
+}
+
+#[test]
+fn zero_cap_means_uncapped() {
+    let (s, lender, agent) = make(); // make() uses deposit_cap = 0
+    full_credit(&s, &agent, 800, usdc(100_000)); // large sized limit
+    s.token_admin.mint(&lender, &usdc(1_000_000));
+    // A very large deposit succeeds — no cap enforced.
+    s.vault.deposit(&lender, &agent, &usdc(500_000));
+    assert_eq!(s.vault.liquidity(&agent), usdc(500_000));
+}
+
+#[test]
 fn rejects_nonpositive_amounts() {
     let (s, lender, agent) = make();
     score(&s, &agent, 720, usdc(25_000));
@@ -366,4 +462,104 @@ fn rejects_nonpositive_amounts() {
         Err(Ok(Error::InvalidAmount))
     );
     assert_eq!(s.vault.try_borrow(&agent, &-5), Err(Ok(Error::InvalidAmount)));
+}
+
+// ---- Invariant fuzz test -----------------------------------------------
+//
+// The core solvency promise of the whole vault: the contract can never be
+// asked to pay out more USDC than it actually holds for a given agent.
+// Concretely, at every point in time (before any action fails or succeeds):
+//
+//   token.balance(vault) == liquidity + reserve + yield_pool
+//
+// Principal is deliberately excluded — once borrowed it left the contract and
+// is held by the agent, not owed back until repaid. If this identity ever
+// breaks, either lenders can't get paid or money is silently created/lost.
+//
+// A tiny deterministic xorshift PRNG (no external crate — no build-time
+// network dependency) drives hundreds of random deposit/borrow/repay/
+// withdraw/claim_yield calls with random amounts and random time advances,
+// asserting the invariant after every single successful call. Errors (e.g.
+// InsufficientLiquidity) are expected and skipped — only successful state
+// transitions are checked.
+
+struct Xorshift(u64);
+impl Xorshift {
+    fn next(&mut self) -> u64 {
+        let mut x = self.0;
+        x ^= x << 13;
+        x ^= x >> 7;
+        x ^= x << 17;
+        self.0 = x;
+        x
+    }
+    fn range(&mut self, lo: i128, hi: i128) -> i128 {
+        if hi <= lo {
+            return lo;
+        }
+        lo + (self.next() as i128).rem_euclid(hi - lo)
+    }
+}
+
+fn assert_solvent(s: &Setup, agent: &Address) {
+    let bal = s.token.balance(&s.vault.address);
+    let st = s.vault.state(agent);
+    assert_eq!(
+        bal,
+        st.liquidity + st.reserve + st.yield_pool,
+        "SOLVENCY INVARIANT BROKEN: contract balance {} != liquidity {} + reserve {} + yield_pool {}",
+        bal,
+        st.liquidity,
+        st.reserve,
+        st.yield_pool,
+    );
+}
+
+#[test]
+fn invariant_fuzz_solvency_holds_across_random_action_sequences() {
+    // Run several independent random seeds, hundreds of steps each.
+    for seed in [1u64, 42, 12345, 999_999, 7] {
+        let (s, lender, agent) = make_with_term(2 * YEAR); // long enough to rarely default mid-fuzz
+        full_credit(&s, &agent, 720, usdc(1_000_000)); // large sized limit, full ramp
+        s.token_admin.mint(&lender, &usdc(10_000_000));
+        s.token_admin.mint(&agent, &usdc(10_000_000)); // agent can always fund interest/principal
+
+        let mut rng = Xorshift(seed);
+        let mut now: u64 = 0;
+        assert_solvent(&s, &agent);
+
+        for _ in 0..300 {
+            // Occasionally advance time so interest actually accrues.
+            if rng.range(0, 4) == 0 {
+                now += rng.range(0, 3_600 * 24 * 30) as u64; // up to ~30 days
+                s.env.ledger().set_timestamp(now);
+            }
+
+            match rng.range(0, 5) {
+                0 => {
+                    let amt = rng.range(1, usdc(5_000));
+                    let _ = s.vault.try_deposit(&lender, &agent, &amt);
+                }
+                1 => {
+                    let amt = rng.range(1, usdc(2_000));
+                    let _ = s.vault.try_borrow(&agent, &amt);
+                }
+                2 => {
+                    let amt = rng.range(1, usdc(2_000));
+                    let _ = s.vault.try_repay(&agent, &amt);
+                }
+                3 => {
+                    let amt = rng.range(1, usdc(1_000));
+                    let _ = s.vault.try_withdraw(&lender, &agent, &amt);
+                }
+                _ => {
+                    let _ = s.vault.try_claim_yield(&lender, &agent);
+                }
+            }
+
+            // Whether the action above succeeded or errored, the invariant
+            // must hold NOW — a failed call must never partially apply state.
+            assert_solvent(&s, &agent);
+        }
+    }
 }
