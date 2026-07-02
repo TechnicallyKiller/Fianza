@@ -8,6 +8,8 @@ services:
     envVars:
       - key: SCORE_SIGNER_SECRET
         sync: false
+      - key: DATABASE_URL
+        sync: false
       - key: SCORE_REGISTRY_CONTRACT_ID
         value: CAZUPW5MWHG5XCE7BM6YP6M52NPB6TPRRAXU3GEV4TL2AR2ZMYE7TRSX
       - key: CREDIT_LINE_CONTRACT_ID

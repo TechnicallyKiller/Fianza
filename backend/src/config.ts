@@ -77,6 +77,10 @@ export const config = {
   demoSybilAgent: opt("DEMO_SYBIL_AGENT"),
   demoFromLedger: Number(opt("DEMO_FROM_LEDGER", "0")) || 0,
 
+  // Persistence (Track C). When set, the payment-graph indexer + moat read from
+  // Postgres (Neon) instead of being limited to the RPC's ~24h event retention.
+  databaseUrl: opt("DATABASE_URL"),
+
   // API
   port: Number(opt("PORT", "8787")),
   host: opt("HOST", "0.0.0.0"),

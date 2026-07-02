@@ -17,6 +17,8 @@
 import { rpc, xdr, scValToNative, Address } from "@stellar/stellar-sdk";
 import { config } from "../config.js";
 import type { RevenueReport } from "../indexer/index.js";
+import { dbConfigured } from "../db/index.js";
+import * as graph from "./graph.js";
 
 const server = new rpc.Server(config.sorobanRpcUrl, { allowHttp: false });
 
@@ -442,16 +444,50 @@ async function gatherPayerFacts(
   );
 }
 
+/** Gather per-payer facts from the persisted graph (full history, not the ~24h
+ *  RPC window) — age, external out-degree, funding ancestry, reciprocity. */
+async function gatherPayerFactsFromGraph(
+  agent: string,
+  report: RevenueReport,
+): Promise<PayerFacts[]> {
+  const revByPayer = new Map<string, bigint>();
+  for (const p of report.payments) {
+    revByPayer.set(p.from, (revByPayer.get(p.from) ?? 0n) + BigInt(p.amount));
+  }
+  const coPayers = [...new Set(report.payers)];
+  return Promise.all(
+    report.payers.map(async (payer) => {
+      const [ageDays, outDegree, funded, agentPaid] = await Promise.all([
+        graph.ageDays(payer),
+        graph.externalOutDegree(payer, coPayers, agent),
+        graph.fundedByAgent(payer, agent, MAX_HOPS),
+        graph.sumPaid(agent, payer),
+      ]);
+      return {
+        payer,
+        revenueStroops: revByPayer.get(payer) ?? 0n,
+        ageDays,
+        outDegree,
+        fundedByAgent: funded,
+        agentPaidStroops: agentPaid,
+      };
+    }),
+  );
+}
+
 /**
- * Full independence analysis: gather each payer's on-chain facts, then score.
- * Returns R_eff (effective independent revenue) + a per-payer breakdown the API
- * surfaces so the dashboard can show *why* revenue was discounted.
+ * Full independence analysis: gather each payer's facts, then score. Reads the
+ * persisted payment graph (full history) when a database is configured, else
+ * falls back to the ~24h RPC lookups. Returns R_eff + a per-payer breakdown the
+ * API surfaces so the dashboard can show *why* revenue was discounted.
  */
 export async function analyzeIndependence(
   agent: string,
   report: RevenueReport,
   fromLedger: number,
 ): Promise<IndependenceResult> {
-  const facts = await gatherPayerFacts(agent, report, fromLedger);
+  const facts = dbConfigured()
+    ? await gatherPayerFactsFromGraph(agent, report)
+    : await gatherPayerFacts(agent, report, fromLedger);
   return scoreIndependence(facts);
 }
