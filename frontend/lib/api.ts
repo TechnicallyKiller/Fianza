@@ -57,10 +57,16 @@ export interface ScoreResult {
   distinctPayers: number;
   minCounterparties: number;
   onchainCounts: boolean;
+  /** Repayment history reflected in the score (Track A). */
+  repayments: { onTime: number; total: number; missed: number };
+  /** True when a recorded default has collapsed the score below lending grade. */
+  defaulted: boolean;
   components: {
     onchainUsdc: number;
     offchainUsdc: number;
     offchainWeight: number;
+    /** Score delta from repayment history (+on-time, −defaults). */
+    historyDelta: number;
   };
   issuedAt: number;
 }
@@ -89,9 +95,17 @@ export interface SubmitResult {
   reason?: string;
 }
 
-export interface PayerVerdict {
+// Per-payer breakdown from the independence engine (the scam-detector's "why").
+export interface PayerWeight {
   payer: string;
   revenueStroops: string;
+  cappedStroops: string;
+  ageFactor: number;
+  diversityFactor: number;
+  notFundedFactor: number;
+  reciprocityFactor: number;
+  weight: number; // w_i ∈ [0,1]
+  effectiveStroops: string; // w_i · capped
   independent: boolean;
   reason: string;
 }
@@ -99,8 +113,14 @@ export interface PayerVerdict {
 export interface IndependenceResult {
   independentPayers: string[];
   circularPayers: string[];
+  /** Effective independent revenue (R_eff) — what actually feeds the score. */
   independentRevenueStroops: string;
-  perPayer: PayerVerdict[];
+  /** R_eff / Σ raw revenue, in [0,1]. */
+  independenceScore: number;
+  concentrationFactor: number;
+  organicityFactor: number;
+  hhi: number;
+  perPayer: PayerWeight[];
   maxHops: number;
 }
 
