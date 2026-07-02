@@ -31,7 +31,24 @@ import {
   type RevenueReport,
   type UnderwritingResult,
 } from "@/lib/api";
-import { STELLAR_EXPERT_TX, invokeContract, sc } from "@/lib/stellar";
+import { STELLAR_EXPERT_TX, invokeContract, readContract, sc } from "@/lib/stellar";
+
+// Mirrors lending_vault::VaultState (contracts/lending_vault/src/lib.rs).
+interface VaultState {
+  liquidity: bigint;
+  principal: bigint;
+  amount_owed: bigint;
+  reserve: bigint;
+  total_shares: bigint;
+  total_assets: bigint;
+  yield_pool: bigint;
+  realized_loss: bigint;
+  limit: bigint;
+  apr_bps: number;
+  utilization_bps: number;
+  due_date: bigint;
+  defaulted: boolean;
+}
 
 // A known agent with real, retained x402 revenue (PROJECT_LOG §3) — handy for
 // demoing the live pipeline without holding any private key.
@@ -39,7 +56,7 @@ const TEST_AGENT = "GCW6JEZSI64YMCARRROUPJVLIE5JFRNKRZVZYSKHQOQCVZN6RV3CYPAF";
 const TEST_AGENT_FROM_LEDGER = "3326960";
 
 export default function BorrowerDashboard() {
-  const { address } = useWallet();
+  const { address, config: walletConfig } = useWallet();
 
   // The agent being viewed. Defaults to the connected wallet, but any address
   // can be inspected read-only (revenue + underwrite are public, address-keyed).
@@ -49,6 +66,7 @@ export default function BorrowerDashboard() {
 
   const [revenue, setRevenue] = useState<RevenueReport | null>(null);
   const [result, setResult] = useState<UnderwritingResult | null>(null);
+  const [vaultState, setVaultState] = useState<VaultState | null>(null);
   const [loadingRevenue, setLoadingRevenue] = useState(false);
   const [underwriting, setUnderwriting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -56,29 +74,57 @@ export default function BorrowerDashboard() {
 
   const fromLedgerNum = fromLedger.trim() ? Number(fromLedger.trim()) : undefined;
 
-  // Pull live revenue + any prior underwriting result for an agent.
-  const load = useCallback(async (addr: string, fl?: number) => {
-    setError(null);
-    setNotice(null);
-    setRevenue(null);
-    setResult(null);
-    setLoadingRevenue(true);
-    try {
-      const [rev, prior] = await Promise.allSettled([
-        api.revenue(addr, fl),
-        api.agent(addr),
-      ]);
-      if (rev.status === "fulfilled") setRevenue(rev.value);
-      else setError(rev.reason?.message ?? "Failed to index revenue");
-      // 404 (never underwritten) is expected — leave result null.
-      if (prior.status === "fulfilled") setResult(prior.value);
-      else if (prior.reason instanceof ApiError && prior.reason.status !== 404) {
-        setError(prior.reason.message);
+  // Live on-chain vault state (principal owed, accrued interest, etc.) — reads
+  // the actual contract, not the score snapshot, so it reflects real borrows.
+  const loadVaultState = useCallback(
+    async (addr: string) => {
+      const vaultId = walletConfig?.lendingVaultContractId;
+      if (!vaultId || !address) {
+        setVaultState(null);
+        return;
       }
-    } finally {
-      setLoadingRevenue(false);
-    }
-  }, []);
+      try {
+        const s = (await readContract({
+          contractId: vaultId,
+          method: "state",
+          args: [sc.address(addr)],
+          sourcePublicKey: address,
+        })) as VaultState | null;
+        setVaultState(s);
+      } catch {
+        setVaultState(null);
+      }
+    },
+    [walletConfig, address],
+  );
+
+  // Pull live revenue + any prior underwriting result for an agent.
+  const load = useCallback(
+    async (addr: string, fl?: number) => {
+      setError(null);
+      setNotice(null);
+      setRevenue(null);
+      setResult(null);
+      setLoadingRevenue(true);
+      try {
+        const [rev, prior] = await Promise.allSettled([
+          api.revenue(addr, fl),
+          api.agent(addr),
+        ]);
+        if (rev.status === "fulfilled") setRevenue(rev.value);
+        else setError(rev.reason?.message ?? "Failed to index revenue");
+        // 404 (never underwritten) is expected — leave result null.
+        if (prior.status === "fulfilled") setResult(prior.value);
+        else if (prior.reason instanceof ApiError && prior.reason.status !== 404) {
+          setError(prior.reason.message);
+        }
+        await loadVaultState(addr);
+      } finally {
+        setLoadingRevenue(false);
+      }
+    },
+    [loadVaultState],
+  );
 
   // On wallet connect, default the inspect target to it and auto-load once.
   useEffect(() => {
@@ -236,7 +282,7 @@ export default function BorrowerDashboard() {
           />
           <Metric
             label="Currently Borrowed"
-            value="0"
+            value={vaultState ? usdc(Number(vaultState.amount_owed) / 1e7) : "—"}
             unit="USDC"
             delay="delay-200"
           />
@@ -358,14 +404,29 @@ export default function BorrowerDashboard() {
                   Amount Drawn
                 </div>
                 <div className="flex items-baseline gap-2 text-headline-md">
-                  <span className="font-data-lg">0</span>
+                  <span className="font-data-lg">
+                    {vaultState ? usdc(Number(vaultState.amount_owed) / 1e7) : "0"}
+                  </span>
                   <span className="font-data-md text-body-sm text-on-surface-variant">
                     USDC
                   </span>
                 </div>
                 <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full border border-white/5 bg-surface-dim/50">
-                  <div className="h-full w-0 bg-primary shadow-[0_0_10px_rgba(173,198,255,0.5)]" />
+                  <div
+                    className="h-full bg-primary shadow-[0_0_10px_rgba(173,198,255,0.5)]"
+                    style={{
+                      width:
+                        vaultState && score && score.limitUsdc > 0
+                          ? `${Math.min(100, (Number(vaultState.amount_owed) / 1e7 / score.limitUsdc) * 100)}%`
+                          : "0%",
+                    }}
+                  />
                 </div>
+                {vaultState?.defaulted ? (
+                  <p className="mt-2 text-body-sm text-error">
+                    ⚠ Defaulted — frozen out of further borrowing.
+                  </p>
+                ) : null}
               </div>
               <VaultActions
                 hasLimit={!!score && score.limitUsdc > 0}

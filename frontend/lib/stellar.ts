@@ -170,5 +170,34 @@ export async function invokeContract(params: {
   };
 }
 
+/**
+ * Read-only contract call via simulation — no wallet signature, no submission.
+ * Needs SOME existing funded account as the simulated tx source (sequence
+ * number bookkeeping only; it never signs or pays), so pass any connected
+ * wallet's public key.
+ */
+export async function readContract(params: {
+  contractId: string;
+  method: string;
+  args: xdr.ScVal[];
+  sourcePublicKey: string;
+  rpcUrl?: string;
+  networkPassphrase?: string;
+}): Promise<unknown> {
+  const rpcUrl = params.rpcUrl ?? SOROBAN_RPC_URL;
+  const passphrase = params.networkPassphrase ?? NETWORK_PASSPHRASE;
+  const server = new rpc.Server(rpcUrl);
+  const source = await server.getAccount(params.sourcePublicKey);
+  const contract = new Contract(params.contractId);
+  const tx = new TransactionBuilder(source, { fee: BASE_FEE, networkPassphrase: passphrase })
+    .addOperation(contract.call(params.method, ...params.args))
+    .setTimeout(30)
+    .build();
+  const sim = await server.simulateTransaction(tx);
+  if (rpc.Api.isSimulationError(sim)) throw new Error(sim.error);
+  const okSim = sim as rpc.Api.SimulateTransactionSuccessResponse;
+  return okSim.result?.retval ? scValToNative(okSim.result.retval) : null;
+}
+
 export const STELLAR_EXPERT_TX = (hash: string) =>
   `https://stellar.expert/explorer/testnet/tx/${hash}`;
