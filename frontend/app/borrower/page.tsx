@@ -343,6 +343,7 @@ export default function BorrowerDashboard() {
                   <button
                     onClick={() => runUnderwrite(false)}
                     disabled={underwriting}
+                    title="Proves a private balance (e.g. Stripe) via zero-knowledge — the API key never leaves the proof. Takes ~60-90s; the attestor network isn't instant."
                     className="electric-blue-glow inline-flex items-center justify-center gap-2 rounded bg-primary-container px-4 py-2 font-body-sm text-on-primary-container transition-all duration-300 hover:scale-105 hover:bg-primary hover:text-surface disabled:opacity-60"
                   >
                     {underwriting ? (
@@ -359,6 +360,18 @@ export default function BorrowerDashboard() {
                     Score on-chain only
                   </button>
                 </div>
+                {underwriting ? (
+                  <p className="mt-2 text-body-sm text-on-surface-variant">
+                    Proving a private balance via zero-knowledge takes ~60-90s
+                    — the attestor network isn&apos;t instant. This isn&apos;t stuck.
+                  </p>
+                ) : (
+                  <p className="mt-2 text-body-sm text-on-surface-variant/60">
+                    Zero-knowledge proof of off-chain revenue (e.g. Stripe) —
+                    the underlying API key never appears in the proof. Slower
+                    (~60-90s) than the on-chain-only score.
+                  </p>
+                )}
               </div>
             </div>
 
