@@ -10,7 +10,7 @@
         "--",
         "bash",
         "-lc",
-        "source ~/.profile; cd ~/stellar/frontend && PORT=3100 exec npm start"
+        "source ~/.profile; cd ~/stellar/frontend && exec npm run dev -- -p 3100"
       ],
       "port": 3100
     }

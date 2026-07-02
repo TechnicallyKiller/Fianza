@@ -31,17 +31,14 @@ export default function DashboardChrome({
             </Link>
             <div className="hidden gap-6 md:flex">
               <NavLink href="/borrower" current={active === "Dashboard"}>
-                Dashboard
+                Borrower
               </NavLink>
               <NavLink href="/lender" current={active === "Liquidity"}>
-                Liquidity
+                Lender
               </NavLink>
-              <span className="cursor-default font-medium text-on-surface-variant/40">
-                Swap
-              </span>
-              <span className="cursor-default font-medium text-on-surface-variant/40">
-                Governance
-              </span>
+              <NavLink href="/underwrite" current={false}>
+                Live demo
+              </NavLink>
             </div>
           </div>
           <div className="flex items-center gap-4">

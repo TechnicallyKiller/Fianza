@@ -14,24 +14,30 @@ export default function SiteHeader() {
             TrustLine
           </Link>
           <nav className="hidden items-center gap-6 md:flex">
-            <a
+            <Link
               className="font-medium text-on-surface-variant transition-colors duration-200 hover:text-primary"
-              href="/#product"
+              href="/underwrite"
             >
-              Product
-            </a>
-            <a
+              Live demo
+            </Link>
+            <Link
               className="font-medium text-on-surface-variant transition-colors duration-200 hover:text-primary"
-              href="/#how"
+              href="/demo"
             >
-              How it works
-            </a>
-            <a
+              Fraud detector
+            </Link>
+            <Link
               className="font-medium text-on-surface-variant transition-colors duration-200 hover:text-primary"
-              href="/#validation"
+              href="/borrower"
             >
-              Validation
-            </a>
+              Borrower
+            </Link>
+            <Link
+              className="font-medium text-on-surface-variant transition-colors duration-200 hover:text-primary"
+              href="/lender"
+            >
+              Lender
+            </Link>
           </nav>
         </div>
         <div className="flex items-center gap-4">
@@ -39,10 +45,10 @@ export default function SiteHeader() {
             Testnet
           </span>
           <Link
-            href="/coming-soon"
+            href="/underwrite"
             className="electric-blue-glow rounded bg-primary-container px-4 py-2 font-body-sm font-medium text-on-primary-container transition-all duration-300 hover:scale-[1.02] hover:bg-primary hover:text-surface"
           >
-            Launch app
+            Try live demo
           </Link>
         </div>
       </div>

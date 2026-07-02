@@ -40,36 +40,61 @@ export default function Home() {
         <Journey />
 
         <div className="flex flex-col items-center gap-5 text-center">
-          <h1 className="text-5xl font-bold tracking-tight text-on-surface md:text-7xl">
-            COMING SOON
+          <h1 className="max-w-3xl text-4xl font-bold tracking-tight text-on-surface md:text-6xl">
+            Credit for AI agents,
+            <br />
+            underwritten by revenue they prove.
           </h1>
-          <div className="flex items-center gap-3 text-on-surface-variant">
-            <span className="h-px w-8 bg-on-surface-variant/40" />
+          <div className="flex items-center gap-3 text-secondary">
+            <span className="h-px w-8 bg-secondary/40" />
             <span className="font-label-caps text-label-caps uppercase tracking-[0.25em]">
-              The line opens soon
+              ● Live on Stellar testnet
             </span>
-            <span className="h-px w-8 bg-on-surface-variant/40" />
+            <span className="h-px w-8 bg-secondary/40" />
           </div>
-          <p className="max-w-md text-body-md text-on-surface-variant">
-            Credit for AI agents, underwritten by revenue they can prove.
+          <p className="max-w-lg text-body-md text-on-surface-variant">
+            An agent proves what it earns, gets an on-chain USDC credit line, and
+            borrows against it — no collateral. And the engine catches agents that
+            fake their revenue. Watch it decide, live.
           </p>
-          <div className="mt-2">
-            <NotifyForm />
+
+          {/* Primary CTAs → the working live demos */}
+          <div className="mt-3 flex flex-wrap items-center justify-center gap-3">
+            <Link
+              href="/underwrite"
+              className="electric-blue-glow inline-flex items-center gap-2 rounded-lg bg-primary-container px-6 py-3 font-body-md font-medium text-on-primary-container transition-all duration-300 hover:scale-[1.02] hover:bg-primary hover:text-surface"
+            >
+              ▶ Try the live underwriter
+            </Link>
+            <Link
+              href="/demo"
+              className="inline-flex items-center gap-2 rounded-lg border border-outline-variant px-5 py-3 font-body-sm text-on-surface-variant transition-colors hover:border-primary/40 hover:text-on-surface"
+            >
+              Honest agent vs. fraudster →
+            </Link>
           </div>
 
-          {/* Access points — preview the product + sample dashboards */}
+          {/* Secondary access points + launch updates */}
           <div className="mt-4 flex flex-wrap items-center justify-center gap-x-5 gap-y-2 font-label-caps text-label-caps uppercase tracking-[0.18em] text-on-surface-variant/60">
-            <Link href="/preview" className="transition-colors hover:text-primary">
-              Early preview ↗
-            </Link>
-            <span className="text-on-surface-variant/30">/</span>
             <Link href="/borrower" className="transition-colors hover:text-primary">
-              Agent demo ↗
+              Borrower dashboard ↗
             </Link>
             <span className="text-on-surface-variant/30">/</span>
             <Link href="/lender" className="transition-colors hover:text-primary">
-              Lender demo ↗
+              Lender dashboard ↗
             </Link>
+            <span className="text-on-surface-variant/30">/</span>
+            <a
+              href="https://github.com/TechnicallyKiller/TrustLine"
+              target="_blank"
+              rel="noreferrer"
+              className="transition-colors hover:text-primary"
+            >
+              GitHub ↗
+            </a>
+          </div>
+          <div className="mt-3 opacity-80">
+            <NotifyForm />
           </div>
         </div>
       </section>
