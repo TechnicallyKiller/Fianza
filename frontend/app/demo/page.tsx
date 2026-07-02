@@ -261,8 +261,25 @@ function AgentCard({
       {/* independence breakdown */}
       {ind ? (
         <div className="rounded border border-white/5 bg-surface-dim/30 p-3">
-          <div className="mb-2 font-label-caps text-label-caps uppercase text-on-surface-variant">
-            Counterparty independence
+          <div className="mb-2 flex items-center justify-between">
+            <span className="font-label-caps text-label-caps uppercase text-on-surface-variant">
+              Counterparty independence
+            </span>
+            <span className="font-data-md text-xs text-on-surface-variant">
+              {Math.round(ind.independenceScore * 100)}% counted
+            </span>
+          </div>
+          <div className="mb-3 h-1.5 w-full overflow-hidden rounded-full bg-surface-dim/60">
+            <div
+              className={`h-full rounded-full ${
+                ind.independenceScore >= 0.6
+                  ? "bg-secondary"
+                  : ind.independenceScore > 0
+                    ? "bg-amber-400"
+                    : "bg-error"
+              }`}
+              style={{ width: `${Math.max(2, ind.independenceScore * 100)}%` }}
+            />
           </div>
           <div className="flex flex-col gap-1">
             {ind.perPayer.map((p) => (

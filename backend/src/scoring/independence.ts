@@ -457,12 +457,20 @@ async function gatherPayerFactsFromGraph(
   const coPayers = [...new Set(report.payers)];
   return Promise.all(
     report.payers.map(async (payer) => {
-      const [ageDays, outDegree, funded, agentPaid] = await Promise.all([
+      // Age: the DB's own first_seen only reflects when OUR ingester first
+      // observed this payer, not when the account actually appeared on-chain —
+      // a payer that's been active for months looks "brand new" until our graph
+      // has backfilled that far. Horizon's true account-creation date is cheap
+      // and authoritative for age specifically; take the older (larger) of the
+      // two so a deep DB history still wins once it catches up.
+      const [dbAgeDays, horizonAgeDays, outDegree, funded, agentPaid] = await Promise.all([
         graph.ageDays(payer),
+        ageDaysOf(payer),
         graph.externalOutDegree(payer, coPayers, agent),
         graph.fundedByAgent(payer, agent, MAX_HOPS),
         graph.sumPaid(agent, payer),
       ]);
+      const ageDays = Math.max(dbAgeDays, horizonAgeDays);
       return {
         payer,
         revenueStroops: revByPayer.get(payer) ?? 0n,
