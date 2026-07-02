@@ -27,3 +27,6 @@ out/
 
 # Local script with a testnet API key — never commit
 backend/_oz_wire.sh
+
+# Local durable key backups — NEVER commit
+.secrets-backup/
