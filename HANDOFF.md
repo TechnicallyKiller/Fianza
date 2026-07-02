@@ -95,10 +95,17 @@ SLEEPS after ~15 min, first request wakes it ~30–60s). Frontend
    real adversary (gap #1 stands), no partial-recovery/collections, no
    liquidation of collateral (N/A — uncollateralized by design), reserve
    parameters are unaudited/uncalibrated.
-3. **The moat is one shallow heuristic.** Loop detection at k=3 hops catches only
-   directly-self-funded Sybils. It does NOT catch collusion rings, aged wallets,
-   funding routed via exchange/4th hop, or bought revenue. `docs/sybil-model.md`
-   v1/v2 ideas are unbuilt.
+3. ~~**The moat is one shallow heuristic.**~~ **UPGRADED (Track B).** The loop
+   heuristic is now a continuous independence model (`independence.ts`): per-payer
+   `w_i` = age · external-diversity · not_funded · reciprocity, + concentration
+   (HHI) penalty → effective revenue `R_eff`. Proven by `npm run test:independence`
+   (honest passes; self-pay/fresh-farm/circular/concentration caught; mutual
+   collusion rings caught via net-flow) AND a live testnet attacker run
+   (`_trackB_*`, circular funding → 0 counted). **Remaining gaps:** sophisticated
+   *non-reciprocal* collusion rings, bought revenue, and — critically — the model
+   can only see ~24h of history (RPC event retention), so age/diversity need the
+   persistent graph from Track C to work at full strength. Not calibrated on real
+   adversarial data (gap #1 stands).
 4. **Single signer = catastrophic single point of failure.** One key mints every
    score; leak it and every vault is drainable. It's a plaintext secret in
    `.env`. It was already silently misconfigured on Render for days.
