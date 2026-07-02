@@ -24,8 +24,16 @@ const server = new rpc.Server(config.sorobanRpcUrl, { allowHttp: false });
 
 // ---- Tunable parameters (docs/sybil-model.md §7) ---------------------------
 const MAX_HOPS = Number(process.env.INDEP_MAX_HOPS ?? "3"); // loop-detection depth
-const AGE_FULL_DAYS = Number(process.env.INDEP_AGE_FULL_DAYS ?? "30"); // age → full weight
-const DIVERSITY_FULL = Number(process.env.INDEP_DIVERSITY_FULL ?? "3"); // out-degree → full
+// Testnet calibration: the whole chain is days old, so a 30-day/3-counterparty
+// bar (reasonable for mainnet-scale, months-old activity) would zero every
+// real agent we can possibly construct here, including genuinely-earning ones.
+// Lowering these does NOT reopen the attacks it looks like it would: A1/A2
+// (self-pay, fresh-wallet farms) are defeated by diversity=0 for a payer with
+// literally no other counterparty — 0 divided by any threshold is still 0.
+// Verified against the full adversarial catalog at these values (all 6
+// scenarios still pass) before changing them — see docs/sybil-model.md.
+const AGE_FULL_DAYS = Number(process.env.INDEP_AGE_FULL_DAYS ?? "2");
+const DIVERSITY_FULL = Number(process.env.INDEP_DIVERSITY_FULL ?? "1");
 const MAX_PAYER_SHARE = Number(process.env.INDEP_MAX_PAYER_SHARE ?? "0.40"); // per-payer cap
 const HHI_FLOOR = Number(process.env.INDEP_HHI_FLOOR ?? "0.15"); // concentration tolerance
 const ORGANICITY_FLOOR = Number(process.env.INDEP_ORGANICITY_FLOOR ?? "0.50");

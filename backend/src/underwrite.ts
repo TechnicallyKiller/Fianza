@@ -8,6 +8,34 @@ import { analyzeIndependence, type IndependenceResult } from "./scoring/independ
 import { attestScore, submitScore, type Attestation, type SubmitResult } from "./signer/index.js";
 import { readRepayments } from "./chain/registry.js";
 import { saveResult, getResult, listResults } from "./results.js";
+import { dbConfigured } from "./db/index.js";
+import { graphRevenue } from "./scoring/graph.js";
+
+const STROOPS = 10_000_000;
+
+/**
+ * Revenue over the agent's full history from the persisted payment graph
+ * (Track C), not the RPC's ~24h event-retention window. An agent's real
+ * payments age out of the RPC window in about a day; the graph remembers them
+ * as long as the indexer has been running. Falls back to null (caller uses the
+ * RPC path) when no DB is configured or the graph has nothing for this agent.
+ */
+async function graphRevenueReport(agent: string): Promise<RevenueReport | null> {
+  if (!dbConfigured()) return null;
+  const g = await graphRevenue(agent, 0);
+  if (g.payers.length === 0) return null;
+  const total = BigInt(g.totalStroops);
+  return {
+    agent,
+    totalRevenueStroops: g.totalStroops,
+    totalRevenueUsdc: Number(total) / STROOPS,
+    distinctPayers: g.payers.length,
+    payers: g.payers,
+    payments: g.payments,
+    windowFromLedger: 0,
+    windowToLedger: g.payments.at(-1)?.ledger ?? 0,
+  };
+}
 
 export { getResult, listResults };
 
@@ -35,7 +63,17 @@ export async function underwrite(
   agent: string,
   opts: UnderwriteOptions = {},
 ): Promise<UnderwritingResult> {
-  const revenue = await indexRevenue(agent, { fromLedger: opts.fromLedger });
+  const [rpcRevenue, graphRev] = await Promise.all([
+    indexRevenue(agent, { fromLedger: opts.fromLedger }),
+    graphRevenueReport(agent).catch(() => null),
+  ]);
+  // Prefer whichever source has seen MORE revenue — the graph usually wins
+  // once an agent's history is older than the RPC's retention window, but the
+  // RPC path stays authoritative for agents newer than the graph's backfill.
+  const revenue =
+    graphRev && BigInt(graphRev.totalRevenueStroops) > BigInt(rpcRevenue.totalRevenueStroops)
+      ? graphRev
+      : rpcRevenue;
 
   // Counterparty independence: only revenue from payers NOT funded by the agent
   // counts. Defeats the self-pay Sybil attack. Resilient — on failure we fall
