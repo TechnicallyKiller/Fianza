@@ -17,6 +17,20 @@ function native(t: unknown): unknown {
   return scValToNative(sv);
 }
 
+/** Robustly extract a transfer amount. Most SAC transfers carry the amount as a
+ *  bare i128; muxed-destination transfers wrap it as `{amount, to_muxed_id}`.
+ *  Returns null for shapes we don't recognise (skip, don't crash the ingest). */
+function amountOf(value: unknown): bigint | null {
+  const v = native(value);
+  try {
+    if (typeof v === "bigint" || typeof v === "number" || typeof v === "string") return BigInt(v);
+    if (v && typeof v === "object" && "amount" in v) return BigInt((v as { amount: unknown }).amount as never);
+  } catch {
+    /* fall through */
+  }
+  return null;
+}
+
 async function getEventsRetry(
   req: rpc.Server.GetEventsRequest,
   attempts = 4,
@@ -164,11 +178,13 @@ export async function ingest(opts: { fromLedger?: number; maxPages?: number } = 
       const topics = (e.topic as unknown[]).map(native);
       const [, from, to] = topics as [string, string, string, string];
       if (typeof from !== "string" || typeof to !== "string") continue;
+      const amount = amountOf(e.value);
+      if (amount === null) continue; // non-standard transfer shape — skip
       rows.push({
         eventId: e.id,
         from,
         to,
-        amount: BigInt(native(e.value) as bigint | number | string).toString(),
+        amount: amount.toString(),
         ledger: e.ledger,
         time: e.ledgerClosedAt,
         txHash: e.txHash,
