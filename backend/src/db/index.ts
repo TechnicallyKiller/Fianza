@@ -70,6 +70,21 @@ CREATE TABLE IF NOT EXISTS sync_state (
   last_ledger INTEGER NOT NULL,
   updated_at  TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+-- Latest underwriting result per agent (replaces the in-memory store, so state
+-- survives restarts). Full result kept as JSONB; hot columns for cheap listing.
+CREATE TABLE IF NOT EXISTS underwriting_results (
+  agent          TEXT PRIMARY KEY,
+  score          INTEGER NOT NULL,
+  tier           TEXT NOT NULL,
+  limit_usdc     DOUBLE PRECISION NOT NULL,
+  revenue_usdc   DOUBLE PRECISION NOT NULL,
+  distinct_payers INTEGER NOT NULL,
+  underwrote_at  INTEGER NOT NULL,
+  result         JSONB NOT NULL,
+  updated_at     TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_uw_updated ON underwriting_results(updated_at DESC);
 `;
 
 /** Create tables/indexes if they don't exist (safe to run repeatedly). */

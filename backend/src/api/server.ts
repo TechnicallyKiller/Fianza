@@ -11,10 +11,21 @@ import { config } from "../config.js";
 import { indexRevenue } from "../indexer/index.js";
 import { underwrite, getResult, listResults } from "../underwrite.js";
 import { signerPublicKey, recordRepayment } from "../signer/index.js";
+import { dbConfigured, migrate } from "../db/index.js";
+import { startContinuousIngest } from "../indexer/persistent.js";
 
 export async function buildServer() {
   const app = Fastify({ logger: true });
   await app.register(cors, { origin: true });
+
+  // Persistence + continuous graph indexing (Track C), only when a DB is set.
+  if (dbConfigured()) {
+    await migrate();
+    app.log.info("database configured — schema ready, starting continuous indexer");
+    startContinuousIngest();
+  } else {
+    app.log.warn("DATABASE_URL not set — using in-memory store (state lost on restart)");
+  }
 
   app.get("/health", async () => ({ ok: true, ts: Date.now() }));
 
@@ -105,14 +116,14 @@ export async function buildServer() {
 
   // Last stored underwriting result for an agent.
   app.get<{ Params: { address: string } }>("/agent/:address", async (req, reply) => {
-    const r = getResult(req.params.address);
+    const r = await getResult(req.params.address);
     if (!r) return reply.code(404).send({ error: "not underwritten yet" });
     return r;
   });
 
   // All underwritten agents (lender dashboard).
   app.get("/agents", async () =>
-    listResults().map((r) => ({
+    (await listResults()).map((r) => ({
       agent: r.agent,
       score: r.score.score,
       tier: r.score.tier,

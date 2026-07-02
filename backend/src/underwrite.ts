@@ -7,6 +7,9 @@ import { computeScoreResult, type ScoreResult } from "./scoring/index.js";
 import { analyzeIndependence, type IndependenceResult } from "./scoring/independence.js";
 import { attestScore, submitScore, type Attestation, type SubmitResult } from "./signer/index.js";
 import { readRepayments } from "./chain/registry.js";
+import { saveResult, getResult, listResults } from "./results.js";
+
+export { getResult, listResults };
 
 export interface UnderwritingResult {
   agent: string;
@@ -20,9 +23,6 @@ export interface UnderwritingResult {
   submission: SubmitResult;
   underwroteAt: number;
 }
-
-// Latest result per agent (MVP in-memory store; the lender dashboard lists these).
-const store = new Map<string, UnderwritingResult>();
 
 export interface UnderwriteOptions {
   /** Skip the (slow, on-chain) Reclaim proof — useful for quick revenue-only runs. */
@@ -105,14 +105,6 @@ export async function underwrite(
     submission,
     underwroteAt: Math.floor(Date.now() / 1000),
   };
-  store.set(agent, result);
+  await saveResult(result);
   return result;
-}
-
-export function getResult(agent: string): UnderwritingResult | undefined {
-  return store.get(agent);
-}
-
-export function listResults(): UnderwritingResult[] {
-  return [...store.values()];
 }

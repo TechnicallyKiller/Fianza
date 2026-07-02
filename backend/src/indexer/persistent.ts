@@ -202,6 +202,35 @@ export async function ingest(opts: { fromLedger?: number; maxPages?: number } = 
   return { inserted, pages, fromLedger: start, toLedger: maxLedgerSeen };
 }
 
+/**
+ * Run the ingester continuously, resuming from the stored cursor each tick, so
+ * the graph stays fresh without manual runs. Overlapping ticks are skipped;
+ * failures are logged, never fatal. Started by the API server when a DB is set.
+ */
+export function startContinuousIngest(
+  intervalSecs = Number(process.env.INDEX_INTERVAL_SECS ?? "30"),
+): void {
+  let running = false;
+  const tick = async () => {
+    if (running) return;
+    running = true;
+    try {
+      const r = await ingest({});
+      if (r.inserted > 0) {
+        console.log(`[indexer] +${r.inserted} payments, cursor → ledger ${r.toLedger}`);
+      }
+    } catch (e) {
+      console.error("[indexer] ingest tick failed:", e instanceof Error ? e.message : e);
+    } finally {
+      running = false;
+    }
+  };
+  void tick();
+  const timer = setInterval(() => void tick(), intervalSecs * 1000);
+  timer.unref?.();
+  console.log(`[indexer] continuous ingest every ${intervalSecs}s`);
+}
+
 // CLI entry: npx tsx src/indexer/persistent.ts [fromLedger] [maxPages]
 if (import.meta.url === `file://${process.argv[1]}`) {
   const fromLedger = process.argv[2] ? Number(process.argv[2]) : undefined;
