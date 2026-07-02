@@ -214,6 +214,29 @@ function native(t: unknown): unknown {
   return scValToNative(sv);
 }
 
+/** getEvents with a small retry on transient network drops (undici "fetch
+ *  failed", resets, DNS blips). The engine fans out many of these; one flaky
+ *  socket must not abort the whole independence analysis. */
+async function getEventsRetry(
+  req: rpc.Server.GetEventsRequest,
+  attempts = 4,
+): Promise<rpc.Api.GetEventsResponse> {
+  let lastErr: unknown;
+  for (let i = 0; i < attempts; i++) {
+    try {
+      return await server.getEvents(req);
+    } catch (e) {
+      lastErr = e;
+      const msg = e instanceof Error ? e.message : String(e);
+      if (!/fetch failed|ECONN|ETIMEDOUT|socket|network|EAI_AGAIN|other side closed/i.test(msg)) {
+        throw e; // real error (e.g. ledger-range) — let the caller handle it
+      }
+      await new Promise((r) => setTimeout(r, 300 * (i + 1)));
+    }
+  }
+  throw lastErr;
+}
+
 /** Distinct accounts that have sent USDC *to* `account` (topic-filtered scan). */
 async function fundersOf(account: string, fromLedger: number): Promise<Set<string>> {
   return usdcCounterparties(account, "to", fromLedger);
@@ -244,14 +267,14 @@ async function usdcCounterparties(
     let resp: rpc.Api.GetEventsResponse;
     try {
       resp = cursor
-        ? await server.getEvents({ filters, limit: 200, cursor } as rpc.Server.GetEventsRequest)
-        : await server.getEvents({ startLedger: start, filters, limit: 200 });
+        ? await getEventsRetry({ filters, limit: 200, cursor } as rpc.Server.GetEventsRequest)
+        : await getEventsRetry({ startLedger: start, filters, limit: 200 });
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       const m = /ledger range:\s*(\d+)\s*-\s*(\d+)/.exec(msg);
       if (m && !cursor) {
         start = Math.min(Math.max(start, Number(m[1])), Number(m[2]));
-        resp = await server.getEvents({ startLedger: start, filters, limit: 200 });
+        resp = await getEventsRetry({ startLedger: start, filters, limit: 200 });
       } else {
         throw e;
       }
