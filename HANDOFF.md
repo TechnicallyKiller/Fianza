@@ -109,8 +109,19 @@ SLEEPS after ~15 min, first request wakes it ~30–60s). Frontend
 4. **Single signer = catastrophic single point of failure.** One key mints every
    score; leak it and every vault is drainable. It's a plaintext secret in
    `.env`. It was already silently misconfigured on Render for days.
-5. **No scale/persistence.** In-memory store; on-demand indexer with ~1 day
-   retention, manual `fromLedger`, no DB, no backfill. Can't onboard at volume.
+5. **No scale/persistence.** *Partly addressed (Track C).* A persistent
+   payment-graph indexer now exists: Postgres (Neon) `payments`/`accounts`/
+   `sync_state`, `indexer/persistent.ts` (idempotent, resumable, `npm run
+   db:ingest`), and `scoring/graph.ts` full-history signals incl. loop detection
+   as one recursive SQL query. The moat auto-reads the graph when `DATABASE_URL`
+   is set (removes the ~24h RPC-retention blindness on QUERIES; history
+   accumulates forward as the ingester runs). Verified live on Neon (95
+   payments/53 accounts; circular attacker caught from the DB). **Still missing:**
+   the underwriting store is still in-memory (agents/scores/results lost on
+   restart — DB tables not wired for those yet), no continuous ingester
+   loop/cron, no BullMQ/Redis job queue, no Hubble backfill for deep history.
+   `DATABASE_URL` is set in `backend/.env`; **must also be set on Render** (it's
+   `sync:false` in render.yaml).
 6. **Contracts unaudited.** No audit, no formal verification, no fuzzing, no
    invariant tests, no caps, no pause switch.
 7. **Fragile external deps** in the critical path: OZ Channels facilitator
