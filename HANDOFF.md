@@ -116,12 +116,15 @@ SLEEPS after ~15 min, first request wakes it ~30–60s). Frontend
    as one recursive SQL query. The moat auto-reads the graph when `DATABASE_URL`
    is set (removes the ~24h RPC-retention blindness on QUERIES; history
    accumulates forward as the ingester runs). Verified live on Neon (95
-   payments/53 accounts; circular attacker caught from the DB). **Still missing:**
-   the underwriting store is still in-memory (agents/scores/results lost on
-   restart — DB tables not wired for those yet), no continuous ingester
-   loop/cron, no BullMQ/Redis job queue, no Hubble backfill for deep history.
-   `DATABASE_URL` is set in `backend/.env`; **must also be set on Render** (it's
-   `sync:false` in render.yaml).
+   payments/53 accounts; circular attacker caught from the DB). The underwriting
+   store is now **persisted** too (`underwriting_results` JSONB via `results.ts`,
+   in-memory fallback) and the indexer runs **continuously** (`startContinuousIngest`,
+   `INDEX_INTERVAL_SECS` default 30s, started by `buildServer` when a DB is set) —
+   verified live (server auto-ingested 95→404 payments; an underwrite persisted +
+   served from `/agents`). **Still missing:** no BullMQ/Redis job queue (async
+   re-underwrite/retry), no Hubble/history backfill for pre-retention deep
+   history, other tables (payments-graph aside) minimal. `DATABASE_URL` is in
+   `backend/.env`; **must also be set on Render** (it's `sync:false` in render.yaml).
 6. **Contracts unaudited.** No audit, no formal verification, no fuzzing, no
    invariant tests, no caps, no pause switch.
 7. **Fragile external deps** in the critical path: OZ Channels facilitator
