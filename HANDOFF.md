@@ -431,7 +431,47 @@ funding source again.
    (Stellar/Soroban dev community, x402 protocol community, AI agent-builder
    circles, direct outreach) — nothing programmatic to do here, it's outreach.
 
-**Recommended next move for a fresh session:** #2 (Horizon backfill) is the
-most concretely scoped, highest-leverage piece of remaining engineering work
-and was mid-discussion when this session ended — pick that up first unless
-the user redirects.
+**Update, same session, right after the above was written — #2 and zkTLS are
+now DONE, not just planned:**
+
+- **Horizon backfill (item #2) is BUILT.** `backend/src/indexer/horizon.ts`
+  (`horizonUsdcTransfers`) walks an account's full Horizon operation history
+  and extracts every USDC transfer — handles BOTH forms a transfer takes on
+  this protocol: a Soroban `invoke_host_function` SAC call, and a classic
+  `payment` operation. Missing the classic-payment case was a real bug caught
+  while testing against Scout's known-correct revenue (undercounted 19
+  USDC/3 payers instead of 20.5/6 — fixed before shipping). Wired into
+  `underwrite.ts` as a third-tier fallback: only checked when RPC + our own
+  graph both come up under 0.5 USDC for an agent, resilient to failure.
+  **NOT yet extended to the independence engine's diversity (out-degree)
+  signal** — that still only sees RPC/graph-depth history per payer. Age
+  already used Horizon and was already correct. Worth doing if a payer's
+  *own* diversity (not the agent's revenue) needs deep history too.
+- **zkTLS proof now demonstrates a real, non-trivial, non-zero result.** It
+  was always cryptographically working, but proved $0 because the Stripe
+  test account's `available` balance was empty. Fixed with two real (not
+  faked) changes: (1) created genuine Stripe TEST-MODE charges (`sk_test_`
+  key + Stripe's own `tok_visa` test token — zero real money possible), (2)
+  switched the proven field from `available` to `pending`, since Stripe
+  holds charged funds pending for days before settling — `pending` is itself
+  a real, verifiable balance field and arguably the *more* correct one to
+  underwrite against (revenue the moment it's earned, not delayed by payout
+  scheduling). Verified live: proved $73.86, `secretSafe:true`,
+  `verified:true`, real on-chain tx
+  `7dd9f5235cad3b47cb21fb5a5d1bce74f6354f9158fca0ff0b35a428dd7a0320` — and it
+  meaningfully changed a real score (Scout → 775/Tier A, since the offchain
+  component carries 1.5x weight). Still slow (~70-90s, Reclaim attestor
+  network) — deliberately still not added to `/underwrite`'s fast demo flow,
+  stays a `/borrower`-only, narrated feature.
+- Neither of these has been deployed to the LIVE Render backend yet this
+  session (both were tested against a local instance) — a fresh session
+  should confirm the push auto-deployed and re-verify both live before
+  assuming they're active in production, per the standing "Render dashboard
+  doesn't always auto-sync" caution above.
+
+**Recommended next move for a fresh session:** verify both of the above are
+live on Render (`/agent/<addr>/underwrite` for a thin-history testnet agent
+should now find revenue via Horizon; the zkTLS proof button should now
+return a nonzero figure). After that, items #1 (signer key) and #4 (Analyst/
+Reviewer public hosting, currently paused on Render's card requirement) are
+the two with the most real value left on the table.
