@@ -21,7 +21,14 @@ import { getRecId, formatSignature, getSerializedClaim, getHash } from "./utils.
 
 const STRIPE_URL = "https://api.stripe.com/v1/balance";
 // Stripe pretty-prints JSON, so allow whitespace between tokens.
-const AMT_REGEX = '"available":\\s*\\[\\s*\\{\\s*"amount":\\s*(?<amt>\\d+)';
+// Proving `pending` rather than `available`: Stripe (test AND live mode)
+// holds funds pending for several days before they settle to `available`, so
+// `available` legitimately reads $0 right after a charge even though real
+// revenue was just earned. `pending` is itself a real, verifiable Stripe
+// balance figure — and it's the more correct one for underwriting anyway,
+// since it reflects revenue the moment it's earned rather than delayed by
+// payout scheduling that has nothing to do with creditworthiness.
+const AMT_REGEX = '"pending":\\s*\\[\\s*\\{\\s*"amount":\\s*(?<amt>\\d+)';
 // zkTLS proof generation occasionally stalls on the Reclaim attestor network;
 // bound it so a hung attestor can never block the pipeline.
 const PROOF_TIMEOUT_MS = Number(process.env.PROOF_TIMEOUT_MS ?? "120000");
