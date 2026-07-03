@@ -10,8 +10,49 @@ import { readRepayments } from "./chain/registry.js";
 import { saveResult, getResult, listResults } from "./results.js";
 import { dbConfigured } from "./db/index.js";
 import { graphRevenue } from "./scoring/graph.js";
+import { horizonUsdcTransfers } from "./indexer/horizon.js";
+import { config } from "./config.js";
 
 const STROOPS = 10_000_000;
+// Below this, treat RPC/graph revenue as "thin" and worth checking Horizon's
+// full history before accepting a near-zero result — an agent whose real
+// activity predates our ~24h RPC window and our own graph's start date would
+// otherwise always look unrated, no matter how real its history is.
+const THIN_REVENUE_STROOPS = 5_000_000n; // 0.5 USDC
+
+/**
+ * Revenue from Horizon's FULL account history (indexer/horizon.ts) — not the
+ * RPC's ~24h window, not our own graph's forward-collected data. Slower (a
+ * paginated REST walk of one account's whole history), so this is only called
+ * as a last-resort fallback when the faster sources come up thin. Resilient:
+ * any failure (rate limit, network) just means we keep whatever the faster
+ * sources found, never breaks the underwrite pass.
+ */
+async function horizonRevenueReport(agent: string): Promise<RevenueReport | null> {
+  const exclude = new Set(config.excludeAddresses);
+  const transfers = await horizonUsdcTransfers(agent);
+  const payerSet = new Set<string>();
+  let total = 0n;
+  const payments: RevenueReport["payments"] = [];
+  for (const t of transfers) {
+    if (t.to !== agent || t.from === agent || exclude.has(t.from)) continue;
+    const amt = BigInt(t.amount);
+    total += amt;
+    payerSet.add(t.from);
+    payments.push({ from: t.from, amount: t.amount, ledger: 0, txHash: "" });
+  }
+  if (payerSet.size === 0) return null;
+  return {
+    agent,
+    totalRevenueStroops: total.toString(),
+    totalRevenueUsdc: Number(total) / STROOPS,
+    distinctPayers: payerSet.size,
+    payers: [...payerSet],
+    payments,
+    windowFromLedger: 0,
+    windowToLedger: 0,
+  };
+}
 
 /**
  * Revenue over the agent's full history from the persisted payment graph
@@ -70,10 +111,25 @@ export async function underwrite(
   // Prefer whichever source has seen MORE revenue — the graph usually wins
   // once an agent's history is older than the RPC's retention window, but the
   // RPC path stays authoritative for agents newer than the graph's backfill.
-  const revenue =
+  let revenue =
     graphRev && BigInt(graphRev.totalRevenueStroops) > BigInt(rpcRevenue.totalRevenueStroops)
       ? graphRev
       : rpcRevenue;
+
+  // Both fast sources came up thin — before accepting that, check Horizon's
+  // full history. Catches agents whose real activity predates both the RPC's
+  // ~24h window and our own graph's start date (e.g. an agent that earned
+  // real revenue weeks ago and has been quiet since).
+  if (BigInt(revenue.totalRevenueStroops) < THIN_REVENUE_STROOPS) {
+    try {
+      const horizonRev = await horizonRevenueReport(agent);
+      if (horizonRev && BigInt(horizonRev.totalRevenueStroops) > BigInt(revenue.totalRevenueStroops)) {
+        revenue = horizonRev;
+      }
+    } catch {
+      /* Horizon fallback is best-effort — keep whatever the fast paths found */
+    }
+  }
 
   // Counterparty independence: only revenue from payers NOT funded by the agent
   // counts. Defeats the self-pay Sybil attack. Resilient — on failure we fall
