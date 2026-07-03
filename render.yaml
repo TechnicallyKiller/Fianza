@@ -83,3 +83,26 @@ services:
         value: https://trustline.onrender.com
       - key: REVIEWER_PRICE_USDC
         value: "0.3"
+
+  # Keep-alive: pays one real, small research/review job to Analyst or
+  # Reviewer from a random existing customer wallet, every 20 min. Research/
+  # review jobs only -- never places a trade or moves funds on its own
+  # decision (see agents/keep-alive.mjs header for the full scope note).
+  - type: cron
+    name: trustline-keep-alive
+    runtime: node
+    rootDir: agents
+    buildCommand: npm install
+    schedule: "*/20 * * * *"
+    startCommand: node keep-alive.mjs
+    envVars:
+      - key: CUSTOMER1_SECRET
+        sync: false
+      - key: CUSTOMER2_SECRET
+        sync: false
+      - key: CUSTOMER3_SECRET
+        sync: false
+      - key: ANALYST_URL
+        value: https://trustline-analyst.onrender.com/research
+      - key: REVIEWER_URL
+        value: https://trustline-reviewer.onrender.com/review
