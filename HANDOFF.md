@@ -1,6 +1,6 @@
 # TrustLine — Reality & Handoff (READ THIS FIRST)
 
-_Last updated: 2026-07-02. If you're a new session, read this whole file before
+_Last updated: 2026-07-04. If you're a new session, read this whole file before
 touching anything. It is deliberately blunt. `PROJECT_LOG.md` has the granular
 history; this file is the truth + the plan._
 
@@ -298,22 +298,140 @@ Backend is on Render, not local. Nothing else local.
 
 ## Part 6 — Immediate state & first actions for a new session
 
-- Latest pushed commit: `bea5d85`. **Uncommitted (Track A + prior):** the
-  Track A changes — `contracts/libraries/revenue_math`, `contracts/lending_vault`,
-  `contracts/credit_line`, `contracts/score_registry` (RepaymentRecord moved to
-  revenue_math), `backend/src/{chain,scoring,signer,underwrite,api}`, deploy
-  scripts `contracts/_trackA_*.sh` + `_trackA_ids.txt`, `backend/.env` (new ids);
-  plus prior `packages/agent-sdk/src/index.ts`, `agents/` (source only), docs.
-  Track A build+deploy+live-test is DONE and green (35 Rust tests + a live
-  testnet default run). SDK `dist/` gitignored — rebuild with
-  `cd packages/agent-sdk && npm run build`.
-- **Track A next steps:** update Render env to the new contract ids (above);
-  optionally re-run the live default demo with an interest-repay step first to
-  show a non-zero reserve draw (was 0 live because the agent never repaid before
-  defaulting). Then pick Track B or C.
-- Task #17 (unfinished): deploy Scout + DataCo persistently + a public "Scout,
-  live" status page. Lower priority than the three tracks now.
-- **Recommended first move:** pick ONE of Track A / B / C and go deep. If unsure,
-  **Track A (credit/risk engine)** — it's the most glaring "this isn't a lending
-  product" hole and it's fully testnet-buildable, or **Track B** if the moat/
-  fundraise story matters more. Don't do all three at once.
+_Updated 2026-07-04, end of a long multi-day session. Everything below is
+pushed to `main` unless stated otherwise — check `git log --oneline -20` to
+orient. Tracks A/B/C (Part 3) are all DONE, not just planned — see below._
+
+**Tracks A/B/C are built, tested, and live on testnet:**
+- **Track A (credit/risk):** `lending_vault` has default lifecycle, first-loss
+  reserve, credit ramps, dynamic APR, **plus safety rails** (admin pause/unpause
+  — exits never blocked —, admin-adjustable per-vault deposit cap, and a
+  1,500-step randomized invariant fuzz test proving
+  `token.balance(vault) == liquidity + reserve + yield_pool` holds after every
+  random action). Current vault: `CAMF3BS23WXYMA6W6E55VSX577GIPSRKJXJKLL2G46TABUQ4GIRGHIL3`
+  (term 300s, cap 10,000 USDC). credit_line: `CC4ZAKREYMCDEONIQMSSBYOBFC75LL5NPYVEBRZ5SACHYWLYGK2R7GDO`.
+  Registry (`CAZUPW5MWHG5XCE7BM6YP6M52NPB6TPRRAXU3GEV4TL2AR2ZMYE7TRSX`) has
+  never been redeployed — all history preserved across every contract upgrade.
+  40 Rust tests total, all green (`cd contracts && cargo test`).
+- **Track B (moat):** `backend/src/scoring/independence.ts` — real model (age ·
+  external-diversity · not-funded · reciprocity · concentration), NOT the old
+  loop-only heuristic. Testnet-calibrated (`INDEP_AGE_FULL_DAYS=2`,
+  `INDEP_DIVERSITY_FULL=1` — verified against the full adversarial catalog
+  before changing these; A1/A2 self-pay/fresh-farm attacks are defeated by the
+  diversity signal specifically, which is unaffected by the age threshold).
+  `npm run test:independence` in backend/ proves it against a synthetic attack
+  catalog; also proven against a REAL on-chain circular-funding attacker.
+- **Track C (scale):** Postgres (Neon) persists the payment graph AND the
+  underwriting-results store; a continuous indexer runs in-process
+  (`startContinuousIngest`, `backend/src/indexer/persistent.ts`) whenever
+  `DATABASE_URL` is set. `underwrite()` now reads revenue from whichever of
+  {RPC live window, our Postgres graph} has seen more — fixes the ~24h RPC
+  blindness for agents already in our graph, but **the graph only has data from
+  when WE started ingesting (~July 1). It is NOT a real historical backfill.**
+
+**Real agents with real, live, verified ratings (not synthetic):**
+Scout (`GC654YOQQWSOYVDJKIYY726J3ULZBAQJYJXNUCXZPJ4EBCTFFLNTZOS5`), Analyst
+(`GDJDMZDLOUQL3ZGOXOIGBQIX7SYQDIXDJ5DC3IQN4JYZ4EJY4WXMDJDC`, trading-research,
+x402-priced), and Reviewer (`GAB4FYJSDKQBID2JZRNU4LPTOZIOXDNBSBZ7C5SSGJOYW6WDWWCTHRHJ`,
+code-review, x402-priced) all show real Tier C ratings on `/lender` from real
+customer payments (`agents/pay-agent.mjs`, `agents/onboard.mjs`). Source in
+`agents/analyst/`, `agents/reviewer/`. **Analyst/Reviewer are NOT publicly
+hosted yet** — `render.yaml` has both service definitions ready but the user
+hit Render's card-on-file requirement partway through dashboard setup and
+paused there (see "Open items" below).
+
+**Frontend is coherent and live-demo-ready:** landing leads with the product
+(no more "COMING SOON"), `/underwrite` is the flagship — paste any address,
+watch a live verdict + per-payer independence breakdown, presets for honest/
+sybil/live-attacker. `/lender` shows real underwritten agents + a working
+deposit flow (code-verified, not yet click-tested with a live wallet
+extension by anyone). `/borrower` had a real bug — "Currently Borrowed"/
+"Amount Drawn" were hardcoded to `0`, never read live vault state — **fixed**
+(`lib/stellar.ts` `readContract()` + wired into the page). zkTLS proof
+(`/borrower`'s "Submit revenue proof") is genuinely verified working
+end-to-end tonight (real proof, real on-chain verify, `secretSafe:true`,
+~68s) — deliberately NOT added to `/underwrite` (too slow for a live click-
+through demo), just given expectation-setting copy on `/borrower`.
+
+**A real user click-tested the actual connect-wallet-and-underwrite flow
+tonight** (first time either of us had) — a fresh wallet correctly scored
+400/Unrated/0 (zero revenue, correct result, not a bug), then was funded with
+real USDC from three clean/aged/unrelated wallets and re-scored to a real
+Tier C live on the production Render backend. This is the strongest
+end-to-end proof yet that the whole pipeline works for an outside wallet, not
+just our own agents.
+
+**A real, self-inflicted data-integrity incident happened and was fixed
+tonight** — see `memory` file `trustline-funding-contamination-trap` (or just:
+never fund a test customer wallet from another agent's own dependency wallet;
+it creates a real on-chain loop the independence engine will correctly and
+*permanently* flag). Scout's original 3 customer wallets are permanently
+tainted for Scout specifically because of this; Scout's current real rating
+comes from 3 different, clean payers (`AGENT`/`SERVICE` — old spike1 wallets —
+plus `SCOUT_LENDER`). Keep this pattern in mind before ever using a "convenient"
+funding source again.
+
+**Open items, in priority order:**
+1. **Signer key is still a single point of failure.** A native-Stellar-
+   multisig fix was attempted and deliberately reverted mid-build (see git
+   log — the SDK's `authorizeEntry()` only supports one signature per entry,
+   required hand-building CAP-46-4 auth entries; it worked but was too
+   fragile to ship same-session). Cheapest real improvement not yet done: get
+   `SCORE_SIGNER_SECRET` out of plaintext `.env`, document rotation.
+2. **Real historical backfill, NOT yet built.** Confirmed live tonight:
+   Horizon (`horizon-testnet.stellar.org`, NOT the Soroban RPC) retains FULL
+   history indefinitely, and its `/operations` endpoint returns the raw
+   `invoke_host_function` call params (base64 XDR) for every historical
+   `transfer` call — decodable with the exact same `scValToNative` pattern
+   already used everywhere in this codebase. This is a much simpler path than
+   the Hubble/BigQuery or captive-core/Galexie options this file used to
+   speculate about. **Plan:** add a Horizon-based deep-history revenue+payer
+   lookup (`backend/src/indexer/` or a new `horizon-backfill.ts`), used as a
+   fallback when RPC + our own graph both come up empty/thin for an agent
+   being underwritten, and/or as a one-time backfill job to seed the Postgres
+   graph with real depth instead of only forward-collected data. NOT yet
+   started — this is the next concretely-scoped task.
+3. **Network-mismatch trap, worth a quick guard:** tonight a user tried to
+   underwrite a real external agent (`GDDTQFQZK734EXIJE5LWU4G4YC5A6P5AHJ4UWVMV6WBFWT6BAAQQHV2V`,
+   found via a "stellar8004" AI-agent reputation site) that turned out to be a
+   **mainnet** address, not testnet — scored 400 correctly, but for a
+   confusing reason (wrong network entirely, not lack of history). Worth a
+   cheap UX fix: detect/warn when an underwrite target resolves on mainnet but
+   not testnet (or vice versa) instead of silently returning a zero score.
+   Not started.
+4. **Analyst/Reviewer public hosting — paused mid-setup.** `render.yaml` has
+   both services fully defined (rootDir `agents`, builds `packages/agent-sdk`
+   first). User hit Render asking for a card on file when creating a plain Web
+   Service (not just the Cron Job type as first assumed) and paused rather
+   than commit to that without deciding first. `agents/.env` has the wallet
+   secrets needed (`ANALYST_WALLET_SECRET/PUBLIC`, `REVIEWER_WALLET_SECRET/PUBLIC`).
+5. **Keep-alive is built and free-tier-friendly**, not yet scheduled anywhere.
+   `agents/keep-alive.mjs` exports `tick()` (real, small, scoped x402 research/
+   review job from a random existing customer wallet — explicitly research/
+   review ONLY, never trades, see the file's header). Rather than a paid
+   Render Cron Job, it's wired as a **token-protected HTTP endpoint** on
+   Analyst (`GET /keep-alive-tick?token=...` in `agents/analyst/server.mjs`,
+   `KEEPALIVE_TOKEN` env var) so a free external pinger (cron-job.org,
+   UptimeRobot) can trigger it with zero Render billing. Verified locally:
+   wrong token → 403, correct token → real tick, HTTP 200. Blocked on #4 (needs
+   Analyst actually deployed first) plus the user setting up the free external
+   pinger.
+6. **Backend cold-start mitigated** — user has a UptimeRobot (or similar) ping
+   on `https://trustline.onrender.com/health` from earlier tonight; confirm
+   it's still active in a new session (`curl .../health` should respond
+   instantly, not after a 30-60s cold-start delay, if the ping is working).
+7. **Render dashboard historically has NOT auto-synced from `render.yaml`'s
+   literal `value:` fields** — confirmed twice tonight (contract ids and
+   `DEMO_HONEST_AGENT` were stale in the dashboard despite render.yaml having
+   the right values for multiple pushes). Always verify `/config` and `/demo`
+   on the live backend after a contract/config-relevant push rather than
+   assume Render picked it up automatically.
+8. **Traction is still ~0 real external users.** Not a code problem. One X
+   post went out tonight. See Part 3 discussion in-session for channel ideas
+   (Stellar/Soroban dev community, x402 protocol community, AI agent-builder
+   circles, direct outreach) — nothing programmatic to do here, it's outreach.
+
+**Recommended next move for a fresh session:** #2 (Horizon backfill) is the
+most concretely scoped, highest-leverage piece of remaining engineering work
+and was mid-discussion when this session ended — pick that up first unless
+the user redirects.
