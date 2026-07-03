@@ -15,6 +15,7 @@ import { HTTPFacilitatorClient } from "@x402/core/server";
 import { ExactStellarScheme } from "@x402/stellar/exact/server";
 import { TrustLineAgent } from "../../packages/agent-sdk/dist/index.js";
 import { think } from "../shared/brain.mjs";
+import { tick as keepAliveTick } from "../keep-alive.mjs";
 
 const NETWORK = "stellar:testnet";
 // Render (and most PaaS hosts) assign their own PORT and expect the app to
@@ -88,5 +89,18 @@ app.get("/status", async (_req, res) => {
 });
 
 app.get("/health", (_req, res) => res.json({ ok: true, service: "analyst", agent: PAYTO }));
+
+// Keep-alive trigger — lets a FREE external pinger (cron-job.org, UptimeRobot)
+// fire one keep-alive tick without needing a paid Render Cron Job. Protected
+// by a shared token so random internet traffic can't spend the customer
+// wallets' real testnet USDC. Set KEEPALIVE_TOKEN in this service's env and
+// give the same value to whatever pings this URL.
+app.get("/keep-alive-tick", async (req, res) => {
+  if (!process.env.KEEPALIVE_TOKEN || req.query.token !== process.env.KEEPALIVE_TOKEN) {
+    return res.status(403).json({ error: "forbidden" });
+  }
+  const result = await keepAliveTick();
+  res.json(result);
+});
 
 app.listen(PORT, "0.0.0.0", () => console.log(`Analyst listening on :${PORT}  price=${PRICE}  agent=${PAYTO}`));

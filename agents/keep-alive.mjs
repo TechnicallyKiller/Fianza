@@ -8,12 +8,12 @@
 // scheduled traffic from wallets we control, which is honest (real payments,
 // real settlement, real LLM calls) but not a substitute for real users.
 //
-// Runs ONE tick per invocation (cron-friendly — schedule this with Render
-// Cron Jobs, a plain crontab, or `node keep-alive.mjs --loop` for local dev).
-//
-// Usage:
-//   node keep-alive.mjs            # one tick, exits
-//   node keep-alive.mjs --loop     # local dev: tick every INTERVAL_MINS
+// `tick()` is exported so it can be triggered two ways:
+//  1. CLI, one tick per invocation (cron-friendly): `node keep-alive.mjs`,
+//     or `node keep-alive.mjs --loop` for a local-dev interval loop.
+//  2. Imported and called from an HTTP endpoint (see analyst/server.mjs's
+//     `/keep-alive-tick`) — lets a FREE external pinger (cron-job.org,
+//     UptimeRobot) trigger it without needing a paid Render Cron Job.
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import dotenv from "dotenv";
@@ -54,13 +54,14 @@ function pick(arr) {
   return arr[Math.floor(Math.random() * arr.length)];
 }
 
-async function tick() {
+export async function tick() {
   const job = pick(JOBS);
   const custVar = pick(CUSTOMERS);
   const secret = process.env[custVar];
   if (!secret) {
-    console.log(`[keep-alive] skip: ${custVar} not set`);
-    return;
+    const msg = `skip: ${custVar} not set`;
+    console.log(`[keep-alive] ${msg}`);
+    return { ok: false, reason: msg };
   }
   const signer = createEd25519Signer(secret, NETWORK);
   const fetchWithPayment = wrapFetchWithPaymentFromConfig(fetch, {
@@ -75,16 +76,21 @@ async function tick() {
       body,
     });
     console.log(`[keep-alive] HTTP ${res.status}`);
+    return { ok: res.ok, status: res.status, payer: custVar, job: job.url };
   } catch (e) {
     console.error(`[keep-alive] job failed:`, e.message);
+    return { ok: false, reason: e.message };
   }
 }
 
-const loop = process.argv.includes("--loop");
-if (loop) {
-  console.log(`[keep-alive] looping every ${INTERVAL_MINS}min (local dev mode)`);
-  tick();
-  setInterval(tick, INTERVAL_MINS * 60_000);
-} else {
-  await tick();
+// CLI entry only — importing this module for `tick` does not auto-run it.
+if (import.meta.url === `file://${process.argv[1]}`) {
+  const loop = process.argv.includes("--loop");
+  if (loop) {
+    console.log(`[keep-alive] looping every ${INTERVAL_MINS}min (local dev mode)`);
+    tick();
+    setInterval(tick, INTERVAL_MINS * 60_000);
+  } else {
+    await tick();
+  }
 }
