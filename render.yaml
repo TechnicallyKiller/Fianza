@@ -30,6 +30,10 @@ services:
         sync: false
       - key: FACILITATOR_URL
         value: https://channels.openzeppelin.com/x402/testnet
+      - key: STRIPE_TEST_KEY
+        sync: false
+      - key: SEEDPHRASE
+        sync: false
 
   # Analyst and Reviewer — the same proven Scout-shaped agent (Express + x402
   # payment middleware + shared LLM brain + TrustLineAgent SDK), publicly

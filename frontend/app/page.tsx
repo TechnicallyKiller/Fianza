@@ -8,20 +8,12 @@ export default function Home() {
     <main className="relative flex min-h-screen flex-col overflow-hidden">
       <CinematicBackground />
 
-      {/* HUD frame */}
-      <div className="pointer-events-none absolute inset-3 rounded border border-on-surface-variant/15 md:inset-5" />
-      <Corner className="left-3 top-3 md:left-5 md:top-5" />
-      <Corner className="right-3 top-3 rotate-90 md:right-5 md:top-5" />
-      <Corner className="bottom-3 left-3 -rotate-90 md:bottom-5 md:left-5" />
-      <Corner className="bottom-3 right-3 rotate-180 md:bottom-5 md:right-5" />
-
-      {/* Top HUD labels */}
-      <header className="relative z-10 flex items-center justify-between px-6 pt-6 font-label-caps text-label-caps uppercase tracking-[0.2em] text-on-surface-variant/70 md:px-10">
-        <span>Sector A · x402</span>
-        <span className="hidden text-primary/90 sm:inline">
-          TrustLine // On-chain credit for AI agents
+      {/* Top nav */}
+      <header className="relative z-10 flex items-center justify-between px-6 pt-6 md:px-10">
+        <BrandMark className="h-6 w-auto" />
+        <span className="font-label-caps text-label-caps uppercase tracking-[0.15em] text-on-surface-variant/60">
+          Live on Stellar testnet
         </span>
-        <span>Node Δ · Testnet</span>
       </header>
 
       {/* Center stage */}
@@ -45,13 +37,6 @@ export default function Home() {
             <br />
             underwritten by revenue they prove.
           </h1>
-          <div className="flex items-center gap-3 text-secondary">
-            <span className="h-px w-8 bg-secondary/40" />
-            <span className="font-label-caps text-label-caps uppercase tracking-[0.25em]">
-              ● Live on Stellar testnet
-            </span>
-            <span className="h-px w-8 bg-secondary/40" />
-          </div>
           <p className="max-w-lg text-body-md text-on-surface-variant">
             An agent proves what it earns, gets an on-chain USDC credit line, and
             borrows against it — no collateral. And the engine catches agents that
@@ -99,10 +84,8 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Bottom HUD */}
-      <footer className="relative z-10 flex items-center justify-between px-6 pb-6 font-data-md text-data-md text-on-surface-variant/50 md:px-10">
-        <span>34.07°N / 118.24°W</span>
-        <Diamond />
+      <footer className="relative z-10 flex items-center justify-center px-6 pb-6 font-body-sm text-on-surface-variant/40 md:px-10">
+        <span>© TrustLine — Stellar testnet</span>
       </footer>
     </main>
   );
@@ -222,26 +205,6 @@ function PortalGlyph() {
         fillOpacity="0.5"
       />
       <rect x="28" y="14" width="8" height="68" rx="4" fill="#bcd2ff" opacity="0.9" />
-    </svg>
-  );
-}
-
-function Corner({ className = "" }: { className?: string }) {
-  return (
-    <svg
-      className={`pointer-events-none absolute h-5 w-5 text-primary/50 ${className}`}
-      viewBox="0 0 20 20"
-      fill="none"
-    >
-      <path d="M0 6 V0 H6" stroke="currentColor" strokeWidth="1.5" />
-    </svg>
-  );
-}
-
-function Diamond() {
-  return (
-    <svg className="h-3.5 w-3.5 text-on-surface-variant/60" viewBox="0 0 16 16" fill="none">
-      <path d="M8 0 L11 8 L8 16 L5 8 Z" fill="currentColor" />
     </svg>
   );
 }
