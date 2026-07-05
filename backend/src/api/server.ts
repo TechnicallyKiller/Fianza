@@ -13,6 +13,7 @@ import { underwrite, getResult, listResults } from "../underwrite.js";
 import { signerPublicKey, recordRepayment } from "../signer/index.js";
 import { dbConfigured, migrate } from "../db/index.js";
 import { startContinuousIngest } from "../indexer/persistent.js";
+import { addToWaitlist, waitlistCount, isValidEmail } from "../waitlist.js";
 
 export async function buildServer() {
   const app = Fastify({ logger: true });
@@ -44,6 +45,21 @@ export async function buildServer() {
   }));
 
   app.get("/signer", async () => ({ signer: signerPublicKey() }));
+
+  // Early-access waitlist. POST { email } to join; GET count for display.
+  app.post<{ Body: { email?: string; source?: string } }>(
+    "/waitlist",
+    async (req, reply) => {
+      const email = req.body?.email;
+      if (!email || !isValidEmail(email)) {
+        return reply.code(400).send({ error: "a valid email is required" });
+      }
+      const { added } = await addToWaitlist(email, req.body?.source);
+      return { ok: true, added };
+    },
+  );
+
+  app.get("/waitlist/count", async () => ({ count: await waitlistCount() }));
 
   // The two showcase agents for the self-serve /demo page. Env-first (Render);
   // falls back to the local seeder output (/tmp) for dev.

@@ -85,6 +85,13 @@ CREATE TABLE IF NOT EXISTS underwriting_results (
   updated_at     TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS idx_uw_updated ON underwriting_results(updated_at DESC);
+
+-- Early-access waitlist signups (public landing form).
+CREATE TABLE IF NOT EXISTS waitlist (
+  email       TEXT PRIMARY KEY,
+  source      TEXT,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
 `;
 
 /** Create tables/indexes if they don't exist (safe to run repeatedly). */
