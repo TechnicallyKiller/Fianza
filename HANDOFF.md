@@ -475,3 +475,254 @@ should now find revenue via Horizon; the zkTLS proof button should now
 return a nonzero figure). After that, items #1 (signer key) and #4 (Analyst/
 Reviewer public hosting, currently paused on Render's card requirement) are
 the two with the most real value left on the table.
+
+---
+
+## Part 7 — Session update (2026-07-04, later) + weekly milestones for what's left
+
+**What got done this pass (verified live, not just locally):**
+- Confirmed the "verify both are live on Render" ask above was **not yet true**:
+  a live `POST /agent/<Scout>/underwrite` came back 575/Tier C with
+  `proofError: "STRIPE_TEST_KEY missing"`. Root cause: `STRIPE_TEST_KEY` and
+  `SEEDPHRASE` (the zkTLS Reclaim-proof secrets) only ever existed in
+  `spikes/.env` / `spikes/spike2-reclaim-revenue/.env` — never in
+  `backend/.env`, never in `render.yaml` (not even as a `sync: false`
+  placeholder), and therefore never in the Render dashboard either.
+- Fixed: copied both into `backend/.env` (local), added both to
+  `render.yaml` as declared `sync: false` secrets (so this can't silently
+  regress again), user added the real values to the Render dashboard and
+  redeployed.
+- Re-verified live, twice, after each secret was added — final result:
+  **Scout is genuinely 775/Tier A on the live production backend**, real
+  Reclaim proof ($73.86, `verified:true`, on-chain verify tx succeeded),
+  real new on-chain score-attestation tx. This closes the loop HANDOFF Part 6
+  flagged as unconfirmed.
+- Landing page (`frontend/app/page.tsx`) redesigned: removed the sci-fi HUD
+  boilerplate that read as generic/templated (`Sector A · x402` / `Node Δ ·
+  Testnet` corner labels, the four corner brackets, the lat/long footer
+  coordinate) — kept the underwriting-journey diagram (Revenue Sector → Proof
+  Precursors → Score Activated → Credit Propagation → The Horizon) since
+  that's the one distinctive, real piece. Pushed to `main` (`1a5dac1`).
+- Confirmed (for anyone who asks again): the ~575↔775 score flip for the same
+  agent is not a bug, it's the resilience design — `underwrite()` always
+  attempts the Reclaim proof unless `skipProof` is passed, and silently
+  degrades to on-chain-only revenue if the proof step throws (missing key,
+  attestor timeout, network hiccup) rather than failing the whole pass. A
+  real remaining gap: a failed re-proof currently **zeroes out** the offchain
+  component instead of falling back to the last-verified proof — not fixed
+  yet, flagged for Week 3 below.
+
+**Everything else in Part 6 (open items #1, #3–#8) is UNCHANGED — still open.**
+Below is a 4-week plan for it, testnet-only, same "ends with an adversarial/
+failure test" discipline as Part 3.
+
+### Week 1 — Close the security gap + cheap UX fix
+- **Signer key out of plaintext.** `SCORE_SIGNER_SECRET` is a single
+  plaintext secret in `.env`/Render dashboard; leaking it lets an attacker
+  mint arbitrary scores for any agent. Don't re-attempt the native-Stellar
+  multisig (already tried once this project, reverted as too fragile
+  same-session — CAP-46-4 hand-built auth entries). Cheaper win: move the
+  secret into a proper secret manager/KMS (even Render's own secret files, or
+  a short-lived-token pattern), and write down the rotation procedure.
+  **Test:** rotate the key end-to-end once, following your own written
+  procedure, and confirm scoring/publishing survives it with zero downtime.
+- **Network-mismatch guard.** A user pasted a mainnet address into
+  `/underwrite` and got a silent, confusing 400/Unrated instead of "this
+  address doesn't exist on testnet." Cheap fix: detect the account resolves
+  on the *other* network and say so explicitly.
+  **Test:** paste a known mainnet-only address and a known testnet-only
+  address into `/underwrite`; both should give an actionable message, not a
+  bare zero score.
+- **Confirm the uptime pinger is still active** (`curl .../health` should
+  answer instantly, not after a 30-60s cold-start). Five-minute check, but
+  do it — free-tier Render sleeps kill first-impression demos.
+
+### Week 2 — Ship Analyst/Reviewer publicly + turn on keep-alive
+- Unblock item #4: decide on Render's card-on-file requirement for a plain
+  Web Service (the two agents are otherwise fully defined in `render.yaml`,
+  builds `packages/agent-sdk` first) and actually deploy
+  `trustline-analyst` / `trustline-reviewer`.
+  **Test:** hit both public URLs with a real x402-paid request from an
+  external wallet, confirm the payment clears and `/lender` shows their real
+  Tier C ratings (already proven locally — this is just "does it survive
+  being public").
+- Turn on `agents/keep-alive.mjs` via the token-protected
+  `GET /keep-alive-tick?token=...` endpoint on Analyst, using a free external
+  pinger (cron-job.org / UptimeRobot) — this was built and verified locally
+  but is blocked on Analyst actually being deployed.
+  **Test:** confirm a scheduled external tick produces a real, tiny research
+  job and updated revenue — not just a 200 with no side effect.
+
+### Week 3 — Guardrails around the two "anyone can hit this" endpoints
+- **API auth + rate-limiting** on `/underwrite` (currently open — "anyone can
+  spam it" per HANDOFF Part 2 #8). Doesn't need to be fancy: an API key
+  header + a per-IP/per-agent rate limit is enough for testnet.
+  **Test:** hammer `/underwrite` past the limit from a script, confirm it
+  throttles instead of hammering Reclaim/RPC on your behalf.
+- **zkTLS proof-caching resilience** (the gap surfaced this session): when a
+  re-proof attempt fails, fall back to the last **verified** proof for that
+  agent instead of zeroing `offchainUsdc` — a transient Reclaim hiccup
+  shouldn't visibly downgrade an agent's tier.
+  **Test:** force a proof failure (bad key temporarily) on an agent with a
+  previously-verified proof; score should hold, not collapse.
+- **Basic CI**: build + typecheck + `cargo test` on push. Cheap, catches the
+  class of "pushed and didn't notice it broke" mistake before it reaches
+  Render.
+
+### Week 4 — Moat depth + traction
+- **Extend Horizon deep-history to the independence engine's diversity
+  signal.** Horizon backfill already feeds agent revenue and payer *age*;
+  it does NOT yet feed a payer's own out-degree/diversity, so a payer with
+  real deep history that predates the RPC/graph window still looks
+  "undiversified." Wire `horizonUsdcTransfers` into
+  `scoring/independence.ts`'s diversity factor the same way `underwrite.ts`
+  already uses it for revenue.
+  **Test:** re-run the adversarial catalog (`npm run test:independence`)
+  plus one payer whose real diversity is >24h/graph-start old — confirm it's
+  no longer misclassified as low-diversity.
+- **Monitoring pass**: confirm Render + Neon + Vercel all have some baseline
+  alerting (even just uptime), not just the one manual `/health` pinger.
+- **Outreach** (not engineering, but a real weekly deliverable): one
+  concrete post/thread in a Stellar/Soroban, x402, or AI-agent-builder
+  community per week, pointing at `/underwrite` as the live demo. Zero real
+  external users remains the single biggest gap that no amount of further
+  engineering fixes.
+
+**Explicitly still OUT** (per Part 3, unchanged): mainnet pilot, real LPs,
+paid audit, legal/KYC-AML, zero-code/managed-wallet tiers, Python SDK.
+
+---
+
+## Part 8 — Build Station submission (SOURCE OF TRUTH for the 3-week program)
+
+_This is the canonical version submitted to Build Station. Part 7 above is the
+raw engineering backlog it draws from — if the two ever disagree, THIS wins for
+anything submission-facing. Dates assume the program starts ~2026-07-05._
+
+**System architecture:**
+- `contracts/` — Soroban contracts: `score_registry`, `credit_line`,
+  `lending_vault`, `revenue_math`.
+- `backend/` — underwriting engine (TS/Fastify): indexer, independence, zktls,
+  scoring, signer, API.
+- `packages/` — `@trustline/agent-sdk`, the agent-facing SDK.
+- `frontend/` — Next.js dashboards (borrower + lender) + landing.
+- `spikes/` — validated de-risking spikes (x402 payer, Reclaim zkTLS).
+- `docs/` — architecture, scoring methodology, sybil model.
+
+**Tech stack:** Soroban (Rust) + Fastify (TS) + Next.js, composing with Nectar
+Network (keeper revenue) and DeFindex (lender-vault yield) on Stellar testnet.
+
+**Repo:** https://github.com/TechnicallyKiller/TrustLine/tree/main ·
+**Landing:** https://0xtrustline.vercel.app/
+
+### Milestone 1 — Week 1: V1 complete, tested, and demoed live on testnet (DONE)
+The full protocol shipped end-to-end: the core loop (earn → prove → underwrite
+→ borrow → repay → lender yield) on-chain via `score_registry`, `credit_line`,
+and `lending_vault`; the credit-risk engine (default lifecycle, permissionless
+`mark_default`, first-loss reserve, shares-based loss socialization, dynamic
+APR, on-chain credit ramps — 17 unit tests + a 1,500-step randomized invariant
+fuzz test + a live adversarial default run); the anti-Sybil independence model
+(payer age · external diversity · funding-source independence · reciprocity ·
+HHI concentration); a persistent Postgres payment-graph indexer; and zkTLS
+off-chain revenue proofs (Reclaim-verified). Verified via `/demo` (honest agent
+vs. fraudster) and `/underwrite`, and proven by our own agent Scout completing
+the entire lifecycle autonomously from zero capital — scoring a real 775/Tier A
+in production off a live zkTLS revenue proof.
+_Expected completion: ~2026-07-05 (already complete)._
+
+### Milestone 2 — Week 2: Agent onboarding SDK kit + ecosystem composability (Nectar + DeFindex)
+Turn "only we can use it" into "any agent can." Publish `@trustline/agent-sdk`
+to npm (currently monorepo-only), and ship an onboarding kit: a testnet funding
+guide (XLM, USDC, trustline setup), a copy-pasteable
+`register → underwrite → borrow → repay` walkthrough with real command output,
+and a working simulation of a fully configured agent. Compose with two SCF-track
+Stellar products to create a primitive none has alone: (1) **Nectar Network**
+(flagship) — an AI agent runs as a Nectar keeper, earns real on-chain
+liquidation profit, and TrustLine underwrites that genuine yield into a credit
+line; (2) **DeFindex** (lighter second win) — TrustLine's idle lender-vault
+capital earns yield via DeFindex while waiting to be lent out, raising lender
+returns (keep a liquid buffer for instant draws; only route idle excess).
+**Test:** a from-scratch external agent, built only from the published kit, gets
+funded, earns as a Nectar keeper, and gets underwritten off that revenue.
+_Scope note: SDK kit + Nectar are the must-ship core; DeFindex is the droppable
+stretch if time runs short. Expected completion: ~2026-07-12._
+
+### Milestone 3 — Week 3: Marketing, traction, and polish
+Ship the onboarding kit publicly with full docs. Seed the network with
+genuinely-operating agents — the Nectar keeper plus the already-built research
+and code-review agents deployed as public, x402-payable services — so outside
+wallets have real services to test the credit flow against, not just our own
+demo agents. Push distribution into the communities where the users are
+(Stellar/Soroban dev channels, the x402 protocol community, AI-agent-builder
+circles), leading with the Scout and Nectar-keeper artifacts as concrete proof.
+Polish the demo surfaces (`/underwrite`, `/lender`, landing) for a first-time
+visitor. Honest framing: engineering is ahead of adoption today — so Week 3
+splits into what we will definitively ship and the adoption we're driving toward.
+
+**Committed deliverables (we will ship these — verifiable):**
+- `@trustline/agent-sdk` published to npm with public install docs.
+- Onboarding kit live: testnet funding guide + copy-pasteable
+  `register → underwrite → borrow → repay` walkthrough with real output.
+- ≥3 publicly-payable agents deployed and earning real x402 revenue on-chain
+  (Nectar keeper + research + code-review).
+- Nectar Network keeper integration working end-to-end.
+- ≥3 distribution touchpoints launched in target communities.
+- Backend `/health` uptime confirmed (no cold-start hangs).
+
+**Traction targets (directional — driving toward, not pass/fail):**
+- First external (non-team) agents onboarded and underwritten.
+- First external agent completing the full loop (underwrite → borrow → repay).
+- Growing live-underwrite volume through public `/underwrite`.
+- First external npm installs of the SDK.
+
+_Reality check (why the split): external-adoption metrics depend on strangers
+showing up to a testnet product with no financial upside — the classic
+cold-start problem, and the single hardest thing in the project, harder than any
+code already shipped. Gating the milestone on committed deliverables (things we
+control) keeps it honest; faking external usage is also self-defeating here
+since our own anti-Sybil engine would flag it. Expected completion: ~2026-07-19._
+
+### Ultimate end goal / vision
+A production-grade, permissionless credit rail for the AI-agent economy: any
+agent — anywhere, unaffiliated with TrustLine — can prove its real revenue
+(on-chain x402 earnings, off-chain revenue via zkTLS, or both) and automatically
+receive an uncollateralized USDC credit line, sized and priced by that proof,
+that it draws against autonomously to pay for its own inputs (APIs, compute,
+other agents) and repays as it earns. Human lenders supply the capital and earn
+yield, isolated per-agent so one agent's default never touches another's vault.
+
+TrustLine is designed to be composable with the broader Stellar DeFi ecosystem,
+not a silo: an agent can earn verifiable revenue *as* a participant in that
+ecosystem — for example running as a Nectar Network keeper capturing real
+liquidation profit — and have that revenue underwritten into credit, while idle
+lender capital stays productive earning yield through infrastructure like
+DeFindex. Credit, revenue, and yield flow through the same on-chain rails.
+
+The underlying bet: as the economy shifts toward agents transacting with agents
+and services at machine speed, they need agent-native credit — collateral-free,
+revenue-underwritten, instantly assessed — the on-chain equivalent of
+revenue-based financing, settled in seconds instead of a bank's underwriting
+cycle. Prove earnings → get trusted → get funded → repay → build a track record
+that unlocks more credit next time. The long arc: TrustLine becomes the default
+underwriting-and-credit layer any autonomous agent plugs into the moment it
+starts earning.
+
+### Integration decisions (from the SCF-product scan)
+- **Nectar Network** — IN (Week 2 flagship): agent's revenue source; keeper
+  profit is real on-chain USDC revenue to underwrite. Blocker: Nectar uses a
+  MOCK USDC on testnet (`CD34YC6F…J4VBW`) vs TrustLine's standard testnet USDC
+  (`CBIELTK6…DAMA`) — TrustLine's indexer just needs to ALSO watch Nectar's
+  SAC for keeper payouts (config add, not a rebuild). Contracts: KeeperRegistry
+  `CDT257SL…JDRB`, NectarVault `CDZR6VDC…7345`.
+- **DeFindex** — IN (Week 2 second, droppable): lender-vault yield-on-idle;
+  standardized yield infra, cleaner/easier than Nectar for the capital angle,
+  active Palta Labs Discord support. Watch the liquidity-mismatch (keep a liquid
+  buffer for instant draws).
+- **Soroswap** — IN as plumbing only (utility, not a headline): the swap hop
+  between Nectar's mock USDC and standard testnet USDC; Nectar already uses it.
+- **Skip for now** (mainnet/real-money-era, or redundant): Blend v2 direct
+  (already in Blend ecosystem free via Nectar; direct integration dilutes the
+  uncollateralized thesis), Etherfuse (redundant yield), and ALL fiat
+  ramps/bridges/anchors (AlfredPay, MoneyGram, Bridge, Abroad, BlindPay,
+  Mercuryo, Anchor Platform, SDP, Allbridge, Axelar, CCTP, Near Intents,
+  Sushiswap).

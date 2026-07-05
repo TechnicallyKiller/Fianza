@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Inter, JetBrains_Mono } from "next/font/google";
+import { Inter, JetBrains_Mono, Space_Grotesk } from "next/font/google";
 import "./globals.css";
 import ShaderBackground from "@/components/ShaderBackground";
 import { WalletProvider } from "@/components/WalletProvider";
@@ -13,6 +13,14 @@ const inter = Inter({
 const jetbrainsMono = JetBrains_Mono({
   subsets: ["latin"],
   variable: "--font-mono",
+  display: "swap",
+});
+
+// Distinctive display face for headlines — techy geometric grotesk that pairs
+// with JetBrains Mono. Body stays Inter, data stays JetBrains Mono.
+const spaceGrotesk = Space_Grotesk({
+  subsets: ["latin"],
+  variable: "--font-display",
   display: "swap",
 });
 
@@ -36,7 +44,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`dark ${inter.variable} ${jetbrainsMono.variable}`}
+      className={`dark ${inter.variable} ${jetbrainsMono.variable} ${spaceGrotesk.variable}`}
     >
       <body className="min-h-screen font-sans antialiased">
         <ShaderBackground />

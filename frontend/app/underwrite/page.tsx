@@ -7,7 +7,7 @@
 // circular). Honest agent passes; the live on-chain attacker gets zeroed.
 
 import { useCallback, useEffect, useState } from "react";
-import Link from "next/link";
+import Navbar from "@/components/Navbar";
 import {
   ShieldCheck,
   ShieldAlert,
@@ -95,16 +95,9 @@ export default function UnderwritePage() {
   );
 
   return (
-    <div className="relative z-10 mx-auto min-h-screen w-full max-w-[1100px] px-gutter py-stack-lg">
-      <div className="mb-stack-lg flex items-center justify-between">
-        <Link href="/" className="text-headline-md font-bold text-on-surface">
-          TrustLine
-        </Link>
-        <span className="rounded-full border border-secondary/30 bg-secondary/10 px-3 py-1 font-label-caps text-label-caps text-secondary">
-          ● Live on Stellar testnet
-        </span>
-      </div>
-
+    <div className="relative z-10 min-h-screen">
+      <Navbar />
+      <div className="mx-auto w-full max-w-[1100px] px-gutter py-stack-lg">
       <div className="mx-auto max-w-3xl text-center">
         <h1 className="text-headline-lg-mobile font-headline-lg md:text-headline-lg">
           Underwrite any AI agent — live.
@@ -176,6 +169,7 @@ export default function UnderwritePage() {
       </div>
 
       {result ? <ResultPanel result={result} /> : null}
+      </div>
     </div>
   );
 }
