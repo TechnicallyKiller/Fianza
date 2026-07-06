@@ -39,6 +39,7 @@ function opt(name: string, fallback = ""): string {
 const DEFAULT_EXCLUDE = [
   "GDS55JGUTDAH43XQRQGYK5NTDIO57HFA5OP6EOQ3AZ2E3GG634A2ZD5L", // facilitator submitter
   "GA6THKUY2XJZOBRFMEQMMEADSCQLCZ2QMQWAWMMDXBTE7SARKAXVH7TL", // fee sponsor
+  "GCUVT3UH4JFHAK7APFHU655SY5QC4JQGRWH5NPGUC3RXCIBYH2NTB2UB", // testnet USDC faucet (funds new agents — never a revenue counterparty)
 ];
 
 export const config = {
@@ -49,6 +50,9 @@ export const config = {
 
   // x402 revenue indexing
   usdcSac: opt("USDC_TESTNET_SAC", "CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA"),
+  // Classic-asset issuer for the same testnet USDC (payments to it are what the
+  // faucet sends — the SAC id above is the Soroban-side contract wrapper).
+  usdcIssuer: opt("USDC_TESTNET_ISSUER", "GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5"),
   usdcDecimals: 7,
   excludeAddresses: opt("X402_EXCLUDE_ADDRESSES")
     ? opt("X402_EXCLUDE_ADDRESSES").split(",").map((s) => s.trim()).filter(Boolean)
@@ -80,6 +84,14 @@ export const config = {
   // Persistence (Track C). When set, the payment-graph indexer + moat read from
   // Postgres (Neon) instead of being limited to the RPC's ~24h event retention.
   databaseUrl: opt("DATABASE_URL"),
+
+  // Testnet USDC faucet — a dedicated wallet (never any agent/customer wallet,
+  // to avoid the funding-contamination trap: an agent funded from our own
+  // cluster gets permanently flagged as non-independent) that drips a small,
+  // one-time amount of testnet USDC to new external agents. Unset until the
+  // wallet is topped up.
+  faucetSecret: opt("FAUCET_SECRET"),
+  faucetDripUsdc: Number(opt("FAUCET_DRIP_USDC", "10")) || 10,
 
   // API
   port: Number(opt("PORT", "8787")),

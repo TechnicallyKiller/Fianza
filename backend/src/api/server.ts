@@ -14,6 +14,7 @@ import { signerPublicKey, recordRepayment } from "../signer/index.js";
 import { dbConfigured, migrate } from "../db/index.js";
 import { startContinuousIngest } from "../indexer/persistent.js";
 import { addToWaitlist, waitlistCount, isValidEmail } from "../waitlist.js";
+import { drip, faucetConfigured, hasClaimed } from "../faucet.js";
 
 export async function buildServer() {
   const app = Fastify({ logger: true });
@@ -60,6 +61,35 @@ export async function buildServer() {
   );
 
   app.get("/waitlist/count", async () => ({ count: await waitlistCount() }));
+
+  // Testnet USDC faucet — one-time drip per address. The recipient must
+  // already be funded (Friendbot) with an open USDC trustline; the faucet
+  // only covers the "where do I get testnet USDC" gap, not account creation.
+  app.get("/faucet/status", async () => ({
+    configured: faucetConfigured(),
+    dripUsdc: config.faucetDripUsdc,
+  }));
+
+  app.post<{ Body: { address?: string } }>("/faucet", async (req, reply) => {
+    const address = req.body?.address;
+    if (!address) {
+      return reply.code(400).send({ error: "body must be { address: string }" });
+    }
+    if (!faucetConfigured()) {
+      return reply.code(503).send({
+        error: "faucet not funded yet — ask in the TrustLine community for testnet USDC",
+      });
+    }
+    if (await hasClaimed(address)) {
+      return reply.code(409).send({ error: "this address has already claimed the faucet" });
+    }
+    try {
+      const result = await drip(address);
+      return { ok: true, ...result };
+    } catch (e) {
+      return reply.code(400).send({ error: e instanceof Error ? e.message : String(e) });
+    }
+  });
 
   // The two showcase agents for the self-serve /demo page. Env-first (Render);
   // falls back to the local seeder output (/tmp) for dev.

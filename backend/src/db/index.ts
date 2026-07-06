@@ -92,6 +92,14 @@ CREATE TABLE IF NOT EXISTS waitlist (
   source      TEXT,
   created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+-- Testnet USDC faucet drips — one per address, ever (abuse guard).
+CREATE TABLE IF NOT EXISTS faucet_claims (
+  address     TEXT PRIMARY KEY,
+  amount_usdc DOUBLE PRECISION NOT NULL,
+  tx_hash     TEXT NOT NULL,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
 `;
 
 /** Create tables/indexes if they don't exist (safe to run repeatedly). */
