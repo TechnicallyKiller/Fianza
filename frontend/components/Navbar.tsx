@@ -13,6 +13,7 @@ const LINKS = [
   { href: "/demo", label: "Demo" },
   { href: "/lender", label: "Earn" },
   { href: "/borrower", label: "Borrow" },
+  { href: "/docs", label: "Docs" },
 ];
 
 export default function Navbar({ action }: { action?: React.ReactNode }) {
@@ -38,7 +39,8 @@ export default function Navbar({ action }: { action?: React.ReactNode }) {
 
         <nav className="hidden items-center gap-10 md:flex">
           {LINKS.map((l) => {
-            const active = pathname === l.href;
+            const active =
+              pathname === l.href || (l.href === "/docs" && pathname.startsWith("/docs"));
             return (
               <Link
                 key={l.href}

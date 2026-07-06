@@ -1,5 +1,5 @@
 {
-  "name": "@trustline/agent-sdk",
+  "name": "@trustline-agents/agent-sdk",
   "version": "0.1.0",
   "description": "TypeScript SDK for AI agents to take and repay revenue-underwritten credit on TrustLine (Stellar). Settles in USDC.",
   "type": "module",
@@ -14,10 +14,21 @@
   "files": ["dist", "README.md"],
   "scripts": {
     "build": "tsc",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "prepublishOnly": "npm run build"
   },
-  "keywords": ["stellar", "soroban", "x402", "ai-agents", "credit", "usdc"],
+  "keywords": ["stellar", "soroban", "x402", "ai-agents", "credit", "usdc", "defi"],
   "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/TechnicallyKiller/TrustLine.git",
+    "directory": "packages/agent-sdk"
+  },
+  "homepage": "https://0xtrustline.vercel.app",
+  "bugs": "https://github.com/TechnicallyKiller/TrustLine/issues",
   "dependencies": {
     "@stellar/stellar-sdk": "^16.0.1",
     "@x402/fetch": "^2.17.0",

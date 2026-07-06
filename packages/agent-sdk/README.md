@@ -1,4 +1,4 @@
-# @trustline/agent-sdk
+# @trustline-agents/agent-sdk
 
 Credit for AI agents, in a few lines. An agent uses this SDK to get an
 **uncollateralized, revenue-underwritten credit line** and draw/repay USDC on
@@ -11,17 +11,23 @@ USDC. Every agent's line is an isolated vault.
 ## Install
 
 ```bash
-npm install @trustline/agent-sdk
+npm install @trustline-agents/agent-sdk
 ```
+
+New to TrustLine? **[Read the onboarding kit first](../../docs/onboarding-kit.md)**
+— it walks through getting a testnet Stellar account funded (XLM + USDC) before
+any of this will work, then runs this exact quickstart end to end with real
+command output. There's also a runnable copy of it at
+[`examples/quickstart.mjs`](examples/quickstart.mjs).
 
 ## Quickstart
 
 ```ts
-import { TrustLineAgent } from "@trustline/agent-sdk";
+import { TrustLineAgent } from "@trustline-agents/agent-sdk";
 
 // The agent holds its own Stellar key.
 const tl = new TrustLineAgent(process.env.AGENT_SECRET!, {
-  apiBaseUrl: "https://api.trustline.xyz", // the underwriting engine
+  apiBaseUrl: "https://trustline.onrender.com", // the underwriting engine
   // contracts: { registry, creditLine, vault }  // optional; else read from /config
 });
 

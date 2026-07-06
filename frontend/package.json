@@ -3,11 +3,14 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "predev": "node scripts/sync-docs.mjs",
     "dev": "next dev",
+    "prebuild": "node scripts/sync-docs.mjs",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "sync-docs": "node scripts/sync-docs.mjs"
   },
   "dependencies": {
     "@creit.tech/stellar-wallets-kit": "^1.7.0",
@@ -19,6 +22,8 @@
     "next": "^15.1.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
+    "react-markdown": "^10.1.0",
+    "remark-gfm": "^4.0.1",
     "tailwind-merge": "^2.6.0",
     "tailwindcss-animate": "^1.0.7",
     "three": "^0.171.0"

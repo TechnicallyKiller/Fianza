@@ -726,3 +726,89 @@ starts earning.
   ramps/bridges/anchors (AlfredPay, MoneyGram, Bridge, Abroad, BlindPay,
   Mercuryo, Anchor Platform, SDP, Allbridge, Axelar, CCTP, Near Intents,
   Sushiswap).
+
+### Week 2 progress: SDK kit + faucet (this session, verified live)
+The core of Milestone 2 is genuinely built and tested against the live
+production backend, not just planned:
+- **`@trustline/agent-sdk` is npm-publish-ready** — `publishConfig.access:
+  "public"`, `repository`/`homepage`/`bugs` fields, `prepublishOnly` build
+  hook added to `package.json`. **Not yet actually published** — that's a
+  real, effectively-irreversible public action (can only unpublish within
+  72h), deliberately left for an explicit go-ahead rather than done
+  unilaterally.
+- **A testnet USDC faucet is built and live-tested**: `backend/src/faucet.ts`
+  + `POST /faucet` / `GET /faucet/status`, backed by a `faucet_claims` table
+  (one drip per address, ever). Funded by a **brand-new, dedicated wallet**
+  (`GCUVT3UH4JFHAK7APFHU655SY5QC4JQGRWH5NPGUC3RXCIBYH2NTB2UB`) — deliberately
+  NOT any existing agent/customer wallet, since those are the ones already
+  flagged circular/tainted in Scout's own independence analysis (see the
+  funding-contamination-trap memory) — funding a new agent from our own
+  cluster would instantly poison its independence score. Added to
+  `X402_EXCLUDE_ADDRESSES`. XLM-funded and USDC-trustline-open on-chain;
+  **still needs a human to actually send it testnet USDC** before it can
+  drip (verified live: correctly returns `op_underfunded`, not a crash, when
+  asked to drip with zero balance).
+- **A real, runnable quickstart** (`packages/agent-sdk/examples/quickstart.mjs`)
+  was written and actually executed against the live Render backend this
+  session — generated a fresh keypair, Friendbot-funded it, registered, and
+  underwrote for real. Correctly came back **400/Unrated/$0** for a
+  zero-revenue agent (the honest answer, not a bug) — captured verbatim in
+  `docs/onboarding-kit.md`.
+- **`docs/onboarding-kit.md`** written: the funding guide (keypair → Friendbot
+  → trustline → faucet) plus the real captured quickstart output plus what to
+  do once the agent has actual revenue.
+- **Caught and fixed a real bug in the process**: `backend/.env` had a
+  corrupted line from an earlier session's append (`DATABASE_URL` and
+  `STRIPE_TEST_KEY` smashed onto one line, no separating newline) — found and
+  repaired while wiring the faucet secret in. Also hit, again, the documented
+  WSL trap where command substitution silently returns empty when passed
+  inline through `wsl -d ubuntu-24.04 -- bash -lc '...'` — worked around by
+  writing an actual script file and running `bash script.sh` instead (per the
+  existing memory note on this).
+
+**Not done yet**: actual `npm publish` (needs your go-ahead + npm auth), the
+faucet wallet still needs topping up, and the remaining onboarding-kit docs
+sections (SDK API reference page, contract-address reference, roadmap page)
+are still just the one `onboarding-kit.md` file, not a full docs site.
+
+### Open gap: real public docs (GitBook-style), not yet built
+Real content already exists but is scattered as loose internal markdown in
+`docs/` (`architecture.md` — mostly a stub pointing at the README,
+`credit-engine.md` — a genuinely detailed ground-truth writeup,
+`scoring-methodology.md`, `sybil-model.md`, and now `onboarding-kit.md`) plus
+this HANDOFF file itself. None of it is public-facing, organized, or
+discoverable — there's no docs
+site, no SDK reference, no roadmap page. This is a real blocker for the
+external-agent-onboarding push (Part 8, Milestone 2/3): a builder with the
+`@trustline/agent-sdk` kit still has nowhere to read *why* the protocol works
+the way it does. Nectar Network's own docs (referenced this session) are the
+concrete bar to match — clean nav, a "getting started by audience" table,
+contract-address reference pages, quickstart guides per persona.
+
+**Needed structure** (Docusaurus/GitBook/Mintlify — pick one, doesn't need to
+be literal GitBook):
+- **Getting started** — five-second mental model + a "what do you want to do"
+  table by audience (agent builder / lender / integrator / curious), same
+  pattern Nectar uses.
+- **Architecture** — promote the real content already in `docs/architecture.md`
+  and the README's diagrams; add the actual repo layout (`contracts/`,
+  `backend/`, `packages/`, `frontend/`) and data flow end to end.
+- **Protocol / how it works** — the credit loop, the risk engine (default
+  lifecycle, reserve, credit ramps — lift from `docs/credit-engine.md`), the
+  anti-Sybil independence model (lift from `docs/sybil-model.md`), zkTLS
+  off-chain proofs.
+- **Contract addresses** — a single reference page (current + superseded ids),
+  mirroring what this HANDOFF's Part 1/6 already track manually.
+- **SDK reference** — `@trustline/agent-sdk` API (register/onboard/underwrite/
+  creditLine/vaultState/borrow/repay/deposit/payWithCredit), currently
+  undocumented anywhere public; ties directly into the Week 2 onboarding-kit
+  work.
+- **Roadmap** — the Build Station 3-week milestones (Part 8) in public-facing
+  form, plus the longer Part 3 track list, framed honestly (what's live on
+  testnet vs. explicitly deferred until mainnet).
+- **Error codes / glossary** — small but worth it once the SDK has real
+  external users; another thing Nectar's docs do that ours don't yet.
+
+Not started. Reasonable to fold into Part 8 Milestone 2 (SDK kit week) or
+treat as a parallel Week 3 deliverable — it's largely a packaging/writing
+task over content that already exists, not new engineering.

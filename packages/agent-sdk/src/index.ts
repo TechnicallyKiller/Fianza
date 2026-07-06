@@ -1,4 +1,4 @@
-// @trustline/agent-sdk — the interface an AI agent uses to take and repay
+// @trustline-agents/agent-sdk — the interface an AI agent uses to take and repay
 // revenue-underwritten credit on TrustLine (Stellar), settled in USDC.
 //
 // An agent holds its own Stellar key, so the whole lifecycle is agent-driven:

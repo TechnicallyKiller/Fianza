@@ -11,7 +11,10 @@ use to earn.
 > Not a credibility badge. A real lending decision, sized against income an agent can prove.
 
 **Status:** working MVP, live on Stellar testnet. Contracts deployed, full
-loop settled on-chain, agent SDK published. 🔗 **Live demo:** `https://<your-vercel-url>`
+loop settled on-chain. 🔗 **Live demo:** https://0xtrustline.vercel.app
+
+📖 **[Full documentation](docs/README.md)** — architecture, the credit engine,
+the Sybil model, the SDK reference, contract addresses, and the roadmap.
 
 ---
 
@@ -64,22 +67,24 @@ and pays. The agent never "decides to borrow" — it just transacts.
 | Contract | ID |
 |---|---|
 | `score_registry` | `CAZUPW5MWHG5XCE7BM6YP6M52NPB6TPRRAXU3GEV4TL2AR2ZMYE7TRSX` |
-| `credit_line` | `CA2HOO3KKDPQB4URKDJGVP4QD57UTCSKA2XN7U76RAN4VATOKXZV4QSV` |
-| `lending_vault` | `CD5RQFFYF57MLI3JI2PHUROMYFWLGDB7RPMGIK5JRWAO6NWHEUE3EC6C` |
+| `credit_line` | `CC4ZAKREYMCDEONIQMSSBYOBFC75LL5NPYVEBRZ5SACHYWLYGK2R7GDO` |
+| `lending_vault` | `CAMF3BS23WXYMA6W6E55VSX577GIPSRKJXJKLL2G46TABUQ4GIRGHIL3` |
 
-Settlement is real USDC (SAC). Off-chain revenue is proven via **Reclaim zkTLS**
-verified on a Soroban verifier (`CA3EMXR6…`). x402 payments settle through the
-**OpenZeppelin Channels** facilitator.
+Full list (including superseded IDs kept as standing evidence) in
+[`docs/contracts.md`](docs/contracts.md). Settlement is real USDC (SAC).
+Off-chain revenue is proven via **Reclaim zkTLS** verified on a Soroban
+verifier (`CA3EMXR6…`). x402 payments settle through the **OpenZeppelin
+Channels** facilitator.
 
 ## The moat: counterparty independence
 
 zkTLS proves revenue is *real*; it does not prove it's *independent*. An operator
 can loop their own wallets or fund their own Stripe. TrustLine's defensible IP is
 the **independence model** — framed as economic security: make faking $1 of counted
-revenue cost more than the credit it unlocks. v1 ships fund-flow loop detection
-(revenue that traces back to the agent is excluded); the roadmap adds payer
-reputation, concentration caps, and temporal signals. See
-[`docs/sybil-model.md`](docs/sybil-model.md).
+revenue cost more than the credit it unlocks. It's a real model today (payer age,
+external diversity, funding-source independence, reciprocity, and a concentration
+cap), not just loop detection — proven against a synthetic attack catalog and a
+live on-chain circular-funding attacker. See [`docs/sybil-model.md`](docs/sybil-model.md).
 
 ## Why Stellar
 
@@ -90,7 +95,11 @@ zkML step maps onto Soroban's native BLS12-381 host functions (CAP-0059).
 
 ## The agent SDK
 
-Credit for an agent, in a few lines — [`@trustline/agent-sdk`](packages/agent-sdk):
+Credit for an agent, in a few lines — [`@trustline-agents/agent-sdk`](packages/agent-sdk):
+
+```bash
+npm install @trustline-agents/agent-sdk
+```
 
 ```ts
 const tl = new TrustLineAgent(secret, { apiBaseUrl });
@@ -100,15 +109,21 @@ await tl.borrow(5); /* ...work... */ await tl.repay(5);
 await tl.payWithCredit(url, 3);             // draw-on-402: credit, invisible
 ```
 
+New to TrustLine? [`docs/onboarding-kit.md`](docs/onboarding-kit.md) walks
+through funding a testnet agent (XLM, USDC trustline, the TrustLine faucet)
+and running this exact loop end to end. Full method-by-method reference in
+[`docs/sdk-reference.md`](docs/sdk-reference.md).
+
 ## Repo structure
 
 ```
 contracts/   Soroban contracts — score_registry, credit_line, lending_vault, revenue_math
 backend/     underwriting engine (TS/Fastify) — indexer, independence, zktls, scoring, signer, API
-packages/    @trustline/agent-sdk — the agent-facing SDK
-frontend/    Next.js dashboards (borrower + lender) + landing
+packages/    @trustline-agents/agent-sdk — the agent-facing SDK
+frontend/    Next.js dashboards (borrower + lender) + landing + docs site
+agents/      the live agent fleet (Scout, DataCo, Analyst, Reviewer) — real, working examples
 spikes/      validated de-risking spikes (x402 payer, Reclaim zkTLS)
-docs/        architecture, scoring methodology, sybil model
+docs/        full documentation — see docs/README.md
 ```
 
 ## Run it locally
@@ -128,22 +143,15 @@ The dashboards connect a Stellar wallet (Freighter) to the deployed contracts.
 Full architecture, addresses, and the demo runbook are in
 [`PROJECT_LOG.md`](PROJECT_LOG.md).
 
-## Roadmap
+## Roadmap and honest status
 
-- **Now:** revenue-underwritten credit, independence v1, x402-native settlement,
-  agent SDK — all live on testnet.
-- **Next:** persistent incremental indexer → DB (scale + history); the full
-  independence model; a curated-LP originator pilot on mainnet.
-- **Then:** open SDKs + permissionless, staked underwriting (decentralize the
-  underwriter); zkML strategy proofs.
-
-## Honest status
-
-Testnet MVP. The underwriter is a single trusted signer (v1); independence is
-loop-detection-only so far; revenue indexing is on-demand (production needs a
-persistent indexer); scoring bands are testnet-calibrated. These are the roadmap,
-named openly — see [`PROJECT_LOG.md`](PROJECT_LOG.md) and
-[`docs/sybil-model.md`](docs/sybil-model.md).
+Full, current roadmap — what's shipped, in progress, next up, and explicitly
+deferred until testnet is proven out — lives in
+[`docs/roadmap.md`](docs/roadmap.md). Short version: the core loop, the
+credit-risk engine, and the independence model are real and tested; the
+underwriter is still a single trusted signer (v1, with a documented
+decentralization path), and nothing has yet touched real money or a real
+adversary. Named openly, not hidden — see also [`PROJECT_LOG.md`](PROJECT_LOG.md).
 
 ## License
 
