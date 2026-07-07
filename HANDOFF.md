@@ -517,15 +517,41 @@ Below is a 4-week plan for it, testnet-only, same "ends with an adversarial/
 failure test" discipline as Part 3.
 
 ### Week 1 — Close the security gap + cheap UX fix
-- **Signer key out of plaintext.** `SCORE_SIGNER_SECRET` is a single
-  plaintext secret in `.env`/Render dashboard; leaking it lets an attacker
-  mint arbitrary scores for any agent. Don't re-attempt the native-Stellar
-  multisig (already tried once this project, reverted as too fragile
-  same-session — CAP-46-4 hand-built auth entries). Cheaper win: move the
-  secret into a proper secret manager/KMS (even Render's own secret files, or
-  a short-lived-token pattern), and write down the rotation procedure.
-  **Test:** rotate the key end-to-end once, following your own written
-  procedure, and confirm scoring/publishing survives it with zero downtime.
+- **~~Signer key out of plaintext (KMS)~~ — dropped.** `SCORE_SIGNER_SECRET`
+  is a testnet key; moving it to a secret manager is security theater when
+  nothing real is at stake. Correctly called out this session as solving the
+  wrong problem — replaced with the item below, which is the real fix.
+- **K-of-N multisig signer (real fix, testnet-safe, history-preserving).**
+  Read `contracts/score_registry/src/lib.rs` this session: the signer is
+  **not baked into the contract** — it's a mutable `Address` in storage
+  (`DataKey::Signer`), gated behind an existing admin-only
+  `set_signer(new_signer)` that was clearly left there on purpose. Plan:
+  1. Deploy a small Soroban **custom-account contract** (`__check_auth`) that
+     approves an action only with **K-of-N valid signatures** over a caller-
+     defined signature bundle (the standard Soroban "smart wallet" pattern —
+     NOT Stellar's native multisig/thresholds, which is what the earlier
+     abandoned attempt fought via CAP-46-4 hand-built auth entries and
+     `authorizeEntry()`'s one-signature-per-entry limit. A custom account
+     contract sidesteps that entirely: `__check_auth` receives one payload
+     you define, e.g. a `Vec` of signatures, so it's a clean single auth
+     entry, not a fight with account thresholds).
+  2. Call the registry's existing `set_signer(multisig_address)` — **one
+     transaction, zero redeploy** of `score_registry`. All persistent state
+     (`Registered`, `Score`, `Repayments` per agent — i.e. Scout's entire
+     history and every agent shown on `/lender`) is untouched; it's keyed by
+     agent address in the same contract instance that never moves.
+  3. Update `backend/src/signer/` to collect K signatures (from K
+     independently-held keys) instead of one, before calling
+     `publish_score`/`record_repayment`.
+  **Why this matters for judges:** turns "single trusted signer" from an
+  unaddressed weakness into "trust is K-of-N, here's the contract and here's
+  proof it doesn't erase history." Real ~1-2 week scope (write + test the
+  account contract, wire the backend, verify end-to-end on testnet), zero
+  cost (testnet only), does not touch a cent of real money.
+  **Test:** call `set_signer` with the multisig address on the live testnet
+  registry, confirm `/lender` and `/agent/<Scout>` still show Scout's full
+  existing history unchanged, then confirm a K-of-N-signed `publish_score`
+  succeeds and a (K-1)-signed one is rejected on-chain.
 - **Network-mismatch guard.** A user pasted a mainnet address into
   `/underwrite` and got a silent, confusing 400/Unrated instead of "this
   address doesn't exist on testnet." Cheap fix: detect the account resolves
