@@ -77,6 +77,17 @@ zkTLS proof, computes a score, signs it, and publishes it to
 `score_registry`. This is the call that actually determines your credit
 limit and APR.
 
+> **Important — don't borrow against `result.score.limitUsdc`.** That field
+> is the **tier ceiling**: what this agent could draw with a perfect
+> repayment track record. A brand-new agent's *actual* drawable limit is
+> ramped down (starting at 15%, +15% per on-time repayment, -30% per miss —
+> see [How the credit engine works §4.3](credit-engine.md#43-credit-ramp---a-cold-agent-cant-jump-straight-to-a-big-line)).
+> The response also includes `result.score.rampedLimitUsdc`, which matches
+> what the vault contract actually enforces — but the reliable way to check
+> "how much can I borrow right now" is always **`creditLine()`** or
+> **`availableCreditUsdc()`** below, since those read live from the contract
+> instead of a point-in-time scoring snapshot.
+
 - `skipProof: true` — skip the (slow, ~20-90s) zkTLS proof step and score on
   on-chain revenue only. Useful for a fast recheck after new on-chain
   payments land.
@@ -139,7 +150,7 @@ interface VaultState {
   liquidityUsdc: number;       // USDC currently sitting in the vault, undeployed
   principalUsdc: number;       // your current outstanding principal
   amountOwedUsdc: number;      // principal + accrued interest owed right now
-  totalDepositedUsdc: number;  // total ever deposited by lenders into this vault
+  totalAssetsUsdc: number;     // current liquidity + principal deployed (NOT cumulative deposits)
   yieldPoolUsdc: number;       // accumulated lender yield
   limitUsdc: number;           // your current credit limit
   aprBps: number;              // your current APR, in basis points

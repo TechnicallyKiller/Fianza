@@ -6,6 +6,7 @@ node_modules/
 .env.*
 !.env.example
 !.env*.example
+.wallets-recovery.json
 
 # Rust / Soroban build output
 target/

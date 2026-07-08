@@ -31,8 +31,16 @@ export interface ScoreResult {
   /** Effective verified revenue used to size credit (stroops + USDC). */
   revenueStroops: string;
   revenueUsdc: number;
+  /** Tier ceiling — what this agent could draw with a perfect repayment
+   * track record. NOT what it can borrow right now — see `rampedLimitUsdc`. */
   limitStroops: string;
   limitUsdc: number;
+  /** The REAL, currently-drawable limit the vault contract enforces —
+   * `limitUsdc` scaled by the on-chain credit ramp (starts at 15% for a
+   * brand-new agent with no repayment history, +15%/on-time repayment,
+   * -30%/miss). This is the number `availableCreditUsdc()` is based on. */
+  rampedLimitStroops: string;
+  rampedLimitUsdc: number;
   aprBps: number;
   distinctPayers: number;
   minCounterparties: number;
@@ -61,6 +69,13 @@ const HISTORY_ONTIME_CAP = 90; // ...up to +90 (≈ one tier of lift for good hi
 // A recorded default collapses the score below the C threshold (550): the
 // portable artifact reflects the loss, so limits collapse everywhere it's read.
 const DEFAULT_SCORE_CEILING = 500;
+// Credit ramp — mirrors contracts/libraries/revenue_math's ramp_factor_bps /
+// ramp_limit exactly, so the API's displayed "currently drawable" limit
+// matches what the vault contract actually enforces on borrow().
+const RAMP_BPS = 10_000;
+const RAMP_START_BPS = 1_500; // 15% of the sized limit at cold start
+const RAMP_STEP_BPS = 1_500; // +15% per proven on-time repayment
+const RAMP_MISS_PENALTY_BPS = 3_000; // -30% per miss
 // Revenue bands are calibrated for mainnet $-scale revenue. On testnet, faucet
 // USDC caps demo revenue at single digits, so SCORE_BAND_DIVISOR rescales the
 // thresholds (e.g. 1000 → a few USDC clears Tier C). Defaults to 1 (mainnet).
@@ -80,6 +95,13 @@ function limitMultiple(tier: Tier): number {
 
 function aprBps(tier: Tier): number {
   return { A: 600, B: 850, C: 1200, Unrated: 0 }[tier];
+}
+
+/** Mirrors revenue_math::ramp_factor_bps exactly (same constants, same clamp). */
+function rampFactorBps(rec: { onTime: number; total: number; missed: number }): number {
+  const missed = Math.max(0, rec.total - rec.onTime);
+  const raw = RAMP_START_BPS + rec.onTime * RAMP_STEP_BPS - missed * RAMP_MISS_PENALTY_BPS;
+  return Math.max(0, Math.min(RAMP_BPS, raw));
 }
 
 /** Map effective verified USDC revenue + payer diversity to a 0..850 score. */
@@ -129,6 +151,7 @@ export function computeScoreResult(inputs: ScoreInputs): ScoreResult {
   // Limit is sized off the effective verified revenue × tier multiple.
   const revenueStroops = BigInt(Math.round(effectiveUsdc * STROOPS));
   const limitStroops = revenueStroops * BigInt(limitMultiple(tier));
+  const rampedLimitStroops = (limitStroops * BigInt(rampFactorBps(repayments))) / BigInt(RAMP_BPS);
 
   return {
     agent: inputs.agent,
@@ -138,6 +161,8 @@ export function computeScoreResult(inputs: ScoreInputs): ScoreResult {
     revenueUsdc: effectiveUsdc,
     limitStroops: limitStroops.toString(),
     limitUsdc: Number(limitStroops) / STROOPS,
+    rampedLimitStroops: rampedLimitStroops.toString(),
+    rampedLimitUsdc: Number(rampedLimitStroops) / STROOPS,
     aprBps: aprBps(tier),
     distinctPayers: inputs.distinctPayers,
     minCounterparties: MIN_COUNTERPARTIES,

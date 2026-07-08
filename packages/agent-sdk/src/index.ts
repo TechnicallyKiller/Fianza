@@ -63,7 +63,8 @@ export interface VaultState {
   liquidityUsdc: number;
   principalUsdc: number;
   amountOwedUsdc: number;
-  totalDepositedUsdc: number;
+  /** Current liquidity + principal deployed (backs lender shares; reserve excluded) — NOT cumulative deposits. */
+  totalAssetsUsdc: number;
   yieldPoolUsdc: number;
   limitUsdc: number;
   aprBps: number;
@@ -182,7 +183,7 @@ export class TrustLineAgent {
       liquidityUsdc: fromStroops(s.liquidity as bigint),
       principalUsdc: fromStroops(s.principal as bigint),
       amountOwedUsdc: fromStroops(s.amount_owed as bigint),
-      totalDepositedUsdc: fromStroops(s.total_deposited as bigint),
+      totalAssetsUsdc: fromStroops(s.total_assets as bigint),
       yieldPoolUsdc: fromStroops(s.yield_pool as bigint),
       limitUsdc: fromStroops(s.limit as bigint),
       aprBps: Number(s.apr_bps),
