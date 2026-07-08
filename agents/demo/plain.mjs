@@ -1,25 +1,45 @@
-// Demo: a trading-research agent WITHOUT TrustLine credit.
-// It works fine until its USDC balance runs dry — then it just dies at the
-// paywall. This is what every earning agent looks like today.
+// Demo: a trading-research agent that CAN pay over x402 — it's a real,
+// functioning paying agent — but has no TrustLine credit line. It works fine
+// as long as its wallet balance covers the price; the moment it can't, the
+// payment genuinely fails and it dies. This is a fair, apples-to-apples
+// comparison against with-credit.mjs: same real x402 payment capability,
+// the only difference is the credit-line fallback.
 import dotenv from "dotenv";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 dotenv.config({ path: path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", ".env") });
 
+import { wrapFetchWithPaymentFromConfig } from "@x402/fetch";
+import { createEd25519Signer } from "@x402/stellar";
+import { ExactStellarScheme } from "@x402/stellar/exact/client";
+
 const RESEARCH_URL = process.env.RESEARCH_URL || "http://localhost:3022/research";
 const asset = process.argv[2] || "XLM";
+const NETWORK = "stellar:testnet";
+
+const signer = createEd25519Signer(process.env.DEMO_AGENT_SECRET, NETWORK);
+const fetchWithPayment = wrapFetchWithPaymentFromConfig(fetch, {
+  schemes: [{ network: NETWORK, client: new ExactStellarScheme(signer) }],
+});
 
 console.log(`[demo-agent] requesting research on "${asset}"...`);
 
-const res = await fetch(RESEARCH_URL, {
-  method: "POST",
-  headers: { "content-type": "application/json" },
-  body: JSON.stringify({ asset }),
-});
+let res;
+try {
+  res = await fetchWithPayment(RESEARCH_URL, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ asset }),
+  });
+} catch (e) {
+  console.log(`[demo-agent] payment failed: ${e.message}`);
+  console.log("[demo-agent] dead. can't afford the next research call, no credit line to fall back on.");
+  process.exit(1);
+}
 
 if (res.status === 402) {
-  console.log("[demo-agent] 402 Payment Required — out of USDC, no credit line.");
-  console.log("[demo-agent] dead. can't afford the next research call.");
+  console.log("[demo-agent] 402 Payment Required — insufficient balance to cover the price.");
+  console.log("[demo-agent] dead. can't afford the next research call, no credit line to fall back on.");
   process.exit(1);
 }
 
