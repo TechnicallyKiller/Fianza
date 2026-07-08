@@ -14,11 +14,11 @@ constructor, and one method call.
    aim for ~18-20px editor font.
 3. In a **third terminal pane** (bottom, out of the main frame), start Analyst:
    ```bash
-   cd ~/stellar/agents/analyst && ANALYST_PORT=3022 ANALYST_PRICE_USDC=0.05 node server.mjs
+   cd ~/stellar/agents/analyst && ANALYST_PORT=3099 ANALYST_PRICE_USDC=0.05 node server.mjs
    ```
 4. Have a second terminal tab ready (not yet focused) with:
    ```bash
-   cd ~/stellar/agents/demo && RESEARCH_URL=http://localhost:3022/research node plain.mjs BTC
+   cd ~/stellar/agents/demo && RESEARCH_URL=http://localhost:3099/research node plain.mjs BTC
    ```
    (Price is $0.05 — matches the demo agent's current real headroom; see
    "Available credit" note at the bottom before you record.)
@@ -56,7 +56,7 @@ tl.payWithCredit(...)` block from the snippet pane into its place.
 
 **0:43 — Run it.** Switch to the terminal, run:
 ```bash
-RESEARCH_URL=http://localhost:3022/research ANALYST_PRICE_USDC=0.05 node plain.mjs BTC
+RESEARCH_URL=http://localhost:3099/research ANALYST_PRICE_USDC=0.05 node plain.mjs BTC
 ```
 Same paywall, same agent — now it prints `paid via credit line, got
 research:` and real content.
