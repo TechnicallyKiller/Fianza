@@ -25,13 +25,27 @@ import {
   type xdr,
 } from "@stellar/stellar-sdk";
 
+import {
+  toStroops,
+  fromStroops,
+  assertPositiveAmount,
+  assertValidAddress,
+  creditShortfallUsdc,
+} from "./util.js";
+import { ApiError, TxError } from "./errors.js";
+
+// Re-export the error types + pure helpers so callers can catch typed errors
+// and reuse the conversions.
+export * from "./errors.js";
+export {
+  toStroops,
+  fromStroops,
+  isValidStellarAddress,
+  creditShortfallUsdc,
+} from "./util.js";
+
 const TESTNET_PASSPHRASE = "Test SDF Network ; September 2015";
 const TESTNET_RPC = "https://soroban-testnet.stellar.org";
-
-const toStroops = (usdc: number | bigint): bigint =>
-  typeof usdc === "bigint" ? usdc : BigInt(Math.round(usdc * 1e7));
-const fromStroops = (s: bigint | string | number): number =>
-  Number(BigInt(s)) / 1e7;
 
 export interface TrustLineContracts {
   registry: string;
@@ -223,11 +237,10 @@ export class TrustLineAgent {
     opts: { maxDraw?: number; init?: RequestInit } = {},
   ): Promise<Response> {
     const bal = await this.usdcBalanceUsdc();
-    if (bal < priceUsdc) {
-      const need = Math.ceil((priceUsdc - bal) * 100) / 100;
-      if (opts.maxDraw != null && need > opts.maxDraw) {
-        throw new Error(`x402 shortfall ${need} USDC exceeds maxDraw ${opts.maxDraw}`);
-      }
+    // How much (if any) to draw from credit to cover the price — pure, tested
+    // (throws MaxDrawExceededError if the shortfall exceeds opts.maxDraw).
+    const need = creditShortfallUsdc(bal, priceUsdc, opts.maxDraw);
+    if (need > 0) {
       await this.borrow(need);
     }
     const caip =
@@ -252,6 +265,7 @@ export class TrustLineAgent {
 
   /** Draw `usdc` against the credit line into this agent's wallet. */
   async borrow(usdc: number): Promise<TxResult> {
+    assertPositiveAmount(usdc, "borrow amount");
     const c = await this.ensureContracts();
     return this.invoke(c.vault, "borrow", [
       this.addr(this.publicKey()),
@@ -261,6 +275,7 @@ export class TrustLineAgent {
 
   /** Repay `usdc` (interest first → lender yield, then principal). */
   async repay(usdc: number): Promise<TxResult> {
+    assertPositiveAmount(usdc, "repay amount");
     const c = await this.ensureContracts();
     return this.invoke(c.vault, "repay", [
       this.addr(this.publicKey()),
@@ -273,6 +288,8 @@ export class TrustLineAgent {
    * the caller (this keypair) is the lender, exposed only to that one agent.
    */
   async deposit(agentAddress: string, usdc: number): Promise<TxResult> {
+    assertValidAddress(agentAddress, "agentAddress");
+    assertPositiveAmount(usdc, "deposit amount");
     const c = await this.ensureContracts();
     return this.invoke(c.vault, "deposit", [
       this.addr(this.publicKey()),
@@ -328,7 +345,7 @@ export class TrustLineAgent {
     prepared.sign(this.keypair);
     const sent = await this.server.sendTransaction(prepared);
     if (sent.status === "ERROR") {
-      throw new Error(`${method} submit failed: ${JSON.stringify(sent.errorResult)}`);
+      throw new TxError(`${method} submit failed`, method, sent.errorResult);
     }
     let got = await this.server.getTransaction(sent.hash);
     for (let i = 0; i < 40 && got.status === "NOT_FOUND"; i++) {
@@ -336,7 +353,7 @@ export class TrustLineAgent {
       got = await this.server.getTransaction(sent.hash);
     }
     if (got.status !== "SUCCESS") {
-      throw new Error(`${method} did not succeed: ${got.status}`);
+      throw new TxError(`${method} did not succeed: ${got.status}`, method, got);
     }
     return {
       txHash: sent.hash,
@@ -347,12 +364,16 @@ export class TrustLineAgent {
 
   private async apiGet<T = any>(path: string): Promise<T> {
     const res = await fetch(`${this.apiBaseUrl}${path}`);
-    if (!res.ok) throw new Error(`GET ${path} → ${res.status}`);
+    if (!res.ok) {
+      throw new ApiError(res.status, "GET", path, await res.text().catch(() => undefined));
+    }
     return res.json() as Promise<T>;
   }
   private async apiPost<T = any>(path: string): Promise<T> {
     const res = await fetch(`${this.apiBaseUrl}${path}`, { method: "POST" });
-    if (!res.ok) throw new Error(`POST ${path} → ${res.status}`);
+    if (!res.ok) {
+      throw new ApiError(res.status, "POST", path, await res.text().catch(() => undefined));
+    }
     return res.json() as Promise<T>;
   }
 }

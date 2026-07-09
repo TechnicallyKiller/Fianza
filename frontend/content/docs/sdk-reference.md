@@ -267,12 +267,31 @@ checking what the underwriter will see *before* actually running a full
 
 ## Error handling
 
-Every write method (`register`, `borrow`, `repay`, `deposit`) throws if the
-underlying transaction doesn't reach `SUCCESS` on-chain — wrap calls in
-`try/catch` in production code. Reads (`creditLine`, `vaultState`,
-`availableCreditUsdc`, `usdcBalanceUsdc`) throw if the simulation itself
-fails (e.g. contract IDs unresolvable), which usually means `/config`
-couldn't be reached or the agent isn't registered yet.
+The SDK throws **typed errors** (all extending `TrustLineError`), so you can
+catch specific failures instead of string-matching messages:
+
+| Error | Thrown when |
+|---|---|
+| `ValidationError` | Bad input — a non-positive/`NaN` amount, or a malformed Stellar address. Thrown **locally, before any network call**, so bad input never wastes an RPC round-trip or a failed on-chain tx. |
+| `ApiError` | A call to the TrustLine backend returned a non-2xx status (carries `.status`, `.method`, `.path`, `.body`). |
+| `TxError` | An on-chain write failed to submit or confirm (carries `.contractMethod`, `.detail`). Includes the case where the vault rejects a `borrow` above your limit. |
+| `MaxDrawExceededError` | `payWithCredit`'s shortfall would exceed the `maxDraw` cap you set (carries `.need`, `.maxDraw`). |
+
+```ts
+import { TrustLineAgent, ValidationError, TxError } from "@trustline-agents/agent-sdk";
+
+try {
+  await tl.borrow(amount);
+} catch (e) {
+  if (e instanceof ValidationError) { /* fix the input */ }
+  else if (e instanceof TxError) { /* on-chain rejected — e.g. over limit */ }
+  else throw e;
+}
+```
+
+The pure helpers `toStroops`, `fromStroops`, `isValidStellarAddress`, and
+`creditShortfallUsdc` are also exported if you want to reuse the SDK's
+conversion/validation logic directly.
 
 ## A complete, runnable example
 
