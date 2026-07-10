@@ -14,16 +14,33 @@ docs/        this documentation
 
 ## Data flow, end to end
 
-```
- revenue sources          the underwriter (off-chain)         on-chain rulebook (Soroban)
-┌──────────────────┐     ┌───────────────────────────┐      ┌──────────────────────────┐
-│ Stellar x402 USDC│──►  │ indexer → independence →   │ ──►  │ score_registry           │
-│ Stripe (zkTLS)   │     │ scoring → signer           │      │ credit_line (limit/APR)  │
-└──────────────────┘     └───────────────────────────┘      │ lending_vault (isolated) │
-        ▲                          signs the score           └──────────────────────────┘
-        │                                                              ▲
-   agents earn                                        agent SDK: register/borrow/repay,
-   over x402                                          payWithCredit (draw-on-402)
+```mermaid
+flowchart LR
+    subgraph Revenue["Revenue sources"]
+        A1[x402 USDC payments]
+        A2[Off-chain, e.g. Stripe]
+    end
+
+    subgraph Underwriter["Backend — off-chain"]
+        B1[Indexer]
+        B2[Independence check]
+        B3[zkTLS proof]
+        B4[Score]
+        B1 --> B2 --> B4
+        A2 -.-> B3 -.-> B4
+    end
+
+    subgraph Chain["Soroban contracts"]
+        C1[score_registry]
+        C2[credit_line]
+        C3["lending_vault<br/>(isolated per agent)"]
+        C1 --> C2 --> C3
+    end
+
+    A1 --> B1
+    B4 -->|signed, published| C1
+    C3 -->|borrow / repay| D[Agent SDK]
+    D -->|earns over x402| A1
 ```
 
 1. **Earn** — an agent gets paid in USDC over x402. The backend indexer reads

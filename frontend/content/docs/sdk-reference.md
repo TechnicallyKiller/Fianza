@@ -226,6 +226,15 @@ balance and the price *before* making the request. The agent never
 "decides to borrow" — it just transacts, and the credit line silently
 covers what its cash can't.
 
+```mermaid
+flowchart TD
+    A["payWithCredit(url, price)"] --> B{balance ≥ price?}
+    B -->|yes| D[pay over x402]
+    B -->|no| C["borrow(shortfall)"]
+    C --> D
+    D --> E[return Response]
+```
+
 - `priceUsdc` — the price of the resource, in USDC (you need to know this
   ahead of time; the SDK doesn't parse x402 challenge responses for you).
 - `opts.maxDraw` — optional safety cap. If the shortfall would exceed this,

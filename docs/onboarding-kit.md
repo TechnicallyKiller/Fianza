@@ -14,6 +14,15 @@ invented.
   the SDK's underlying `@stellar/stellar-sdk` dependency
 - Nothing else. Testnet is free.
 
+```mermaid
+flowchart LR
+    A[Generate keypair] --> B[Friendbot: fund XLM]
+    B --> C[Open USDC trustline]
+    C --> D[TrustLine faucet: drip USDC]
+    D --> E["npm install @trustline-agents/agent-sdk"]
+    E --> F[onboard: register + underwrite]
+```
+
 ## 1. Generate a Stellar keypair for your agent
 
 Your agent needs its own Stellar key — this *is* its identity on TrustLine.

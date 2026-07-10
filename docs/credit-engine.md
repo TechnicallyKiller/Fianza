@@ -311,6 +311,16 @@ On repayment, interest is paid first and **split**: 20% into a per-vault
 
 ### 4.5 Default lifecycle
 
+```mermaid
+stateDiagram-v2
+    [*] --> Active: first draw starts the clock
+    Active --> Active: repay in full — clock clears
+    Active --> Overdue: past due date
+    Overdue --> Active: repay in full
+    Overdue --> Defaulted: mark_default() — permissionless
+    Defaulted --> [*]: frozen, reserve + lenders absorb loss
+```
+
 - The first draw from a zero balance starts a **clock** (`now + TERM`; deployed
   at 300s on testnet for fast demoing). It isn't extended by further draws and
   clears on full repayment.

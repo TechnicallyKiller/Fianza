@@ -1,6 +1,7 @@
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { allDocSlugs } from "@/lib/docs-nav";
+import Mermaid from "@/components/Mermaid";
 
 const REPO = "https://github.com/TechnicallyKiller/TrustLine";
 const DOC_SLUGS = new Set(allDocSlugs());
@@ -45,6 +46,24 @@ export default function DocContent({ markdown }: { markdown: string }) {
               {children}
             </a>
           ),
+          pre: ({ children, ...props }) => {
+            const child = children as { props?: { className?: string } };
+            if (/language-mermaid/.test(child?.props?.className || "")) {
+              return <>{children}</>; // unwrap — Mermaid renders its own container
+            }
+            return <pre {...props}>{children}</pre>;
+          },
+          code: ({ className, children, ...props }) => {
+            const isMermaid = /language-mermaid/.test(className || "");
+            if (isMermaid) {
+              return <Mermaid chart={String(children).replace(/\n$/, "")} />;
+            }
+            return (
+              <code className={className} {...props}>
+                {children}
+              </code>
+            );
+          },
         }}
       >
         {markdown}
