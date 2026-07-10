@@ -39,11 +39,9 @@ compute, other agents) and repays as it earns.
 
 ## Install
 
-Not yet on PyPI. Install from the monorepo:
-
 ```bash
-pip install -e packages/agent-sdk-py          # editable, for local dev
-# or once published:  pip install trustline-agent-sdk
+pip install trustline-agent-sdk                # published on PyPI
+# or from the monorepo for local dev:  pip install -e packages/agent-sdk-py
 ```
 
 Requires Python ≥3.10, `stellar-sdk` (13–15.x) and `requests` (installed

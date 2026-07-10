@@ -8,6 +8,8 @@ line it can draw against and repay, all from its own Stellar key. This is the
 Python port of the TypeScript [`@trustline-agents/agent-sdk`](../agent-sdk); the
 two speak the same backend API and on-chain contracts.
 
+[![PyPI](https://img.shields.io/pypi/v/trustline-agent-sdk.svg)](https://pypi.org/project/trustline-agent-sdk/)
+
 ```bash
 pip install trustline-agent-sdk
 ```
