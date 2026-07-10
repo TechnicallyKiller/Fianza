@@ -31,3 +31,6 @@ backend/_oz_wire.sh
 
 # Local durable key backups — NEVER commit
 .secrets-backup/
+
+# python test venv (agent-sdk-py)
+.venv-sdktest/
