@@ -1,12 +1,8 @@
 "use client";
 
-// Borrower (AI-agent) dashboard — wired to the live Phase-2 underwriting API and
-// the connected wallet. Design: screens/dashboard.html + screens/screen_dash.png.
-//
-// Live now: indexed x402 revenue, the full underwrite pass (revenue → zkTLS proof
-// → score → attestation), score/tier/limit/APR, and the score breakdown.
-// Gated on Phase-4 deploy: the on-chain credit-line draw/repay calls (they fire
-// the moment /config exposes creditLineContractId).
+// Borrower — TrustLine.dc.html "LIVING LEDGER" cockpit. Wired to the live
+// underwriting API, connected wallet, and the real lending_vault contract —
+// same data/actions as before this redesign, restyled.
 
 import { useCallback, useEffect, useState } from "react";
 import {
@@ -18,7 +14,7 @@ import {
   ExternalLink,
   AlertTriangle,
 } from "lucide-react";
-import DashboardChrome from "@/components/DashboardChrome";
+import TLShell from "@/components/tl/TLShell";
 import { useWallet } from "@/components/WalletProvider";
 import {
   api,
@@ -58,8 +54,6 @@ const TEST_AGENT_FROM_LEDGER = "3326960";
 export default function BorrowerDashboard() {
   const { address, config: walletConfig } = useWallet();
 
-  // The agent being viewed. Defaults to the connected wallet, but any address
-  // can be inspected read-only (revenue + underwrite are public, address-keyed).
   const [target, setTarget] = useState("");
   const [addrInput, setAddrInput] = useState("");
   const [fromLedger, setFromLedger] = useState("");
@@ -74,8 +68,6 @@ export default function BorrowerDashboard() {
 
   const fromLedgerNum = fromLedger.trim() ? Number(fromLedger.trim()) : undefined;
 
-  // Live on-chain vault state (principal owed, accrued interest, etc.) — reads
-  // the actual contract, not the score snapshot, so it reflects real borrows.
   const loadVaultState = useCallback(
     async (addr: string) => {
       const vaultId = walletConfig?.lendingVaultContractId;
@@ -98,7 +90,6 @@ export default function BorrowerDashboard() {
     [walletConfig, address],
   );
 
-  // Pull live revenue + any prior underwriting result for an agent.
   const load = useCallback(
     async (addr: string, fl?: number) => {
       setError(null);
@@ -113,7 +104,6 @@ export default function BorrowerDashboard() {
         ]);
         if (rev.status === "fulfilled") setRevenue(rev.value);
         else setError(rev.reason?.message ?? "Failed to index revenue");
-        // 404 (never underwritten) is expected — leave result null.
         if (prior.status === "fulfilled") setResult(prior.value);
         else if (prior.reason instanceof ApiError && prior.reason.status !== 404) {
           setError(prior.reason.message);
@@ -126,7 +116,6 @@ export default function BorrowerDashboard() {
     [loadVaultState],
   );
 
-  // On wallet connect, default the inspect target to it and auto-load once.
   useEffect(() => {
     if (address && !target) {
       setTarget(address);
@@ -177,33 +166,36 @@ export default function BorrowerDashboard() {
 
   const score = result?.score;
   const readOnly = !!target && target !== address;
+  const limit = score?.limitUsdc ?? 0;
+  const owed = vaultState ? Number(vaultState.amount_owed) / 1e7 : 0;
+  const utilPct = limit > 0 ? Math.min(100, Math.round((owed / limit) * 100)) : 0;
 
   if (!address) {
     return (
-      <DashboardChrome active="Dashboard">
-        <main className="mx-auto flex w-full max-w-[1440px] flex-1 items-center justify-center px-gutter py-stack-lg">
+      <TLShell>
+        <main className="mx-auto flex w-full max-w-[1160px] flex-1 items-center justify-center px-[30px] py-[14vh]">
           <ConnectPrompt />
         </main>
-      </DashboardChrome>
+      </TLShell>
     );
   }
 
   return (
-    <DashboardChrome active="Dashboard">
-      <main className="mx-auto w-full max-w-[1440px] flex-1 px-gutter py-stack-lg">
+    <TLShell>
+      <main className="mx-auto w-full max-w-[1160px] px-[30px] pb-20 pt-11">
         {error ? <Banner kind="error" text={error} /> : null}
         {notice ? <Banner kind="warn" text={notice} /> : null}
 
-        {/* Inspect bar — view/underwrite any agent (public, address-keyed reads) */}
+        {/* inspect bar */}
         <form
           onSubmit={(e) => {
             e.preventDefault();
             inspect(addrInput, fromLedger);
           }}
-          className="glass-card animate-enter mb-stack-md flex flex-col gap-3 rounded-lg p-4 lg:flex-row lg:items-end"
+          className="mb-8 flex flex-col gap-3 rounded-xl border border-white/[0.08] bg-obsidian/60 p-4 lg:flex-row lg:items-end"
         >
           <label className="flex flex-1 flex-col gap-1">
-            <span className="font-label-caps text-label-caps uppercase text-on-surface-variant">
+            <span className="font-tl-mono text-[10px] uppercase tracking-[0.12em] text-ash">
               Agent address
             </span>
             <input
@@ -211,11 +203,11 @@ export default function BorrowerDashboard() {
               onChange={(e) => setAddrInput(e.target.value)}
               placeholder="G… Stellar address"
               spellCheck={false}
-              className="w-full rounded-md border border-outline-variant bg-surface px-3 py-2 font-data-md text-data-md text-on-surface transition-colors focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+              className="w-full rounded-md border border-white/10 bg-void px-3 py-2 font-tl-mono text-sm text-bone outline-none transition-colors focus:border-ion"
             />
           </label>
           <label className="flex w-full flex-col gap-1 lg:w-48">
-            <span className="font-label-caps text-label-caps uppercase text-on-surface-variant">
+            <span className="font-tl-mono text-[10px] uppercase tracking-[0.12em] text-ash">
               From ledger (optional)
             </span>
             <input
@@ -223,14 +215,14 @@ export default function BorrowerDashboard() {
               onChange={(e) => setFromLedger(e.target.value)}
               inputMode="numeric"
               placeholder="latest ~1000"
-              className="w-full rounded-md border border-outline-variant bg-surface px-3 py-2 font-data-md text-data-md text-on-surface transition-colors focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+              className="w-full rounded-md border border-white/10 bg-void px-3 py-2 font-tl-mono text-sm text-bone outline-none transition-colors focus:border-ion"
             />
           </label>
           <div className="flex gap-2">
             <button
               type="submit"
               disabled={loadingRevenue}
-              className="electric-blue-glow rounded bg-primary-container px-4 py-2 font-body-sm font-medium text-on-primary-container transition-all duration-300 hover:scale-[1.02] hover:bg-primary hover:text-surface disabled:opacity-60"
+              className="rounded-md bg-nectar px-4 py-2 font-tl-sans text-sm font-semibold text-obsidian transition-colors hover:bg-ion disabled:opacity-60"
             >
               {loadingRevenue ? "Loading…" : "Load"}
             </button>
@@ -238,7 +230,7 @@ export default function BorrowerDashboard() {
               type="button"
               onClick={loadTestAgent}
               disabled={loadingRevenue}
-              className="rounded border border-white/10 bg-surface-dim/20 px-4 py-2 font-body-sm text-on-surface-variant transition-colors hover:bg-surface-variant/50 hover:text-on-surface disabled:opacity-60"
+              className="rounded-md border border-white/10 px-4 py-2 font-tl-mono text-xs text-ash transition-colors hover:text-bone disabled:opacity-60"
               title="Load a known agent with real, retained x402 revenue"
             >
               Test agent
@@ -247,402 +239,198 @@ export default function BorrowerDashboard() {
         </form>
 
         {readOnly ? (
-          <div className="mb-stack-md flex items-center gap-2 rounded-lg border border-primary/20 bg-primary/5 p-3 font-body-sm text-on-surface-variant">
-            <ShieldCheck size={16} className="shrink-0 text-primary" />
+          <div className="mb-8 flex items-center gap-2 rounded-lg border border-ion/20 bg-ion/5 p-3 font-tl-mono text-xs text-ash">
+            <ShieldCheck size={16} className="shrink-0 text-ion" />
             <span>
               Inspecting another agent (read-only). Revenue indexing and
-              underwriting are public; on-chain draw/repay require connecting as
-              this agent.
+              underwriting are public; draw/repay require connecting as this
+              agent.
             </span>
           </div>
         ) : null}
 
-        {/* Summary row */}
-        <div className="mb-stack-lg grid grid-cols-1 gap-stack-md md:grid-cols-4">
-          <div className="glass-card glass-card-hover animate-enter flex flex-col justify-between rounded-lg p-card-padding">
-            <div className="mb-stack-sm flex items-start justify-between">
-              <span className="text-body-sm text-on-surface-variant">
-                Credit Score
-              </span>
-              {score ? (
-                <span className="rounded border border-primary/20 bg-primary/10 px-2 py-1 font-label-caps text-label-caps text-primary">
-                  {tierLabel(score.tier)}
-                </span>
-              ) : null}
+        {/* header */}
+        <div className="mb-1.5 flex flex-wrap items-baseline justify-between gap-3">
+          <div>
+            <div className="mb-2 font-tl-mono text-[11px] tracking-[0.2em] text-nectar">
+              / BORROWER COCKPIT
             </div>
-            <div className="text-headline-lg font-headline-lg text-on-surface">
-              {score ? score.score : "—"}
+            <h1 className="break-all font-tl-serif text-2xl tracking-[-0.01em] text-bone sm:text-[34px]">
+              {shortAddr(target || address)}
+            </h1>
+          </div>
+          <div className="text-right">
+            <div className="font-tl-mono text-[10px] tracking-[0.1em] text-ash">
+              SCORE / TIER
+            </div>
+            <div className="font-tl-sans text-xl font-bold text-bone sm:text-2xl">
+              {score ? score.score : "—"} ·{" "}
+              <span className="text-ion">{score ? tierLabel(score.tier).replace("Tier ", "") : "—"}</span>
             </div>
           </div>
-          <Metric
-            label="Available Credit"
-            value={score ? usdc(score.limitUsdc) : "—"}
-            unit="USDC"
-            delay="delay-100"
-          />
-          <Metric
-            label="Currently Borrowed"
-            value={vaultState ? usdc(Number(vaultState.amount_owed) / 1e7) : "—"}
-            unit="USDC"
-            delay="delay-200"
-          />
-          <Metric
-            label="Verified Trailing Revenue"
-            value={revenue ? usdc(revenue.totalRevenueUsdc) : loadingRevenue ? "…" : "—"}
-            unit="USDC"
-            delay="delay-300"
-          />
         </div>
 
-        {/* Main layout */}
-        <div className="grid grid-cols-1 gap-stack-lg lg:grid-cols-12">
-          {/* Left column */}
-          <div className="flex flex-col gap-stack-lg lg:col-span-8">
-            {/* Revenue history */}
-            <div className="glass-card animate-enter delay-100 flex h-[400px] flex-col rounded-lg p-card-padding">
-              <div className="mb-stack-md flex items-center justify-between border-b border-white/10 pb-stack-sm">
-                <h2 className="text-body-lg font-body-lg">Revenue History</h2>
-                <span className="text-body-sm text-on-surface-variant">
-                  on-chain x402 earnings
-                  {revenue
-                    ? ` · ledgers ${revenue.windowFromLedger}–${revenue.windowToLedger}`
-                    : ""}
-                </span>
-              </div>
-              <RevenueChart revenue={revenue} loading={loadingRevenue} />
-            </div>
+        {/* cell + controls */}
+        <div className="mt-8 grid grid-cols-1 items-center gap-8 md:grid-cols-[280px_1fr] md:gap-11">
+          <UtilizationCell pct={utilPct} defaulted={!!vaultState?.defaulted} />
 
-            {/* Off-chain revenue / proof */}
-            <div className="glass-card animate-enter delay-200 rounded-lg p-card-padding">
-              <div className="mb-stack-md border-b border-white/10 pb-stack-sm">
-                <h2 className="text-body-lg font-body-lg">Off-chain Revenue</h2>
-              </div>
-              <div className="flex flex-col items-start justify-between gap-4 rounded border border-white/5 bg-surface-dim/30 p-4 backdrop-blur-sm md:flex-row md:items-center">
-                <div className="flex items-center gap-3">
-                  <div
-                    className={`rounded-full border p-2 ${
-                      result?.proof?.verified
-                        ? "border-secondary/20 bg-secondary/10 text-secondary"
-                        : "border-outline-variant bg-surface-container text-on-surface-variant"
-                    }`}
-                  >
-                    {result?.proof?.verified ? (
-                      <ShieldCheck size={20} />
-                    ) : (
-                      <ShieldAlert size={20} />
-                    )}
-                  </div>
-                  <div>
-                    <div className="font-body-md text-on-surface">
-                      zkTLS-verified Stripe revenue
-                    </div>
-                    <ProofStatus result={result} />
-                  </div>
-                </div>
-                <div className="flex flex-col items-stretch gap-2 sm:flex-row">
-                  <button
-                    onClick={() => runUnderwrite(false)}
-                    disabled={underwriting}
-                    title="Proves a private balance (e.g. Stripe) via zero-knowledge — the API key never leaves the proof. Takes ~60-90s; the attestor network isn't instant."
-                    className="electric-blue-glow inline-flex items-center justify-center gap-2 rounded bg-primary-container px-4 py-2 font-body-sm text-on-primary-container transition-all duration-300 hover:scale-105 hover:bg-primary hover:text-surface disabled:opacity-60"
-                  >
-                    {underwriting ? (
-                      <Loader2 size={14} className="animate-spin" />
-                    ) : null}
-                    Submit revenue proof
-                  </button>
-                  <button
-                    onClick={() => runUnderwrite(true)}
-                    disabled={underwriting}
-                    className="rounded border border-white/10 bg-surface-dim/20 px-4 py-2 font-body-sm text-on-surface-variant backdrop-blur-sm transition-colors hover:bg-surface-variant/50 hover:text-on-surface disabled:opacity-60"
-                    title="Re-score using on-chain revenue only (skips the slow zkTLS proof)"
-                  >
-                    Score on-chain only
-                  </button>
-                </div>
-                {underwriting ? (
-                  <p className="mt-2 text-body-sm text-on-surface-variant">
-                    Proving a private balance via zero-knowledge takes ~60-90s
-                    — the attestor network isn&apos;t instant. This isn&apos;t stuck.
-                  </p>
-                ) : (
-                  <p className="mt-2 text-body-sm text-on-surface-variant/60">
-                    Zero-knowledge proof of off-chain revenue (e.g. Stripe) —
-                    the underlying API key never appears in the proof. Slower
-                    (~60-90s) than the on-chain-only score.
-                  </p>
-                )}
-              </div>
-            </div>
-
-            {/* Score breakdown */}
-            <div className="glass-card animate-enter delay-300 rounded-lg p-card-padding">
-              <div className="mb-stack-md border-b border-white/10 pb-stack-sm">
-                <h2 className="text-body-lg font-body-lg">Score Breakdown</h2>
-              </div>
-              <ScoreBreakdown result={result} />
-            </div>
-          </div>
-
-          {/* Right column */}
-          <div className="flex flex-col gap-stack-lg lg:col-span-4">
-            {/* Credit line status */}
-            <div className="glass-card animate-enter delay-200 rounded-lg p-card-padding">
-              <div className="mb-stack-md border-b border-white/10 pb-stack-sm">
-                <h2 className="text-body-lg font-body-lg">Credit Line Status</h2>
-              </div>
-              <div className="mb-4 flex items-baseline justify-between">
-                <span className="text-body-sm text-on-surface-variant">
-                  Credit Limit
-                </span>
-                <div className="flex items-baseline gap-1">
-                  <span className="font-data-lg text-on-surface">
-                    {score ? usdc(score.limitUsdc) : "—"}
-                  </span>
-                  <span className="font-data-md text-body-sm text-on-surface-variant">
-                    USDC
-                  </span>
-                </div>
-              </div>
-              <div className="mb-6 flex items-baseline justify-between">
-                <span className="text-body-sm text-on-surface-variant">
-                  APR (Fixed)
-                </span>
-                <span className="font-data-md text-on-surface">
-                  {score ? aprPct(score.aprBps) : "—"}
-                </span>
-              </div>
-              <div className="mb-6 rounded border border-white/5 bg-surface-dim/30 p-4 backdrop-blur-sm">
-                <div className="mb-1 text-body-sm text-on-surface-variant">
-                  Amount Drawn
-                </div>
-                <div className="flex items-baseline gap-2 text-headline-md">
-                  <span className="font-data-lg">
-                    {vaultState ? usdc(Number(vaultState.amount_owed) / 1e7) : "0"}
-                  </span>
-                  <span className="font-data-md text-body-sm text-on-surface-variant">
-                    USDC
-                  </span>
-                </div>
-                <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full border border-white/5 bg-surface-dim/50">
-                  <div
-                    className="h-full bg-primary shadow-[0_0_10px_rgba(173,198,255,0.5)]"
-                    style={{
-                      width:
-                        vaultState && score && score.limitUsdc > 0
-                          ? `${Math.min(100, (Number(vaultState.amount_owed) / 1e7 / score.limitUsdc) * 100)}%`
-                          : "0%",
-                    }}
-                  />
-                </div>
-                {vaultState?.defaulted ? (
-                  <p className="mt-2 text-body-sm text-error">
-                    ⚠ Defaulted — frozen out of further borrowing.
-                  </p>
-                ) : null}
-              </div>
-              <VaultActions
-                hasLimit={!!score && score.limitUsdc > 0}
-                readOnly={readOnly}
-                onAction={() => target && load(target, fromLedgerNum)}
+          <div className="flex flex-col gap-6">
+            <div className="flex flex-wrap gap-8">
+              <Figure label="CREDIT LINE" value={score ? usdc(limit) : "—"} color="#FFB020" />
+              <Figure label="DRAWN" value={vaultState ? usdc(owed) : "—"} color="#F4F1E9" />
+              <Figure
+                label="HEADROOM"
+                value={score ? usdc(Math.max(0, limit - owed)) : "—"}
+                color="#58F0C8"
               />
             </div>
 
-            {/* Activity feed */}
-            <div className="glass-card animate-enter delay-400 flex-1 rounded-lg p-card-padding">
-              <div className="mb-stack-md border-b border-white/10 pb-stack-sm">
-                <h2 className="text-body-lg font-body-lg">Activity Feed</h2>
-              </div>
-              <ActivityFeed result={result} />
-            </div>
+            <VaultActions
+              hasLimit={!!score && limit > 0}
+              limit={limit}
+              readOnly={readOnly}
+              defaulted={!!vaultState?.defaulted}
+              aprBps={score?.aprBps}
+              onAction={() => target && load(target, fromLedgerNum)}
+            />
           </div>
         </div>
+
+        {/* revenue proofs */}
+        <div className="mt-14">
+          <div className="mb-4 font-tl-mono text-[10px] tracking-[0.16em] text-ash">
+            REVENUE PROOFS · funding the line
+          </div>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+            <ProofCard
+              id="on-chain"
+              amt={revenue ? usdc(revenue.totalRevenueUsdc) : loadingRevenue ? "…" : "—"}
+              note={revenue ? `${revenue.distinctPayers} payer(s) · x402` : "not indexed"}
+              color="#58F0C8"
+            />
+            <OffchainProofCard
+              result={result}
+              underwriting={underwriting}
+              onSubmitProof={() => runUnderwrite(false)}
+              onOnchainOnly={() => runUnderwrite(true)}
+            />
+            <ProofCard
+              id="repayment history"
+              amt={score ? `${score.repayments.onTime}/${score.repayments.total}` : "—"}
+              note={
+                score?.defaulted
+                  ? "defaulted · score collapsed"
+                  : score && score.components.historyDelta
+                    ? `${score.components.historyDelta > 0 ? "+" : ""}${score.components.historyDelta} to score`
+                    : "on-time repayments"
+              }
+              color={score?.defaulted ? "#FF5C4D" : "#FFB020"}
+            />
+          </div>
+        </div>
+
+        {/* score breakdown */}
+        <div className="mt-14">
+          <div className="mb-4 font-tl-mono text-[10px] tracking-[0.16em] text-ash">
+            SCORE BREAKDOWN
+          </div>
+          <ScoreBreakdown result={result} />
+        </div>
+
+        {/* activity */}
+        <div className="mt-14">
+          <div className="mb-4 font-tl-mono text-[10px] tracking-[0.16em] text-ash">
+            ACTIVITY
+          </div>
+          <ActivityFeed result={result} />
+        </div>
       </main>
-    </DashboardChrome>
+    </TLShell>
   );
 }
 
-// ---- Sub-components ----
+// ---- sub-components ----
 
 function ConnectPrompt() {
   const { connect, connecting, error } = useWallet();
   return (
-    <div className="glass-card animate-enter flex max-w-md flex-col items-center gap-4 rounded-lg p-card-padding text-center">
-      <div className="rounded-full border border-primary/20 bg-primary/10 p-3 text-primary">
-        <Wallet size={28} />
+    <div className="flex max-w-md flex-col items-center gap-4 rounded-xl border border-white/[0.08] bg-obsidian/60 p-10 text-center">
+      <div className="rounded-full border border-ion/20 bg-ion/10 p-3 text-ion">
+        <Wallet size={26} />
       </div>
-      <h2 className="text-headline-md font-headline-md">Connect your wallet</h2>
-      <p className="text-body-md text-on-surface-variant">
+      <h2 className="font-tl-serif text-2xl text-bone">Connect your wallet</h2>
+      <p className="font-tl-sans text-sm leading-relaxed text-ash">
         Connect a Stellar wallet to index your x402 revenue, prove off-chain
         income, and view your underwritten credit line.
       </p>
       <button
         onClick={connect}
         disabled={connecting}
-        className="electric-blue-glow inline-flex items-center gap-2 rounded bg-primary-container px-5 py-2.5 font-body-sm font-medium text-on-primary-container transition-all duration-300 hover:scale-[1.02] hover:bg-primary hover:text-surface disabled:opacity-60"
+        className="inline-flex items-center gap-2 rounded-md bg-nectar px-5 py-2.5 font-tl-sans text-sm font-semibold text-obsidian transition-colors hover:bg-ion disabled:opacity-60"
       >
-        <Wallet size={16} />
+        <Wallet size={15} />
         {connecting ? "Connecting…" : "Connect wallet"}
       </button>
-      {error ? <p className="text-body-sm text-error">{error}</p> : null}
+      {error ? <p className="font-tl-mono text-xs text-flare">{error}</p> : null}
     </div>
   );
 }
 
 function Banner({ kind, text }: { kind: "error" | "warn"; text: string }) {
   const styles =
-    kind === "error"
-      ? "border-error/30 bg-error/10 text-error"
-      : "border-tertiary/30 bg-tertiary-container/10 text-tertiary";
+    kind === "error" ? "border-flare/30 bg-flare/10 text-flare" : "border-nectar/30 bg-nectar/10 text-nectar";
   return (
-    <div
-      className={`mb-stack-md flex items-start gap-2 rounded-lg border p-3 font-body-sm ${styles}`}
-    >
-      <AlertTriangle size={16} className="mt-0.5 shrink-0" />
+    <div className={`mb-6 flex items-start gap-2 rounded-lg border p-3 font-tl-mono text-xs ${styles}`}>
+      <AlertTriangle size={15} className="mt-0.5 shrink-0" />
       <span>{text}</span>
     </div>
   );
 }
 
-function ProofStatus({ result }: { result: UnderwritingResult | null }) {
-  if (!result) {
-    return (
-      <div className="mt-1 text-body-sm text-on-surface-variant">
-        Not yet proven
-      </div>
-    );
-  }
-  if (result.proof?.verified) {
-    return (
-      <div className="mt-1 flex items-center gap-2 text-body-sm">
-        <span className="flex items-center gap-1 text-secondary">
-          <CheckCircle2 size={14} />
-          <span className="font-medium">Verified</span>
-        </span>
-        <span className="text-on-surface-variant">
-          {usdc(Number(result.proof.amountStroops) / 1e7)} USDC
-        </span>
-        {result.proof.verifyTxHash ? (
-          <TxLink hash={result.proof.verifyTxHash} />
-        ) : null}
-      </div>
-    );
-  }
+// The "living ledger" — a breathing organic cell filling with drawn credit.
+function UtilizationCell({ pct, defaulted }: { pct: number; defaulted: boolean }) {
+  const color = defaulted ? "#FF5C4D" : "#FFB020";
   return (
-    <div className="mt-1 text-body-sm text-tertiary">
-      {result.proofError
-        ? "Proof unavailable (attestor timeout) — using on-chain revenue only"
-        : "Not proven in this pass"}
+    <div className="relative mx-auto flex h-[260px] w-[260px] items-center justify-center sm:h-[300px] sm:w-[300px]">
+      <div
+        className="tl-anim-breathe absolute h-[240px] w-[240px] rounded-[47%_53%_55%_45%/52%_47%_53%_48%] border-2 sm:h-[280px] sm:w-[280px]"
+        style={{
+          borderColor: "rgba(88,240,200,.5)",
+          boxShadow: "0 0 46px rgba(88,240,200,.22), inset 0 0 40px rgba(88,240,200,.07)",
+        }}
+      />
+      <div
+        className="tl-anim-breathe absolute h-[240px] w-[240px] overflow-hidden rounded-[47%_53%_55%_45%/52%_47%_53%_48%] sm:h-[280px] sm:w-[280px]"
+      >
+        <div
+          className="absolute bottom-0 left-0 right-0 transition-[height] duration-500"
+          style={{
+            height: `${pct}%`,
+            background: `linear-gradient(${color},${color}cc)`,
+            boxShadow: `0 0 60px ${color}66`,
+          }}
+        />
+      </div>
+      <div className="relative z-[2] text-center mix-blend-difference">
+        <div className="font-tl-sans text-4xl font-bold leading-[0.9] tracking-[-0.03em] text-white sm:text-5xl">
+          {pct}%
+        </div>
+        <div className="mt-0.5 font-tl-mono text-[9px] tracking-[0.14em] text-white">
+          UTILIZATION
+        </div>
+      </div>
+      <div className="tl-anim-drift absolute right-11 top-5 h-[9px] w-[9px] rounded-full bg-ion shadow-[0_0_12px_#58F0C8]" />
+      <div className="tl-anim-drift-slow absolute bottom-10 left-8 h-1.5 w-1.5 rounded-full bg-ion shadow-[0_0_10px_#58F0C8]" />
     </div>
   );
 }
 
-function ScoreBreakdown({ result }: { result: UnderwritingResult | null }) {
-  if (!result) {
-    return (
-      <p className="text-body-sm text-on-surface-variant">
-        Run an underwriting pass to see how your score is composed.
-      </p>
-    );
-  }
-  const s = result.score;
-  // Revenue-coverage: how far effective revenue carries toward the top band.
-  const coverage = Math.min(100, Math.round((s.revenueUsdc / 25_000) * 100));
-  const counterparty = Math.min(
-    100,
-    Math.round((s.distinctPayers / s.minCounterparties) * 100),
-  );
-  const offchainWeight = s.components.offchainUsdc > 0 ? 100 : 0;
+function Figure({ label, value, color }: { label: string; value: string; color: string }) {
   return (
-    <div className="flex flex-col gap-4">
-      {result.independence ? (
-        <IndependenceVerdict ind={result.independence} />
-      ) : null}
-      <ScoreBar
-        label="Revenue Coverage"
-        value={`${usdc(s.revenueUsdc)} USDC effective`}
-        pct={coverage}
-        opacity={1}
-      />
-      <ScoreBar
-        label="Distinct Counterparties"
-        value={`${s.distinctPayers} / ${s.minCounterparties} min ${
-          s.onchainCounts ? "✓" : "✗"
-        }`}
-        pct={counterparty}
-        opacity={s.onchainCounts ? 1 : 0.5}
-      />
-      <ScoreBar
-        label="Off-chain Proof Weight"
-        value={
-          s.components.offchainUsdc > 0
-            ? `${usdc(s.components.offchainUsdc)} USDC ×${s.components.offchainWeight}`
-            : "none"
-        }
-        pct={offchainWeight}
-        opacity={offchainWeight ? 1 : 0.4}
-      />
-      {!s.onchainCounts ? (
-        <p className="rounded border border-tertiary/20 bg-tertiary-container/10 p-3 text-body-sm text-tertiary">
-          On-chain revenue isn&apos;t counted yet: it needs at least{" "}
-          {s.minCounterparties} distinct payers (you have {s.distinctPayers}).
-          This is the anti-Sybil minimum.
-        </p>
-      ) : null}
-    </div>
-  );
-}
-
-// The moat, visible: which payers are independent vs circular (self-funded Sybil).
-function IndependenceVerdict({ ind }: { ind: IndependenceResult }) {
-  const indep = ind.independentPayers.length;
-  const circ = ind.circularPayers.length;
-  const clean = circ === 0;
-  return (
-    <div
-      className={`rounded-lg border p-3 ${clean ? "border-secondary/25 bg-secondary/5" : "border-error/30 bg-error/10"}`}
-    >
-      <div className="mb-2 flex items-center gap-2">
-        {clean ? (
-          <ShieldCheck size={16} className="text-secondary" />
-        ) : (
-          <ShieldAlert size={16} className="text-error" />
-        )}
-        <span
-          className={`font-body-sm font-medium ${clean ? "text-secondary" : "text-error"}`}
-        >
-          {clean
-            ? "Counterparty independence verified"
-            : `Sybil detected — ${circ} circular payer${circ > 1 ? "s" : ""} excluded`}
-        </span>
-      </div>
-      <div className="flex flex-col gap-1">
-        {ind.perPayer.map((p) => (
-          <div
-            key={p.payer}
-            className="flex items-center justify-between gap-2 text-body-sm"
-          >
-            <span className="flex items-center gap-1.5">
-              {p.independent ? (
-                <CheckCircle2 size={13} className="shrink-0 text-secondary" />
-              ) : (
-                <span className="shrink-0 font-bold text-error">✕</span>
-              )}
-              <span className="font-data-md text-xs text-on-surface-variant">
-                {shortAddr(p.payer)}
-              </span>
-            </span>
-            <span
-              className={`text-right text-xs ${p.independent ? "text-on-surface-variant" : "text-error"}`}
-            >
-              {p.reason}
-            </span>
-          </div>
-        ))}
-      </div>
-      <div className="mt-2 border-t border-white/5 pt-2 text-xs text-on-surface-variant">
-        {indep} independent · {circ} circular ·{" "}
-        {usdc(Number(ind.independentRevenueStroops) / 1e7)} USDC counted
+    <div>
+      <div className="font-tl-mono text-[9px] tracking-[0.1em] text-ash">{label}</div>
+      <div className="font-tl-sans text-[28px] font-bold" style={{ color }}>
+        {value}
       </div>
     </div>
   );
@@ -650,11 +438,17 @@ function IndependenceVerdict({ ind }: { ind: IndependenceResult }) {
 
 function VaultActions({
   hasLimit,
+  limit,
   readOnly,
+  defaulted,
+  aprBps,
   onAction,
 }: {
   hasLimit: boolean;
+  limit: number;
   readOnly: boolean;
+  defaulted: boolean;
+  aprBps?: number;
   onAction: () => void;
 }) {
   const { address, config } = useWallet();
@@ -664,22 +458,30 @@ function VaultActions({
   const [err, setErr] = useState<string | null>(null);
   const [tx, setTx] = useState<string | null>(null);
 
+  const box = "rounded-xl border border-white/[0.09] bg-obsidian/60 p-[22px]";
+
   if (readOnly) {
     return (
-      <p className="text-center text-body-sm text-on-surface-variant/70">
-        Connect as this agent to draw or repay its credit line.
-      </p>
+      <div className={box}>
+        <p className="text-center font-tl-mono text-xs text-ash">
+          Connect as this agent to draw or repay its credit line.
+        </p>
+      </div>
     );
   }
   if (!deployed || !address) {
     return (
-      <p className="text-center text-body-sm text-on-surface-variant/70">
-        Connect your wallet to draw or repay your credit line.
-      </p>
+      <div className={box}>
+        <p className="text-center font-tl-mono text-xs text-ash">
+          Connect your wallet to draw or repay your credit line.
+        </p>
+      </div>
     );
   }
 
-  const stroops = () => BigInt(Math.round(Number(amount || "0") * 1e7));
+  const num = Math.max(0, Number(amount || "0"));
+  const stroops = () => BigInt(Math.round(num * 1e7));
+  const apr = aprBps ? aprPct(aprBps) : "—";
 
   const run = async (label: string, fn: () => Promise<{ txHash: string }>) => {
     setBusy(label);
@@ -725,96 +527,240 @@ function VaultActions({
     );
 
   return (
-    <div className="flex flex-col gap-3">
-      <div className="relative">
+    <div className={box}>
+      <div className="mb-3.5 flex items-baseline justify-between">
+        <span className="font-tl-mono text-[11px] tracking-[0.08em] text-ash">
+          DRAW AGAINST HEADROOM
+        </span>
+        <span className="font-tl-sans text-[15px] font-bold text-nectar">
+          {usdc(num)} USDC
+        </span>
+      </div>
+      <input
+        type="range"
+        min={0}
+        max={Math.max(1, Math.round(limit))}
+        step={Math.max(0.1, Math.round(limit) / 100 || 1)}
+        value={Math.min(num, Math.max(1, limit))}
+        onChange={(e) => setAmount(e.target.value)}
+        className="tl-range mb-4 w-full"
+      />
+      <div className="flex flex-wrap gap-2.5">
         <input
           value={amount}
           onChange={(e) => setAmount(e.target.value)}
           inputMode="decimal"
-          className="w-full rounded-md border border-outline-variant bg-surface px-4 py-2.5 pr-16 text-right font-data-md text-data-md text-on-surface focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+          className="w-24 rounded-md border border-white/10 bg-void px-2.5 py-2 text-right font-tl-mono text-sm text-bone outline-none focus:border-ion"
         />
-        <span className="absolute right-4 top-2.5 font-body-sm text-on-surface-variant">
-          USDC
-        </span>
+        <button
+          onClick={borrow}
+          disabled={!hasLimit || !!busy}
+          className="flex-1 rounded-lg bg-nectar py-3 font-tl-sans text-sm font-semibold text-obsidian transition-colors hover:bg-[#ffbf40] disabled:opacity-50"
+        >
+          {busy === "borrow" ? "Drawing…" : `Draw ${usdc(num)}`}
+        </button>
+        <button
+          onClick={repay}
+          disabled={!!busy}
+          className="flex-1 rounded-lg border border-ion/40 py-3 font-tl-sans text-sm font-semibold text-ion transition-colors hover:bg-ion/10 disabled:opacity-50"
+        >
+          {busy === "repay" ? "Repaying…" : `Repay ${usdc(num)}`}
+        </button>
       </div>
-      <button
-        onClick={borrow}
-        disabled={!hasLimit || !!busy}
-        className="electric-blue-glow w-full rounded bg-primary-container py-3 font-body-sm font-medium text-on-primary-container transition-all duration-300 hover:scale-[1.02] hover:bg-primary hover:text-surface disabled:opacity-60"
-      >
-        {busy === "borrow" ? "Drawing…" : "Request credit"}
-      </button>
-      <button
-        onClick={repay}
-        disabled={!!busy}
-        className="w-full rounded border border-white/10 bg-surface-dim/20 py-3 font-body-sm text-on-surface-variant backdrop-blur-sm transition-colors hover:bg-surface-variant/50 hover:text-on-surface disabled:opacity-60"
-      >
-        {busy === "repay" ? "Repaying…" : "Repay"}
-      </button>
+      <div className="mt-4 flex items-center justify-between border-t border-white/[0.07] pt-3.5 font-tl-mono text-xs">
+        <span className="text-ash">dynamic APR (utilization)</span>
+        <span style={{ color: defaulted ? "#FF5C4D" : "#FFB020" }}>{apr}</span>
+      </div>
       <button
         onClick={register}
         disabled={!!busy}
-        className="text-center text-body-sm text-on-surface-variant/70 transition-colors hover:text-on-surface"
+        className="mt-3 w-full text-center font-tl-mono text-xs text-ash transition-colors hover:text-bone"
       >
         {busy === "register" ? "Registering…" : "Register on-chain (first time)"}
       </button>
+      {defaulted ? (
+        <p className="mt-2 text-center font-tl-mono text-xs text-flare">
+          ⚠ Defaulted — frozen out of further borrowing.
+        </p>
+      ) : null}
       {tx ? (
-        <div className="text-center text-body-sm">
+        <div className="mt-2 text-center">
           <TxLink hash={tx} />
         </div>
       ) : null}
-      {err ? (
-        <p className="break-words text-center text-body-sm text-error">{err}</p>
-      ) : null}
+      {err ? <p className="mt-2 break-words text-center font-tl-mono text-xs text-flare">{err}</p> : null}
+    </div>
+  );
+}
+
+function ProofCard({ id, amt, note, color }: { id: string; amt: string; note: string; color: string }) {
+  return (
+    <div className="rounded-[10px] border border-white/[0.08] bg-obsidian/60 p-5">
+      <div className="mb-3 flex items-center justify-between">
+        <span className="font-tl-mono text-xs" style={{ color }}>
+          {id}
+        </span>
+        <span className="h-[7px] w-[7px] rounded-full" style={{ background: color, boxShadow: `0 0 8px ${color}` }} />
+      </div>
+      <div className="font-tl-sans text-2xl font-bold text-bone">{amt}</div>
+      <div className="mt-1.5 font-tl-mono text-[10px] text-[#5a635e]">{note}</div>
+    </div>
+  );
+}
+
+function OffchainProofCard({
+  result,
+  underwriting,
+  onSubmitProof,
+  onOnchainOnly,
+}: {
+  result: UnderwritingResult | null;
+  underwriting: boolean;
+  onSubmitProof: () => void;
+  onOnchainOnly: () => void;
+}) {
+  const verified = result?.proof?.verified;
+  const color = verified ? "#FFB020" : "#5a635e";
+  return (
+    <div className="flex flex-col gap-3 rounded-[10px] border border-white/[0.08] bg-obsidian/60 p-5">
+      <div className="flex items-center justify-between">
+        <span className="font-tl-mono text-xs" style={{ color: verified ? "#FFB020" : "#A7ADA6" }}>
+          zkTLS · stripe
+        </span>
+        {verified ? <CheckCircle2 size={14} className="text-nectar" /> : <ShieldAlert size={14} className="text-ash" />}
+      </div>
+      <div className="font-tl-sans text-2xl font-bold text-bone">
+        {verified ? usdc(Number(result!.proof!.amountStroops) / 1e7) : "—"}
+      </div>
+      <div className="font-tl-mono text-[10px] text-[#5a635e]">
+        {verified
+          ? "verified · ×1.5 weight"
+          : result?.proofError
+            ? "attestor timeout — on-chain only"
+            : "not proven yet"}
+      </div>
+      <div className="mt-1 flex flex-col gap-1.5">
+        <button
+          onClick={onSubmitProof}
+          disabled={underwriting}
+          title="Proves a private balance (e.g. Stripe) via zero-knowledge — takes ~60-90s"
+          className="inline-flex items-center justify-center gap-1.5 rounded-md bg-nectar/90 px-3 py-2 font-tl-mono text-[11px] font-semibold text-obsidian transition-colors hover:bg-nectar disabled:opacity-60"
+        >
+          {underwriting ? <Loader2 size={12} className="animate-spin" /> : null}
+          Submit revenue proof
+        </button>
+        <button
+          onClick={onOnchainOnly}
+          disabled={underwriting}
+          className="rounded-md border border-white/10 px-3 py-2 font-tl-mono text-[11px] text-ash transition-colors hover:text-bone disabled:opacity-60"
+        >
+          Score on-chain only
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function ScoreBreakdown({ result }: { result: UnderwritingResult | null }) {
+  if (!result) {
+    return (
+      <p className="font-tl-mono text-sm text-ash">
+        Run an underwriting pass to see how your score is composed.
+      </p>
+    );
+  }
+  return (
+    <div className="flex flex-col gap-4">
+      {result.independence ? <IndependenceVerdict ind={result.independence} /> : null}
+    </div>
+  );
+}
+
+function IndependenceVerdict({ ind }: { ind: IndependenceResult }) {
+  const indep = ind.independentPayers.length;
+  const circ = ind.circularPayers.length;
+  const clean = circ === 0;
+  return (
+    <div
+      className={`rounded-lg border p-4 ${clean ? "border-ion/25 bg-ion/5" : "border-flare/30 bg-flare/10"}`}
+    >
+      <div className="mb-3 flex items-center gap-2">
+        {clean ? <ShieldCheck size={15} className="text-ion" /> : <ShieldAlert size={15} className="text-flare" />}
+        <span className="font-tl-mono text-xs font-semibold" style={{ color: clean ? "#58F0C8" : "#FF5C4D" }}>
+          {clean ? "Counterparty independence verified" : `Sybil detected — ${circ} circular payer${circ > 1 ? "s" : ""} excluded`}
+        </span>
+      </div>
+      <div className="flex flex-col gap-1.5">
+        {ind.perPayer.map((p) => (
+          <div key={p.payer} className="flex items-center justify-between gap-2 font-tl-mono text-xs">
+            <span className="flex items-center gap-1.5">
+              {p.independent ? (
+                <CheckCircle2 size={12} className="shrink-0 text-ion" />
+              ) : (
+                <span className="shrink-0 font-bold text-flare">✕</span>
+              )}
+              <span className="text-ash">{shortAddr(p.payer)}</span>
+            </span>
+            <span className="text-right" style={{ color: p.independent ? "#A7ADA6" : "#FF5C4D" }}>
+              {p.reason}
+            </span>
+          </div>
+        ))}
+      </div>
+      <div className="mt-3 border-t border-white/5 pt-2 font-tl-mono text-[11px] text-ash">
+        {indep} independent · {circ} circular · {usdc(Number(ind.independentRevenueStroops) / 1e7)} USDC counted
+      </div>
     </div>
   );
 }
 
 function ActivityFeed({ result }: { result: UnderwritingResult | null }) {
   if (!result) {
-    return (
-      <p className="text-body-sm text-on-surface-variant">
-        No activity yet. Submit a revenue proof to get underwritten.
-      </p>
-    );
+    return <p className="font-tl-mono text-sm text-ash">No activity yet. Submit a revenue proof to get underwritten.</p>;
   }
   const when = new Date(result.underwroteAt * 1000).toLocaleString();
-  const items: { title: string; meta: string; hash?: string; active?: boolean }[] =
-    [];
+  const items: { title: string; meta: string; hash?: string; active?: boolean }[] = [];
   if (result.submission.submitted && result.submission.txHash) {
-    items.push({
-      title: "Score published on-chain",
-      meta: when,
-      hash: result.submission.txHash,
-      active: true,
-    });
+    items.push({ title: "Score published on-chain", meta: when, hash: result.submission.txHash, active: true });
   }
   items.push({
-    title: `Underwritten · score ${result.score.score} (${tierLabel(
-      result.score.tier,
-    )})`,
+    title: `Underwritten · score ${result.score.score} (${tierLabel(result.score.tier)})`,
     meta: when,
     active: !result.submission.submitted,
   });
   if (result.proof?.verified && result.proof.verifyTxHash) {
-    items.push({
-      title: "zkTLS revenue proof verified",
-      meta: when,
-      hash: result.proof.verifyTxHash,
-    });
+    items.push({ title: "zkTLS revenue proof verified", meta: when, hash: result.proof.verifyTxHash });
   }
   items.push({
-    title: `Revenue indexed · ${usdc(result.revenue.totalRevenueUsdc)} USDC, ${
-      result.revenue.distinctPayers
-    } payer(s)`,
+    title: `Revenue indexed · ${usdc(result.revenue.totalRevenueUsdc)} USDC, ${result.revenue.distinctPayers} payer(s)`,
     meta: when,
   });
 
   return (
     <div className="relative flex flex-col gap-4">
-      <div className="absolute bottom-2 left-2.5 top-2 w-px bg-white/10" />
+      <div className="absolute bottom-2 left-[9px] top-2 w-px bg-white/10" />
       {items.map((it, i) => (
-        <FeedItem key={i} {...it} />
+        <div key={i} className="relative z-10 flex gap-4">
+          <div
+            className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-obsidian ${
+              it.active ? "border border-ion shadow-[0_0_8px_rgba(88,240,200,0.35)]" : "border border-white/20"
+            }`}
+          >
+            <div className={`rounded-full ${it.active ? "h-2 w-2 bg-ion" : "h-1.5 w-1.5 bg-white/20"}`} />
+          </div>
+          <div>
+            <div className="font-tl-sans text-sm text-bone">{it.title}</div>
+            <div className="mt-0.5 flex items-center gap-2 font-tl-mono text-xs text-ash">
+              <span>{it.meta}</span>
+              {it.hash ? (
+                <>
+                  <span>•</span>
+                  <TxLink hash={it.hash} />
+                </>
+              ) : null}
+            </div>
+          </div>
+        </div>
       ))}
     </div>
   );
@@ -826,185 +772,10 @@ function TxLink({ hash }: { hash: string }) {
       href={STELLAR_EXPERT_TX(hash)}
       target="_blank"
       rel="noreferrer"
-      className="inline-flex items-center gap-1 font-data-md text-xs text-primary/80 transition-colors hover:text-primary"
+      className="inline-flex items-center gap-1 font-tl-mono text-xs text-ion/80 transition-colors hover:text-ion"
     >
       {hash.slice(0, 6)}…{hash.slice(-4)}
       <ExternalLink size={11} />
     </a>
-  );
-}
-
-function Metric({
-  label,
-  value,
-  unit,
-  delay,
-}: {
-  label: string;
-  value: string;
-  unit: string;
-  delay: string;
-}) {
-  return (
-    <div
-      className={`glass-card glass-card-hover animate-enter ${delay} flex flex-col justify-between rounded-lg p-card-padding`}
-    >
-      <div className="mb-stack-sm">
-        <span className="text-body-sm text-on-surface-variant">{label}</span>
-      </div>
-      <div className="flex items-baseline gap-2 text-headline-lg font-headline-lg text-on-surface">
-        <span className="font-data-lg text-data-lg">{value}</span>
-        <span className="font-data-md text-body-sm text-on-surface-variant">
-          {unit}
-        </span>
-      </div>
-    </div>
-  );
-}
-
-function ScoreBar({
-  label,
-  value,
-  pct,
-  opacity,
-}: {
-  label: string;
-  value: string;
-  pct: number;
-  opacity: number;
-}) {
-  return (
-    <div>
-      <div className="mb-1 flex justify-between text-body-sm">
-        <span className="text-on-surface-variant">{label}</span>
-        <span className="font-data-md">{value}</span>
-      </div>
-      <div className="h-2 w-full overflow-hidden rounded-full border border-white/5 bg-surface-dim/50 backdrop-blur-sm">
-        <div
-          className="h-full bg-primary shadow-[0_0_10px_rgba(173,198,255,0.5)]"
-          style={{ width: `${pct}%`, opacity }}
-        />
-      </div>
-    </div>
-  );
-}
-
-function FeedItem({
-  title,
-  meta,
-  hash,
-  active,
-}: {
-  title: string;
-  meta: string;
-  hash?: string;
-  active?: boolean;
-}) {
-  return (
-    <div className="relative z-10 flex gap-4">
-      <div
-        className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-surface-container-low ${
-          active
-            ? "border border-primary shadow-[0_0_8px_rgba(173,198,255,0.3)]"
-            : "border border-white/20"
-        }`}
-      >
-        <div
-          className={`rounded-full ${active ? "h-2 w-2 bg-primary" : "h-1.5 w-1.5 bg-white/20"}`}
-        />
-      </div>
-      <div>
-        <div className="font-body-sm text-on-surface">{title}</div>
-        <div className="mt-0.5 flex items-center gap-2 text-body-sm text-on-surface-variant">
-          <span>{meta}</span>
-          {hash ? (
-            <>
-              <span>•</span>
-              <TxLink hash={hash} />
-            </>
-          ) : null}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// Inline area chart driven by real payments (cumulative USDC over the window).
-function RevenueChart({
-  revenue,
-  loading,
-}: {
-  revenue: RevenueReport | null;
-  loading: boolean;
-}) {
-  const wrap =
-    "relative flex-1 overflow-hidden rounded border border-white/5 bg-surface-dim/20 backdrop-blur-sm";
-
-  if (loading) {
-    return (
-      <div className={`${wrap} flex items-center justify-center`}>
-        <Loader2 size={20} className="animate-spin text-on-surface-variant" />
-      </div>
-    );
-  }
-  const payments = revenue?.payments ?? [];
-  if (payments.length === 0) {
-    return (
-      <div className={`${wrap} flex items-center justify-center`}>
-        <p className="max-w-sm px-4 text-center text-body-sm text-on-surface-variant">
-          No x402 revenue indexed in this window. The shared USDC SAC is
-          high-traffic — narrow the window near a known payment, or earn fresh
-          x402 revenue.
-        </p>
-      </div>
-    );
-  }
-
-  // Cumulative revenue, ordered by ledger.
-  const sorted = [...payments].sort((a, b) => a.ledger - b.ledger);
-  let cum = 0;
-  const pts = sorted.map((p) => {
-    cum += Number(p.amount) / 1e7;
-    return { ledger: p.ledger, cum };
-  });
-  const maxCum = pts[pts.length - 1].cum || 1;
-  const W = 600;
-  const H = 240;
-  const x = (i: number) =>
-    pts.length === 1 ? W : (i / (pts.length - 1)) * W;
-  const y = (v: number) => H - (v / maxCum) * (H - 20) - 10;
-  const line = pts.map((p, i) => `${i === 0 ? "M" : "L"}${x(i)},${y(p.cum)}`).join(" ");
-  const area = `${line} L${x(pts.length - 1)},${H} L${x(0)},${H} Z`;
-
-  return (
-    <div className={wrap}>
-      <svg
-        viewBox={`0 0 ${W} ${H}`}
-        preserveAspectRatio="none"
-        className="h-full w-full"
-        aria-hidden="true"
-      >
-        <defs>
-          <linearGradient id="rev-fill" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#adc6ff" stopOpacity="0.25" />
-            <stop offset="100%" stopColor="#adc6ff" stopOpacity="0" />
-          </linearGradient>
-        </defs>
-        <path d={area} fill="url(#rev-fill)" />
-        <path
-          d={line}
-          fill="none"
-          stroke="#adc6ff"
-          strokeWidth="1.5"
-          vectorEffect="non-scaling-stroke"
-        />
-        {pts.map((p, i) => (
-          <circle key={i} cx={x(i)} cy={y(p.cum)} r="3" fill="#adc6ff" />
-        ))}
-      </svg>
-      <span className="pointer-events-none absolute bottom-3 right-3 font-data-md text-data-md text-on-surface-variant">
-        {usdc(maxCum)} USDC · {payments.length} payment(s)
-      </span>
-    </div>
   );
 }

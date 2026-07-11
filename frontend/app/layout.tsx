@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Inter, JetBrains_Mono, Space_Grotesk } from "next/font/google";
+import { Inter, JetBrains_Mono, Space_Grotesk, Spectral, Space_Mono } from "next/font/google";
 import "./globals.css";
 import ShaderBackground from "@/components/ShaderBackground";
 import { WalletProvider } from "@/components/WalletProvider";
@@ -24,6 +24,23 @@ const spaceGrotesk = Space_Grotesk({
   display: "swap",
 });
 
+// TrustLine.dc.html type system (landing/underwrite/borrower/lender only) —
+// Spectral for editorial serif headlines/verdicts, Space Mono for labels/data.
+const spectral = Spectral({
+  subsets: ["latin"],
+  weight: ["300", "400", "500", "600"],
+  style: ["normal", "italic"],
+  variable: "--font-spectral",
+  display: "swap",
+});
+
+const spaceMono = Space_Mono({
+  subsets: ["latin"],
+  weight: ["400", "700"],
+  variable: "--font-space-mono",
+  display: "swap",
+});
+
 export const metadata: Metadata = {
   title: "TrustLine — On-chain credit for AI agents",
   description:
@@ -44,7 +61,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`dark ${inter.variable} ${jetbrainsMono.variable} ${spaceGrotesk.variable}`}
+      className={`dark ${inter.variable} ${jetbrainsMono.variable} ${spaceGrotesk.variable} ${spectral.variable} ${spaceMono.variable}`}
     >
       <body className="min-h-screen font-sans antialiased">
         <ShaderBackground />

@@ -131,9 +131,164 @@ h3 {
   }
 }
 
-/* ---- Docs markdown rendering ---- */
+/* ---- TrustLine.dc.html design system (landing/underwrite/borrower/lender) ----
+   Namespaced tl- prefix so it can't collide with the tokens/utilities above,
+   which stay in place for docs/demo/coming-soon/waitlist. */
+
+.tl-grain {
+  position: relative;
+}
+.tl-grain::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  opacity: 0.045;
+  mix-blend-mode: overlay;
+}
+.tl-select::selection {
+  background: #ffb020;
+  color: #0b0f0e;
+}
+input.tl-range {
+  accent-color: #ffb020;
+  height: 4px;
+  cursor: pointer;
+}
+
+@keyframes tl-seam {
+  0%,
+  100% {
+    opacity: 0.6;
+    transform: scaleX(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scaleX(1.6);
+  }
+}
+@keyframes tl-blink {
+  0%,
+  49% {
+    opacity: 1;
+  }
+  50%,
+  100% {
+    opacity: 0.12;
+  }
+}
+@keyframes tl-wave {
+  to {
+    stroke-dashoffset: -260;
+  }
+}
+@keyframes tl-scan {
+  0% {
+    transform: translateY(-100%);
+  }
+  100% {
+    transform: translateY(1900%);
+  }
+}
+@keyframes tl-rise {
+  from {
+    transform: scaleY(0);
+  }
+  to {
+    transform: scaleY(1);
+  }
+}
+@keyframes tl-grow {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+@keyframes tl-breathe {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.02);
+  }
+}
+@keyframes tl-drift {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-6px);
+  }
+}
+@keyframes tl-fadeup {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.tl-anim-seam {
+  animation: tl-seam 3.4s ease-in-out infinite;
+}
+.tl-anim-blink {
+  animation: tl-blink 1.6s steps(1) infinite;
+}
+.tl-anim-wave {
+  animation: tl-wave 3s linear infinite;
+}
+.tl-anim-scan {
+  animation: tl-scan 4.5s linear infinite;
+}
+.tl-anim-breathe {
+  animation: tl-breathe 5s ease-in-out infinite;
+}
+.tl-anim-drift {
+  animation: tl-drift 4s ease-in-out infinite;
+}
+.tl-anim-drift-slow {
+  animation: tl-drift 5s ease-in-out infinite;
+}
+.tl-anim-fadeup {
+  animation: tl-fadeup 0.45s ease both;
+}
+.tl-rise {
+  transform-origin: bottom;
+  animation: tl-rise 0.8s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+.tl-grow {
+  transform-origin: left;
+  animation: tl-grow 0.7s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tl-anim-seam,
+  .tl-anim-blink,
+  .tl-anim-wave,
+  .tl-anim-scan,
+  .tl-anim-breathe,
+  .tl-anim-drift,
+  .tl-anim-drift-slow,
+  .tl-anim-fadeup,
+  .tl-rise,
+  .tl-grow {
+    animation: none;
+  }
+}
+
+/* ---- Docs markdown rendering (TrustLine.dc.html palette) ---- */
 .doc-content {
-  color: #c2c6d6;
+  color: #a7ada6;
+  font-family: var(--font-display), var(--font-inter), sans-serif;
   font-size: 15.5px;
   line-height: 1.75;
 }
@@ -141,8 +296,8 @@ h3 {
 .doc-content h2,
 .doc-content h3,
 .doc-content h4 {
-  font-family: var(--font-display), var(--font-inter), sans-serif;
-  color: #dfe2ef;
+  font-family: var(--font-spectral), Georgia, serif;
+  color: #f4f1e9;
   font-weight: 600;
   letter-spacing: -0.01em;
   scroll-margin-top: 6rem;
@@ -155,7 +310,7 @@ h3 {
   font-size: 1.5rem;
   margin: 2.5rem 0 1rem;
   padding-top: 1.5rem;
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  border-top: 1px solid rgba(244, 241, 233, 0.08);
 }
 .doc-content h3 {
   font-size: 1.2rem;
@@ -184,46 +339,46 @@ h3 {
   margin: 0.3rem 0;
 }
 .doc-content a {
-  color: #adc6ff;
+  color: #ffb020;
   text-decoration: underline;
   text-underline-offset: 2px;
-  text-decoration-color: rgba(173, 198, 255, 0.35);
+  text-decoration-color: rgba(255, 176, 32, 0.35);
 }
 .doc-content a:hover {
-  color: #4d8eff;
+  color: #58f0c8;
 }
 .doc-content strong {
-  color: #eef1fb;
+  color: #f4f1e9;
   font-weight: 600;
 }
 .doc-content blockquote {
   margin: 1.25rem 0;
   padding: 0.75rem 1.1rem;
-  border-left: 3px solid rgba(77, 142, 255, 0.5);
-  background: rgba(77, 142, 255, 0.06);
+  border-left: 3px solid rgba(88, 240, 200, 0.5);
+  background: rgba(88, 240, 200, 0.06);
   border-radius: 0 8px 8px 0;
-  color: #a9b0c4;
+  color: #a7ada6;
 }
 .doc-content code {
-  font-family: var(--font-mono), monospace;
+  font-family: var(--font-space-mono), var(--font-mono), monospace;
   font-size: 0.85em;
-  background: rgba(255, 255, 255, 0.06);
+  background: rgba(244, 241, 233, 0.07);
   padding: 0.15em 0.4em;
   border-radius: 4px;
-  color: #cdd8ff;
+  color: #58f0c8;
 }
 .doc-content pre {
   margin: 1.25rem 0;
   padding: 1rem 1.15rem;
   border-radius: 10px;
-  background: #0c1018;
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: #060908;
+  border: 1px solid rgba(244, 241, 233, 0.08);
   overflow-x: auto;
 }
 .doc-content pre code {
   background: none;
   padding: 0;
-  color: #dfe2ef;
+  color: #f4f1e9;
   font-size: 0.85rem;
   line-height: 1.6;
 }
@@ -235,18 +390,18 @@ h3 {
 }
 .doc-content th,
 .doc-content td {
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(244, 241, 233, 0.08);
   padding: 0.55rem 0.8rem;
   text-align: left;
   vertical-align: top;
 }
 .doc-content th {
-  background: rgba(255, 255, 255, 0.04);
-  color: #dfe2ef;
+  background: rgba(244, 241, 233, 0.04);
+  color: #f4f1e9;
   font-weight: 600;
 }
 .doc-content hr {
   border: none;
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  border-top: 1px solid rgba(244, 241, 233, 0.08);
   margin: 2rem 0;
 }

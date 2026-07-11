@@ -23,15 +23,15 @@ export default function Mermaid({ chart }: { chart: string }) {
         startOnLoad: false,
         theme: "dark",
         securityLevel: "strict",
-        fontFamily: "var(--font-inter), Inter, sans-serif",
+        fontFamily: "var(--font-display), system-ui, sans-serif",
         themeVariables: {
-          background: "#0a0e17",
-          primaryColor: "#121826",
-          primaryTextColor: "#dfe2ef",
-          primaryBorderColor: "#4d8eff",
-          lineColor: "#5a6178",
-          secondaryColor: "#10b981",
-          tertiaryColor: "#ffb95f",
+          background: "#0B0F0E",
+          primaryColor: "#141816",
+          primaryTextColor: "#F4F1E9",
+          primaryBorderColor: "#58F0C8",
+          lineColor: "#A7ADA6",
+          secondaryColor: "#FFB020",
+          tertiaryColor: "#FF5C4D",
           fontSize: "14px",
         },
       });
@@ -58,7 +58,7 @@ export default function Mermaid({ chart }: { chart: string }) {
 
   if (!svg) {
     return (
-      <div className="my-5 flex h-32 items-center justify-center rounded-lg border border-white/8 bg-[#0c1018] text-sm text-on-surface-variant/50">
+      <div className="my-5 flex h-32 items-center justify-center rounded-lg border border-bone/[0.08] bg-void font-tl-mono text-sm text-ash/50">
         Rendering diagram…
       </div>
     );
@@ -66,7 +66,7 @@ export default function Mermaid({ chart }: { chart: string }) {
 
   return (
     <div
-      className="mermaid-diagram my-5 overflow-x-auto rounded-lg border border-white/8 bg-[#0c1018] p-4"
+      className="mermaid-diagram my-5 overflow-x-auto rounded-lg border border-bone/[0.08] bg-void p-4"
       dangerouslySetInnerHTML={{ __html: svg }}
     />
   );

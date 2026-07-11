@@ -36,14 +36,14 @@ export default function NotifyForm() {
 
   if (state === "done") {
     return (
-      <p className="font-body-md text-secondary" role="status">
+      <p className="font-tl-sans text-sm text-ion" role="status">
         {msg} We&apos;ll be in touch.
       </p>
     );
   }
 
   return (
-    <form onSubmit={onSubmit} className="flex w-full max-w-md flex-col items-center gap-2">
+    <form onSubmit={onSubmit} className="flex w-full max-w-md flex-col items-start gap-2">
       <div className="flex w-full items-center gap-2">
         <input
           type="email"
@@ -51,18 +51,18 @@ export default function NotifyForm() {
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           placeholder="your@email"
-          className="flex-1 rounded-md border border-outline-variant/70 bg-[#0a0e17]/70 px-4 py-2.5 font-data-md text-data-md text-on-surface placeholder:text-on-surface-variant/50 backdrop-blur-sm transition-colors focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+          className="flex-1 rounded-md border border-ion/25 bg-void/70 px-4 py-2.5 font-tl-mono text-sm text-bone placeholder:text-ash/50 outline-none transition-colors focus:border-ion"
         />
         <button
           type="submit"
           disabled={state === "busy"}
-          className="whitespace-nowrap rounded-md bg-primary-container px-6 py-2.5 font-medium text-on-primary-container transition-colors hover:bg-primary hover:text-surface disabled:opacity-60"
+          className="whitespace-nowrap rounded-md bg-nectar px-6 py-2.5 font-tl-sans font-semibold text-obsidian transition-colors hover:bg-ion disabled:opacity-60"
         >
           {state === "busy" ? "Joining…" : "Join"}
         </button>
       </div>
       {state === "error" && msg ? (
-        <p className="w-full text-left font-body-sm text-xs text-error">{msg}</p>
+        <p className="w-full text-left font-tl-mono text-xs text-flare">{msg}</p>
       ) : null}
     </form>
   );

@@ -1,18 +1,16 @@
 "use client";
 
-// Lender (liquidity provider) dashboard — wired to the live Phase-2 API.
-// Design: screens/lending.html + screens/lending.png.
-//
-// Live now: the underwritten-agents table and per-agent underwriting detail
-// (GET /agents), plus protocol-level aggregates derived from it.
-// Gated on Phase-4 deploy: depositing into an isolated vault and lender
-// positions/exposure/yield (these are on-chain vault state — no contract yet).
+// Lender — TrustLine.dc.html isolated-vaults screen. Wired to the live
+// /agents API (same data as before this redesign) + the real deposit
+// contract call. No simulated/fake numbers: "your positions" stays an
+// honest gated note since the frontend doesn't yet read per-lender vault
+// shares on-chain — same as before, restyled.
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Loader2, RefreshCw, AlertTriangle, Info } from "lucide-react";
-import DashboardChrome from "@/components/DashboardChrome";
+import TLShell from "@/components/tl/TLShell";
 import { useWallet } from "@/components/WalletProvider";
-import { invokeContract, sc } from "@/lib/stellar";
+import { invokeContract, sc, STELLAR_EXPERT_TX } from "@/lib/stellar";
 import {
   api,
   aprPct,
@@ -23,11 +21,11 @@ import {
   type Tier,
 } from "@/lib/api";
 
-const riskByTier: Record<Tier, string> = {
-  A: "bg-secondary shadow-[0_0_8px_rgba(78,222,163,0.6)]",
-  B: "bg-tertiary shadow-[0_0_8px_rgba(255,185,95,0.6)]",
-  C: "bg-error shadow-[0_0_8px_rgba(255,180,171,0.6)]",
-  Unrated: "bg-outline",
+const riskColor: Record<Tier, string> = {
+  A: "#58F0C8",
+  B: "#FFB020",
+  C: "#FF5C4D",
+  Unrated: "#5a635e",
 };
 
 export default function LenderDashboard() {
@@ -59,245 +57,211 @@ export default function LenderDashboard() {
     [agents, selected],
   );
 
-  // Protocol-level aggregates that are genuinely available from /agents.
   const totalCredit = agents.reduce((s, a) => s + a.limitUsdc, 0);
   const rated = agents.filter((a) => a.aprBps > 0);
-  const avgApr = rated.length
-    ? rated.reduce((s, a) => s + a.aprBps, 0) / rated.length
-    : 0;
+  const avgApr = rated.length ? rated.reduce((s, a) => s + a.aprBps, 0) / rated.length : 0;
 
   return (
-    <DashboardChrome active="Liquidity">
-      <main className="mx-auto w-full max-w-[1440px] flex-1 space-y-stack-lg px-gutter py-stack-lg">
-        {/* Header */}
-        <div className="flex items-start justify-between gap-4">
+    <TLShell>
+      <main className="mx-auto w-full max-w-[1240px] px-[30px] pb-20 pt-10">
+        <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
           <div>
-            <h1 className="font-headline-lg text-headline-lg-mobile md:text-headline-lg">
-              Lender Dashboard
+            <div className="mb-2 font-tl-mono text-[11px] tracking-[0.2em] text-ion">
+              / LENDER · ISOLATED VAULTS
+            </div>
+            <h1 className="font-tl-serif text-2xl tracking-[-0.01em] text-bone sm:text-[32px]">
+              Supply capital to <span className="italic text-nectar">agents that earn.</span>
             </h1>
-            <p className="mt-2 font-body-md text-body-md text-on-surface-variant">
-              Browse revenue-underwritten agents and supply liquidity to isolated
-              vaults.
-            </p>
           </div>
-          <button
-            onClick={refresh}
-            disabled={loading}
-            className="inline-flex items-center gap-2 rounded-md border border-outline-variant bg-surface-container px-3 py-1.5 font-body-sm text-on-surface-variant transition-colors hover:text-on-surface disabled:opacity-60"
-          >
-            {loading ? (
-              <Loader2 size={14} className="animate-spin" />
-            ) : (
-              <RefreshCw size={14} />
-            )}
-            Refresh
-          </button>
+          <div className="flex items-center gap-3">
+            <span className="flex items-center gap-2 font-tl-mono text-[11px] text-[#5a635e]">
+              <span className="tl-anim-blink h-[7px] w-[7px] rounded-full bg-ion shadow-[0_0_8px_#58F0C8]" />
+              live · from /agents
+            </span>
+            <button
+              onClick={refresh}
+              disabled={loading}
+              className="inline-flex items-center gap-2 rounded-md border border-white/10 px-3 py-1.5 font-tl-mono text-xs text-ash transition-colors hover:text-bone disabled:opacity-60"
+            >
+              {loading ? <Loader2 size={13} className="animate-spin" /> : <RefreshCw size={13} />}
+              Refresh
+            </button>
+          </div>
         </div>
 
         {error ? (
-          <div className="flex items-start gap-2 rounded-lg border border-error/30 bg-error/10 p-3 font-body-sm text-error">
-            <AlertTriangle size={16} className="mt-0.5 shrink-0" />
+          <div className="mb-6 flex items-start gap-2 rounded-lg border border-flare/30 bg-flare/10 p-3 font-tl-mono text-xs text-flare">
+            <AlertTriangle size={15} className="mt-0.5 shrink-0" />
             <span>{error}</span>
           </div>
         ) : null}
 
-        {/* Summary cards */}
-        <div className="grid grid-cols-1 gap-stack-md md:grid-cols-2 lg:grid-cols-4">
-          <SummaryCard label="Agents Underwritten" value={String(agents.length)} />
-          <SummaryCard
-            label="Total Credit Available"
-            value={usdc(totalCredit)}
-            unit="USDC"
-          />
-          <SummaryCard
-            label="Average APR"
-            value={avgApr ? aprPct(avgApr) : "—"}
-            accent
-          />
-          <SummaryCard label="Your Deposits" value="—" gated />
+        {/* stats */}
+        <div className="mb-8 grid grid-cols-2 gap-3.5 lg:grid-cols-4">
+          <StatCard label="AGENTS UNDERWRITTEN" value={String(agents.length)} />
+          <StatCard label="TOTAL CREDIT AVAILABLE" value={usdc(totalCredit)} />
+          <StatCard label="AVERAGE APR" value={avgApr ? aprPct(avgApr) : "—"} color="#58F0C8" />
+          <StatCard label="YOUR DEPOSITS" value="—" note="on-chain, per-vault (see below)" />
         </div>
 
-        {/* Two-column layout */}
-        <div className="grid grid-cols-1 gap-stack-lg lg:grid-cols-12">
-          {/* Agents table */}
-          <div className="space-y-stack-md lg:col-span-8">
-            <h2 className="font-headline-md text-headline-md">
-              Agents seeking credit
-            </h2>
-            <div className="glass-panel overflow-hidden rounded-lg">
-              <div className="overflow-x-auto">
-                <table className="w-full border-collapse text-left">
-                  <thead>
-                    <tr className="border-b border-outline-variant/50 bg-surface-container-low/50">
-                      <Th>Agent</Th>
-                      <Th>Tier</Th>
-                      <Th right>Verified Rev</Th>
-                      <Th right>Credit Line</Th>
-                      <Th right>APR</Th>
-                      <Th center>Risk</Th>
-                      <Th right>Action</Th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-outline-variant/30 font-data-md text-data-md">
-                    {loading && agents.length === 0 ? (
-                      <EmptyRow>
-                        <Loader2 size={16} className="mx-auto animate-spin" />
-                      </EmptyRow>
-                    ) : agents.length === 0 ? (
-                      <EmptyRow>
-                        No agents underwritten yet. Underwrite one from the
-                        borrower dashboard, then refresh.
-                      </EmptyRow>
-                    ) : (
-                      agents.map((a) => {
-                        const active = a.agent === selected;
-                        return (
-                          <tr
-                            key={a.agent}
-                            onClick={() => setSelected(a.agent)}
-                            className={`cursor-pointer transition-colors hover:bg-surface-variant/30 ${active ? "bg-primary/5" : ""}`}
-                          >
-                            <td className="flex items-center gap-3 p-4">
-                              <div className="flex h-8 w-8 items-center justify-center rounded-full border border-outline-variant bg-gradient-to-br from-primary to-surface-container">
-                                <div className="h-3 w-3 rotate-45 rounded-sm bg-surface" />
-                              </div>
-                              <span title={a.agent}>{shortAddr(a.agent)}</span>
-                            </td>
-                            <td className="p-4">
-                              <span className="rounded border border-outline-variant bg-surface-container px-2 py-1 text-xs">
-                                {tierLabel(a.tier)}
-                              </span>
-                            </td>
-                            <td className="p-4 text-right">{usdc(a.revenueUsdc)}</td>
-                            <td className="p-4 text-right">{usdc(a.limitUsdc)}</td>
-                            <td className="p-4 text-right text-secondary">
-                              {a.aprBps ? aprPct(a.aprBps) : "—"}
-                            </td>
-                            <td className="p-4 text-center">
-                              <div
-                                className={`mx-auto h-2 w-2 rounded-full ${riskByTier[a.tier]}`}
-                                title={tierLabel(a.tier)}
-                              />
-                            </td>
-                            <td className="p-4 text-right">
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setSelected(a.agent);
-                                }}
-                                className="rounded border border-outline bg-transparent px-4 py-1.5 font-body-sm text-on-surface transition-colors hover:border-primary"
-                              >
-                                View
-                              </button>
-                            </td>
-                          </tr>
-                        );
-                      })
-                    )}
-                  </tbody>
-                </table>
-              </div>
+        <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-[1fr_380px]">
+          {/* agent table */}
+          <div>
+            <div className="mb-3.5 font-tl-mono text-[10px] tracking-[0.16em] text-ash">
+              AGENTS SEEKING CREDIT
+            </div>
+            <div className="mb-2 hidden grid-cols-[minmax(0,1.6fr)_60px_84px_58px_74px] gap-3.5 border-b border-white/[0.06] px-4 pb-2.5 font-tl-mono text-[9px] tracking-[0.08em] text-[#5a635e] sm:grid">
+              <span>AGENT</span>
+              <span>TIER</span>
+              <span className="text-right">REVENUE</span>
+              <span className="text-right">APR</span>
+              <span className="text-right">LINE</span>
+            </div>
+            <div className="flex flex-col gap-1.5">
+              {loading && agents.length === 0 ? (
+                <div className="flex justify-center py-10">
+                  <Loader2 size={18} className="animate-spin text-ash" />
+                </div>
+              ) : agents.length === 0 ? (
+                <div className="rounded-lg border border-white/[0.06] px-4 py-10 text-center font-tl-mono text-xs text-ash">
+                  No agents underwritten yet. Underwrite one from /underwrite, then refresh.
+                </div>
+              ) : (
+                agents.map((a, i) => {
+                  const active = a.agent === selected;
+                  const tc = riskColor[a.tier];
+                  return (
+                    <div
+                      key={a.agent}
+                      onClick={() => setSelected(a.agent)}
+                      className="tl-anim-fadeup grid cursor-pointer grid-cols-2 items-center gap-3.5 rounded-[10px] border px-4 py-3.5 transition-colors sm:grid-cols-[minmax(0,1.6fr)_60px_84px_58px_74px]"
+                      style={{
+                        animationDelay: `${Math.min(i, 10) * 0.04}s`,
+                        background: active ? "rgba(88,240,200,.06)" : "transparent",
+                        borderColor: active ? "rgba(88,240,200,.4)" : "rgba(244,241,233,.06)",
+                      }}
+                    >
+                      <div className="col-span-2 flex min-w-0 items-center gap-2.5 sm:col-span-1">
+                        <span
+                          className="h-2 w-2 shrink-0 rounded-full"
+                          style={{ background: tc, boxShadow: `0 0 8px ${tc}` }}
+                        />
+                        <span className="truncate font-tl-mono text-xs text-bone" title={a.agent}>
+                          {shortAddr(a.agent)}
+                        </span>
+                      </div>
+                      <span
+                        className="w-fit justify-self-start whitespace-nowrap rounded-[5px] border px-1.5 py-0.5 font-tl-mono text-[9px] font-bold"
+                        style={{ color: tc, borderColor: `${tc}55` }}
+                      >
+                        {tierLabel(a.tier)}
+                      </span>
+                      <span className="text-right font-tl-mono text-xs text-bone">{usdc(a.revenueUsdc)}</span>
+                      <span className="text-right font-tl-mono text-xs text-ash">
+                        {a.aprBps ? aprPct(a.aprBps) : "—"}
+                      </span>
+                      <span className="text-right font-tl-mono text-xs text-ash">{usdc(a.limitUsdc)}</span>
+                    </div>
+                  );
+                })
+              )}
             </div>
           </div>
 
-          {/* Agent details / deposit box */}
-          <div className="space-y-stack-md lg:col-span-4">
-            <h2 className="select-none font-headline-md text-headline-md text-transparent">
-              _
-            </h2>
+          {/* detail / supply */}
+          <div className="sticky top-[78px]">
             <AgentDetail agent={selectedAgent} />
           </div>
         </div>
 
-        {/* Positions (gated) */}
-        <div className="space-y-stack-md border-t border-outline-variant/30 pt-stack-md">
-          <h2 className="font-headline-md text-headline-md">Your positions</h2>
-          <div className="glass-panel flex items-center gap-3 rounded-lg p-card-padding font-body-sm text-on-surface-variant">
-            <Info size={16} className="shrink-0 text-primary" />
-            Your isolated-vault positions, exposure, and realized yield appear
-            here once the lending vault is deployed to testnet (Phase 4).
+        {/* positions (honest, gated) */}
+        <div className="mt-14 border-t border-white/[0.07] pt-8">
+          <h2 className="mb-3 font-tl-mono text-[10px] tracking-[0.16em] text-ash">YOUR POSITIONS</h2>
+          <div className="flex items-center gap-3 rounded-lg border border-white/[0.07] bg-obsidian/60 p-4 font-tl-mono text-xs text-ash">
+            <Info size={15} className="shrink-0 text-ion" />
+            Deposits are live on-chain per isolated vault. A dashboard reading
+            your own vault shares back out isn&apos;t wired up yet — check a
+            deposit&apos;s tx on Stellar Expert after depositing below.
           </div>
         </div>
       </main>
-    </DashboardChrome>
+    </TLShell>
   );
 }
 
-// ---- Sub-components ----
+// ---- sub-components ----
+
+function StatCard({ label, value, color, note }: { label: string; value: string; color?: string; note?: string }) {
+  return (
+    <div className="rounded-xl border border-white/[0.08] bg-obsidian/60 p-[18px]">
+      <div className="mb-3 font-tl-mono text-[9px] tracking-[0.12em] text-ash">{label}</div>
+      <div className="font-tl-sans text-2xl font-bold" style={{ color: color ?? "#F4F1E9" }}>
+        {value}
+      </div>
+      {note ? <div className="mt-1 font-tl-mono text-[10px] text-[#5a635e]">{note}</div> : null}
+    </div>
+  );
+}
 
 function AgentDetail({ agent }: { agent: AgentSummary | null }) {
-  const { config, address } = useWallet();
+  const { config } = useWallet();
   const vaultDeployed = !!config?.lendingVaultContractId;
 
   if (!agent) {
     return (
-      <div className="glass-panel rounded-lg p-card-padding font-body-sm text-on-surface-variant">
+      <div className="rounded-[14px] border border-white/[0.08] bg-obsidian/60 p-6 font-tl-mono text-xs text-ash">
         Select an agent to see its underwriting detail and supply liquidity.
       </div>
     );
   }
 
+  const tc = riskColor[agent.tier];
+
   return (
-    <div className="glass-panel relative flex flex-col gap-stack-md overflow-hidden rounded-lg p-card-padding">
-      <div className="pointer-events-none absolute right-0 top-0 -mr-16 -mt-16 h-32 w-32 rounded-full bg-primary/5 blur-3xl" />
-      <div className="flex items-center gap-3 border-b border-outline-variant/50 pb-4">
-        <div className="flex h-10 w-10 items-center justify-center rounded-full border border-outline-variant bg-gradient-to-br from-primary to-surface-container">
-          <div className="h-4 w-4 rotate-45 rounded-sm bg-surface" />
+    <div className="overflow-hidden rounded-[14px] border border-ion/[0.16] bg-obsidian/70">
+      <div className="flex items-start justify-between border-b border-white/[0.07] p-[22px]">
+        <div className="flex items-center gap-3">
+          <div
+            className="h-9 w-9 rounded-[9px] border border-white/10"
+            style={{ background: `linear-gradient(135deg,${tc},#060908)` }}
+          />
+          <div>
+            <div className="font-tl-mono text-sm font-bold text-bone" title={agent.agent}>
+              {shortAddr(agent.agent)}
+            </div>
+            <div className="font-tl-mono text-[10px] text-[#5a635e]">
+              underwritten {new Date(agent.underwroteAt * 1000).toLocaleDateString()}
+            </div>
+          </div>
         </div>
-        <div>
-          <h3 className="font-body-md font-semibold">Agent Details</h3>
-          <p className="font-data-md text-on-surface-variant" title={agent.agent}>
-            {shortAddr(agent.agent)}
-          </p>
-        </div>
-        <span className="ml-auto rounded border border-primary/20 bg-primary/10 px-2 py-1 font-label-caps text-label-caps text-primary">
+        <span
+          className="whitespace-nowrap rounded-md border px-2 py-1 font-tl-mono text-[10px] font-bold"
+          style={{ color: tc, borderColor: `${tc}55` }}
+        >
           {tierLabel(agent.tier)}
         </span>
       </div>
 
-      <div className="space-y-4">
-        <h4 className="font-label-caps text-label-caps uppercase text-on-surface-variant">
-          Underwriting
-        </h4>
-        <div className="space-y-3 rounded border border-outline-variant/30 bg-surface-container-low p-4">
-          <DetailRow label="Credit Score" value={String(agent.score)} />
-          <DetailRow
-            label="Verified Revenue"
-            value={`${usdc(agent.revenueUsdc)} USDC`}
-          />
-          <DetailRow
-            label="Credit Line"
-            value={`${usdc(agent.limitUsdc)} USDC`}
-          />
-          <DetailRow
-            label="Offered APR"
-            value={agent.aprBps ? aprPct(agent.aprBps) : "—"}
-            accent
-          />
-          <DetailRow
-            label="Distinct Counterparties"
-            value={String(agent.distinctPayers)}
-          />
-          <DetailRow
-            label="Underwritten"
-            value={new Date(agent.underwroteAt * 1000).toLocaleDateString()}
-          />
+      <div className="border-b border-white/[0.07] p-5">
+        <div className="mb-3.5 font-tl-mono text-[9px] tracking-[0.14em] text-ash">UNDERWRITING</div>
+        <div className="flex flex-col gap-2.5 font-tl-mono text-xs">
+          <DetailRow label="Credit score" value={String(agent.score)} />
+          <DetailRow label="Verified revenue" value={`${usdc(agent.revenueUsdc)} USDC`} />
+          <DetailRow label="Credit line" value={`${usdc(agent.limitUsdc)} USDC`} color="#FFB020" />
+          <DetailRow label="Offered APR" value={agent.aprBps ? aprPct(agent.aprBps) : "—"} />
+          <DetailRow label="Distinct counterparties" value={String(agent.distinctPayers)} />
         </div>
       </div>
 
-      {/* Deposit box (gated until the vault is deployed in Phase 4) */}
-      <div className="space-y-4 border-t border-outline-variant/50 pt-2">
-        <h4 className="font-label-caps text-label-caps uppercase text-on-surface-variant">
-          Supply liquidity
-        </h4>
-        <p className="px-1 text-center font-body-sm text-xs italic text-on-surface-variant/70">
-          Isolated vault — you are exposed only to this agent&apos;s default risk.
-        </p>
+      <div className="p-5">
+        <div className="mb-4 flex items-baseline justify-between">
+          <span className="font-tl-mono text-[9px] tracking-[0.14em] text-ash">SUPPLY LIQUIDITY</span>
+        </div>
         {vaultDeployed ? (
           <DepositBox agentAddress={agent.agent} hasLine={agent.limitUsdc > 0} />
         ) : (
-          <div className="rounded border border-tertiary/20 bg-tertiary-container/10 p-3 text-center font-body-sm text-tertiary">
-            Deposits open once the lending vault is deployed to testnet (Phase 4).
+          <div className="rounded-lg border border-nectar/20 bg-nectar/10 p-3 text-center font-tl-mono text-xs text-nectar">
+            Deposits open once the lending vault is deployed to testnet.
           </div>
         )}
       </div>
@@ -305,13 +269,7 @@ function AgentDetail({ agent }: { agent: AgentSummary | null }) {
   );
 }
 
-function DepositBox({
-  agentAddress,
-  hasLine,
-}: {
-  agentAddress: string;
-  hasLine: boolean;
-}) {
+function DepositBox({ agentAddress, hasLine }: { agentAddress: string; hasLine: boolean }) {
   const { address, config } = useWallet();
   const [amount, setAmount] = useState("5");
   const [busy, setBusy] = useState(false);
@@ -343,136 +301,63 @@ function DepositBox({
   };
 
   return (
-    <div className="space-y-3">
+    <div className="flex flex-col gap-2.5">
       <div className="relative">
         <input
           value={amount}
           onChange={(e) => setAmount(e.target.value)}
           inputMode="decimal"
-          className="w-full rounded-md border border-outline-variant bg-surface px-4 py-3 pr-16 text-right font-data-md text-data-md text-on-surface transition-colors focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+          className="w-full rounded-md border border-nectar/30 bg-void px-4 py-3 pr-14 text-right font-tl-mono text-sm text-bone outline-none transition-colors focus:border-nectar"
         />
-        <span className="absolute right-4 top-3 font-body-sm text-on-surface-variant">
-          USDC
-        </span>
+        <span className="absolute right-4 top-3 font-tl-mono text-xs text-ash">USDC</span>
       </div>
       <button
         onClick={deposit}
         disabled={!address || !hasLine || busy}
-        className="shimmer-btn mt-1 w-full rounded-md bg-primary py-3 font-semibold text-surface shadow-[0_0_15px_rgba(173,198,255,0.15)] transition-shadow hover:shadow-[0_0_20px_rgba(173,198,255,0.25)] disabled:opacity-60"
+        className="rounded-lg bg-nectar py-3.5 font-tl-sans text-sm font-semibold text-obsidian transition-colors hover:bg-ion disabled:opacity-50"
       >
-        {!address
-          ? "Connect wallet to deposit"
-          : busy
-            ? "Depositing…"
-            : "Deposit into isolated vault"}
+        {!address ? "Connect wallet to deposit" : busy ? "Depositing…" : "Supply USDC →"}
       </button>
+      <div className="flex gap-2">
+        {[1000, 5000, 25000].map((v) => (
+          <button
+            key={v}
+            onClick={() => setAmount(String(v))}
+            className="flex-1 rounded-md border border-white/[0.12] py-2 font-tl-mono text-[11px] text-ash transition-colors hover:text-bone"
+          >
+            ${v / 1000}k
+          </button>
+        ))}
+      </div>
+      <p className="mt-1.5 text-center font-tl-mono text-[10px] italic leading-[1.6] text-[#5a635e]">
+        Isolated risk · if this agent defaults, only this vault is impaired —
+        never the pool.
+      </p>
       {tx ? (
         <a
-          href={`https://stellar.expert/explorer/testnet/tx/${tx}`}
+          href={STELLAR_EXPERT_TX(tx)}
           target="_blank"
           rel="noreferrer"
-          className="block text-center font-data-md text-xs text-primary/80 hover:text-primary"
+          className="block text-center font-tl-mono text-xs text-ion/80 hover:text-ion"
         >
           deposited · {tx.slice(0, 8)}… ↗
         </a>
       ) : null}
-      {err ? (
-        <p className="break-words text-center font-body-sm text-xs text-error">
-          {err}
+      {err ? <p className="break-words text-center font-tl-mono text-xs text-flare">{err}</p> : null}
+      {!hasLine && address ? (
+        <p className="text-center font-tl-mono text-[10px] text-flare">
+          No vault opens until the model can verify independent revenue.
         </p>
       ) : null}
     </div>
   );
 }
 
-function DetailRow({
-  label,
-  value,
-  accent,
-}: {
-  label: string;
-  value: string;
-  accent?: boolean;
-}) {
+function DetailRow({ label, value, color }: { label: string; value: string; color?: string }) {
   return (
     <div className="flex items-center justify-between">
-      <span className="font-body-sm text-on-surface-variant">{label}</span>
-      <span className={`font-data-md text-sm ${accent ? "text-secondary" : ""}`}>
-        {value}
-      </span>
+      <span className="text-ash">{label}</span>
+      <span style={{ color: color ?? "#F4F1E9" }}>{value}</span>
     </div>
-  );
-}
-
-function SummaryCard({
-  label,
-  value,
-  unit,
-  accent,
-  gated,
-}: {
-  label: string;
-  value: string;
-  unit?: string;
-  accent?: boolean;
-  gated?: boolean;
-}) {
-  return (
-    <div className="glass-panel flex flex-col gap-2 rounded-lg p-card-padding">
-      <span className="font-label-caps text-label-caps uppercase tracking-wider text-on-surface-variant">
-        {label}
-      </span>
-      <span
-        className={`font-data-lg text-data-lg ${accent ? "text-secondary" : ""} ${gated ? "text-on-surface-variant/50" : ""}`}
-      >
-        {value}
-        {unit ? (
-          <span
-            className={`text-sm ${accent ? "text-secondary/70" : "text-on-surface-variant"}`}
-          >
-            {" "}
-            {unit}
-          </span>
-        ) : null}
-      </span>
-      {gated ? (
-        <span className="font-body-sm text-xs text-on-surface-variant/50">
-          after Phase 4
-        </span>
-      ) : null}
-    </div>
-  );
-}
-
-function Th({
-  children,
-  right,
-  center,
-}: {
-  children: React.ReactNode;
-  right?: boolean;
-  center?: boolean;
-}) {
-  return (
-    <th
-      className={`p-4 font-label-caps text-label-caps text-on-surface-variant ${
-        right ? "text-right" : center ? "text-center" : ""
-      }`}
-    >
-      {children}
-    </th>
-  );
-}
-
-function EmptyRow({ children }: { children: React.ReactNode }) {
-  return (
-    <tr>
-      <td
-        colSpan={7}
-        className="p-8 text-center font-body-sm text-on-surface-variant"
-      >
-        {children}
-      </td>
-    </tr>
   );
 }

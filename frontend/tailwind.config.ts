@@ -14,6 +14,17 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
+        // ---- TrustLine.dc.html design system (landing/underwrite/borrower/
+        // lender) — literal hex, kept separate from the tokens below so the
+        // docs/demo pages (still on the old blue theme) are unaffected. ----
+        obsidian: "#0B0F0E",
+        void: "#060908",
+        bone: "#F4F1E9",
+        nectar: "#FFB020",
+        ion: "#58F0C8",
+        flare: "#FF5C4D",
+        ash: "#A7ADA6",
+
         background: "#0f131c",
         surface: "#0f131c",
         "surface-dim": "#0f131c",
@@ -82,6 +93,12 @@ const config: Config = {
         sans: ["var(--font-inter)", "Inter", "system-ui", "sans-serif"],
         mono: ["var(--font-mono)", "ui-monospace", "monospace"],
         display: ["var(--font-display)", "var(--font-inter)", "sans-serif"],
+        // TrustLine.dc.html type system: Spectral (serif, headlines/verdicts),
+        // Space Grotesk (grotesk sans — reuses --font-display, already loaded),
+        // Space Mono (mono, labels/data).
+        "tl-serif": ["var(--font-spectral)", "Georgia", "serif"],
+        "tl-sans": ["var(--font-display)", "system-ui", "sans-serif"],
+        "tl-mono": ["var(--font-space-mono)", "ui-monospace", "monospace"],
         "display-lg": ["var(--font-display)", "var(--font-inter)"],
         "headline-lg": ["var(--font-display)", "var(--font-inter)"],
         "headline-lg-mobile": ["var(--font-display)", "var(--font-inter)"],

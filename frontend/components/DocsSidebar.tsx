@@ -11,7 +11,7 @@ export default function DocsSidebar() {
       {DOCS_NAV.map((section, i) => (
         <div key={i}>
           {section.title ? (
-            <div className="mb-2 font-mono text-xs uppercase tracking-[0.12em] text-on-surface-variant/50">
+            <div className="mb-2 font-tl-mono text-xs uppercase tracking-[0.12em] text-ash/60">
               {section.title}
             </div>
           ) : null}
@@ -24,10 +24,10 @@ export default function DocsSidebar() {
                 <li key={item.slug}>
                   <Link
                     href={href}
-                    className={`block rounded-md px-3 py-1.5 text-sm transition-colors ${
+                    className={`block rounded-md px-3 py-1.5 font-tl-sans text-sm transition-colors ${
                       active
-                        ? "bg-primary-container/15 text-primary"
-                        : "text-on-surface-variant hover:bg-white/5 hover:text-on-surface"
+                        ? "bg-nectar/15 text-nectar"
+                        : "text-ash hover:bg-white/5 hover:text-bone"
                     }`}
                   >
                     {item.title}
