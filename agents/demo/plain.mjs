@@ -8,40 +8,29 @@ import dotenv from "dotenv";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 dotenv.config({ path: path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", ".env") });
-
+import { TrustLineAgent } from "@trustline-agents/agent-sdk";
 import { wrapFetchWithPaymentFromConfig } from "@x402/fetch";
 import { createEd25519Signer } from "@x402/stellar";
 import { ExactStellarScheme } from "@x402/stellar/exact/client";
 
-const RESEARCH_URL = process.env.RESEARCH_URL || "http://localhost:3022/research";
+const RESEARCH_URL = process.env.RESEARCH_URL || "http://localhost:3099/research";
 const asset = process.argv[2] || "XLM";
 const NETWORK = "stellar:testnet";
 
-const signer = createEd25519Signer(process.env.DEMO_AGENT_SECRET, NETWORK);
-const fetchWithPayment = wrapFetchWithPaymentFromConfig(fetch, {
-  schemes: [{ network: NETWORK, client: new ExactStellarScheme(signer) }],
+const PRICE_USDC = Number(process.env.ANALYST_PRICE_USDC || 0.3);
+const tl = new TrustLineAgent(process.env.DEMO_AGENT_SECRET, {
+  apiBaseUrl: process.env.TRUSTLINE_API || "https://trustline.onrender.com",
 });
 
 console.log(`[demo-agent] requesting research on "${asset}"...`);
 
-let res;
-try {
-  res = await fetchWithPayment(RESEARCH_URL, {
+const res = await tl.payWithCredit(RESEARCH_URL, PRICE_USDC, {
+  init: {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ asset }),
-  });
-} catch (e) {
-  console.log(`[demo-agent] payment failed: ${e.message}`);
-  console.log("[demo-agent] dead. can't afford the next research call, no credit line to fall back on.");
-  process.exit(1);
-}
-
-if (res.status === 402) {
-  console.log("[demo-agent] 402 Payment Required — insufficient balance to cover the price.");
-  console.log("[demo-agent] dead. can't afford the next research call, no credit line to fall back on.");
-  process.exit(1);
-}
+  },
+});
 
 const data = await res.json();
 console.log("[demo-agent] got research:", data.note?.slice(0, 120) + "...");
