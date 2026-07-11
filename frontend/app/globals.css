@@ -285,6 +285,205 @@ input.tl-range {
   }
 }
 
+/* ---- Scroll story system (landing) ----
+   `.tl-reveal` wrappers transition in when the Reveal component adds `.tl-in`;
+   the same `.tl-in` gates `-g` (gated) child animations so bars rise, lines
+   draw and rows stagger exactly when scrolled into view — not on mount.
+   Stagger per child via `--d`. */
+
+@media (prefers-reduced-motion: no-preference) {
+  html {
+    scroll-behavior: smooth;
+  }
+}
+
+.tl-reveal {
+  opacity: 0;
+  transform: translateY(26px);
+  transition:
+    opacity 0.7s cubic-bezier(0.2, 0.8, 0.2, 1),
+    transform 0.7s cubic-bezier(0.2, 0.8, 0.2, 1);
+  transition-delay: var(--tl-reveal-delay, 0s);
+  will-change: opacity, transform;
+}
+.tl-reveal[data-variant="left"] {
+  transform: translateX(-34px);
+}
+.tl-reveal[data-variant="right"] {
+  transform: translateX(34px);
+}
+.tl-reveal[data-variant="scale"] {
+  transform: scale(0.94);
+}
+.tl-reveal[data-variant="fade"] {
+  transform: none;
+}
+.tl-reveal.tl-in {
+  opacity: 1;
+  transform: none;
+}
+
+/* Gated child animations — inert until an ancestor Reveal gets `.tl-in`. */
+.tl-rise-g {
+  transform: scaleY(0);
+  transform-origin: bottom;
+}
+.tl-in .tl-rise-g {
+  animation: tl-rise 0.8s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  animation-delay: var(--d, 0s);
+}
+.tl-grow-g {
+  transform: scaleX(0);
+  transform-origin: left;
+}
+.tl-in .tl-grow-g {
+  animation: tl-grow 0.9s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  animation-delay: var(--d, 0s);
+}
+.tl-fade-g {
+  opacity: 0;
+}
+.tl-in .tl-fade-g {
+  animation: tl-fadeup 0.55s ease both;
+  animation-delay: var(--d, 0s);
+}
+.tl-fadeout-g {
+  opacity: 1;
+}
+.tl-in .tl-fadeout-g {
+  animation: tl-fadeout 0.45s ease both;
+  animation-delay: var(--d, 0s);
+}
+.tl-draw-g {
+  stroke-dasharray: 340;
+  stroke-dashoffset: 340;
+}
+.tl-in .tl-draw-g {
+  animation: tl-dash 1.5s cubic-bezier(0.4, 0, 0.2, 1) both;
+  animation-delay: var(--d, 0s);
+}
+
+@keyframes tl-fadeout {
+  to {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+}
+@keyframes tl-dash {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+/* Hero entrance — the two membrane halves slide in from their own side. */
+@keyframes tl-hero-l {
+  from {
+    opacity: 0;
+    transform: translateX(-36px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes tl-hero-r {
+  from {
+    opacity: 0;
+    transform: translateX(36px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.tl-anim-hero-l {
+  animation: tl-hero-l 0.8s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+.tl-anim-hero-r {
+  animation: tl-hero-r 0.8s 0.12s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+/* Light sweep across the brand band — the beam feels alive. */
+.tl-sweep {
+  position: relative;
+  overflow: hidden;
+}
+.tl-sweep::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background: linear-gradient(
+    105deg,
+    transparent 42%,
+    rgba(88, 240, 200, 0.09) 50%,
+    transparent 58%
+  );
+  transform: translateX(-100%);
+  animation: tl-sweep 6s ease-in-out infinite;
+}
+@keyframes tl-sweep {
+  0% {
+    transform: translateX(-100%);
+  }
+  55%,
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+/* Infinite ticker marquee — two identical halves, shift by exactly one. */
+.tl-ticker {
+  display: flex;
+  width: max-content;
+  animation: tl-ticker 30s linear infinite;
+}
+@keyframes tl-ticker {
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tl-reveal,
+  .tl-reveal[data-variant] {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+  .tl-rise-g,
+  .tl-grow-g,
+  .tl-fade-g,
+  .tl-in .tl-rise-g,
+  .tl-in .tl-grow-g,
+  .tl-in .tl-fade-g {
+    opacity: 1;
+    transform: none;
+    animation: none;
+  }
+  .tl-fadeout-g,
+  .tl-in .tl-fadeout-g {
+    opacity: 0;
+    animation: none;
+  }
+  .tl-draw-g,
+  .tl-in .tl-draw-g {
+    stroke-dasharray: none;
+    stroke-dashoffset: 0;
+    animation: none;
+  }
+  .tl-anim-hero-l,
+  .tl-anim-hero-r,
+  .tl-sweep::before,
+  .tl-ticker {
+    animation: none;
+  }
+  .tl-sweep::before {
+    display: none;
+  }
+}
+
 /* ---- Docs markdown rendering (TrustLine.dc.html palette) ---- */
 .doc-content {
   color: #a7ada6;
