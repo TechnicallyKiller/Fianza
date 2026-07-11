@@ -16,6 +16,7 @@
 
 import { rpc, xdr, scValToNative } from "@stellar/stellar-sdk";
 import { config } from "../config.js";
+import { rpcErrorMessage } from "../rpc-error.js";
 
 const server = new rpc.Server(config.sorobanRpcUrl, { allowHttp: false });
 
@@ -91,7 +92,7 @@ export async function indexRevenue(
     try {
       return await server.getEvents(baseParams);
     } catch (e) {
-      const msg = e instanceof Error ? e.message : String(e);
+      const msg = rpcErrorMessage(e);
       const m = /ledger range:\s*(\d+)\s*-\s*(\d+)/.exec(msg);
       if (m) {
         const oldest = Number(m[1]);

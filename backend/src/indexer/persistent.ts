@@ -8,6 +8,7 @@
 import { rpc, xdr, scValToNative } from "@stellar/stellar-sdk";
 import { config } from "../config.js";
 import { query, migrate, closePool } from "../db/index.js";
+import { rpcErrorMessage } from "../rpc-error.js";
 
 const server = new rpc.Server(config.sorobanRpcUrl, { allowHttp: false });
 const SYNC_ID = "usdc_transfers";
@@ -41,7 +42,7 @@ async function getEventsRetry(
       return await server.getEvents(req);
     } catch (e) {
       lastErr = e;
-      const msg = e instanceof Error ? e.message : String(e);
+      const msg = rpcErrorMessage(e);
       if (!/fetch failed|ECONN|ETIMEDOUT|socket|network|EAI_AGAIN|other side closed/i.test(msg)) {
         throw e;
       }
@@ -162,7 +163,7 @@ export async function ingest(opts: { fromLedger?: number; maxPages?: number } = 
         ? await getEventsRetry({ filters, limit: 200, cursor } as rpc.Server.GetEventsRequest)
         : await getEventsRetry({ startLedger: start, filters, limit: 200 });
     } catch (e) {
-      const msg = e instanceof Error ? e.message : String(e);
+      const msg = rpcErrorMessage(e);
       const m = /ledger range:\s*(\d+)\s*-\s*(\d+)/.exec(msg);
       if (m && !cursor) {
         start = Math.min(Math.max(start, Number(m[1])), Number(m[2]));
