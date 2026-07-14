@@ -604,3 +604,35 @@ input.tl-range {
   border-top: 1px solid rgba(244, 241, 233, 0.08);
   margin: 2rem 0;
 }
+
+/* Heading anchor links — the "#" lives in ::after so heading textContent
+   (which DocToc reads) stays clean. */
+.doc-anchor {
+  margin-left: 10px;
+  font-family: var(--font-space-mono), monospace;
+  font-size: 0.7em;
+  color: #58f0c8;
+  text-decoration: none;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+.doc-anchor::after {
+  content: "#";
+}
+.doc-content h1:hover .doc-anchor,
+.doc-content h2:hover .doc-anchor,
+.doc-content h3:hover .doc-anchor,
+.doc-content h4:hover .doc-anchor,
+.doc-anchor:focus {
+  opacity: 0.75;
+}
+
+/* Code-block wrapper (copy button) — carries the block margin so the button
+   anchors to the visible pre, not its margin box. */
+.doc-codeblock {
+  position: relative;
+  margin: 1.25rem 0;
+}
+.doc-codeblock > pre {
+  margin: 0;
+}

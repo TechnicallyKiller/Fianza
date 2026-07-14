@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import DocContent from "@/components/DocContent";
+import DocShell from "@/components/docs/DocShell";
 import { allDocSlugs, getDocTitle, readDoc } from "@/lib/docs";
 
 export function generateStaticParams() {
@@ -30,5 +30,5 @@ export default async function DocPage({
   } catch {
     notFound();
   }
-  return <DocContent markdown={markdown} />;
+  return <DocShell slug={slug} markdown={markdown} />;
 }

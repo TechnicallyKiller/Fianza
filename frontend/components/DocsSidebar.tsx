@@ -38,6 +38,23 @@ export default function DocsSidebar() {
           </ul>
         </div>
       ))}
+
+      <div className="space-y-1.5 border-t border-bone/[0.08] pt-4 font-tl-mono text-[11px] text-[#5a635e]">
+        <a
+          href="https://github.com/TechnicallyKiller/TrustLine"
+          target="_blank"
+          rel="noreferrer"
+          className="block transition-colors hover:text-nectar"
+        >
+          GitHub ↗
+        </a>
+        <Link href="/underwrite" className="block transition-colors hover:text-nectar">
+          Live underwriter ↗
+        </Link>
+        <Link href="/demo" className="block transition-colors hover:text-nectar">
+          Live demo ↗
+        </Link>
+      </div>
     </nav>
   );
 }

@@ -838,3 +838,71 @@ be literal GitBook):
 Not started. Reasonable to fold into Part 8 Milestone 2 (SDK kit week) or
 treat as a parallel Week 3 deliverable — it's largely a packaging/writing
 task over content that already exists, not new engineering.
+
+---
+
+## Part 9 — DeFindex yield-on-idle: contract/backend/frontend DONE, deployment NOT (2026-07-14)
+
+**What's actually built and tested (verified this session — 22/22 `lending_vault`
+Rust tests pass, including these):**
+- `contracts/lending_vault/src/lib.rs` — a full treasury leg: `set_treasury`
+  (admin points idle liquidity at a DeFindex single-asset vault),
+  `invest_idle` (sweeps un-invested idle liquidity into DeFindex via a minimal
+  `DefindexVaultClient` `deposit`/`withdraw` cross-contract client),
+  `harvest`/`divest_all` (redeems the full position, credits surplus to the
+  lender yield pool, socializes a rare loss exactly like a default
+  write-down), plus `ensure_physical` (auto-divests before `borrow`/`withdraw`
+  so a realised loss is reflected before the liquidity check). Solvency
+  identity extended to `token.balance(vault) + Σ Invested == Σ(liquidity +
+  reserve + yield_pool)` and covered by its own fuzz test
+  (`invariant_fuzz_holds_with_defindex_treasury_and_yield`) plus dedicated
+  unit tests (`invest_idle_parks_liquidity_and_keeps_it_lendable`,
+  `invest_idle_rejects_more_than_uninvested_liquidity`,
+  `invest_idle_without_treasury_errors`, `harvest_credits_defindex_yield_to_lenders`).
+- `backend/src/integrations/defindex.ts` — read-only `GET
+  /integrations/defindex` status endpoint: live DeFindex vault TVL
+  (`fetch_total_managed_funds` simulation) + APY (hosted API, optional key),
+  with honest testnet-fragmentation framing (DeFindex/Blend settle in their
+  own testnet USDC, no swap pool to TrustLine's main testnet USDC — this
+  disappears on mainnet where everything is Circle USDC).
+- `frontend/app/lender/page.tsx` — a `DefindexCard` that renders when the
+  backend reports `configured: true`, showing net APY / vault TVL / the
+  mainnet-compatibility note. Non-blocking (best-effort fetch, hidden if
+  unconfigured).
+- All of the above typechecks clean and the Rust side is fully green — this
+  is real, working code, not a half-finished stub.
+
+**What's NOT done (the actual gap, and why this got flagged for cleanup):**
+- **No DeFindex vault was ever actually deployed+funded on testnet.**
+  `contracts/_tmp_gettoken.sh` (mint DeFindex-flavor USDC to the deployer) and
+  `contracts/_phase1_defindex_ids.txt` (scratch vault/treasury/usdc contract
+  ids from an attempted deploy) were leftover, never-finished deployment
+  scratch work — **deleted this session** (2026-07-14) since they were dead
+  ends, not because the feature is broken.
+  `backend/config.ts`'s `defindex.integratedVault`/`treasuryVault`/`usdc`
+  defaults (`CBZ4IGN7…`, `CBMVK2JK…`, `CAQCFVLO…`) are UNVERIFIED placeholder
+  ids from that same attempt — **do not assume they point at a real, funded,
+  live contract.** `backend/.env` has no `DEFINDEX_*` overrides and
+  `render.yaml` has no DeFindex vars at all, so the live Render backend's
+  `/integrations/defindex` almost certainly returns `configured:false` or
+  errors on read today.
+- Nothing on `lending_vault`'s live testnet instance
+  (`CAMF3BS23WXYMA6W6E55VSX577GIPSRKJXJKLL2G46TABUQ4GIRGHIL3`) has ever
+  called `set_treasury` — the treasury leg exists in the contract code but
+  has never been activated on the actual deployed instance.
+
+**To finish this later:**
+1. Actually deploy (or find) a funded DeFindex USDC vault on testnet, get its
+   real vault/treasury contract ids (Palta Labs Discord was the support
+   channel noted in Part 8's integration scan).
+2. Get real, correct `DEFINDEX_INTEGRATED_VAULT`/`DEFINDEX_TREASURY_VAULT`/
+   `DEFINDEX_USDC` ids into `backend/.env` (local) AND the Render dashboard
+   (per the standing "Render doesn't auto-sync `render.yaml` literals"
+   caution — Part 6 item #7).
+3. Call `set_treasury` on the live `lending_vault` instance with the real
+   DeFindex vault address.
+4. Verify live: `GET /integrations/defindex` returns `configured:true` with a
+   real non-null TVL/APY, and the `/lender` `DefindexCard` renders on the
+   production frontend.
+5. Decide on an off-chain rebalancer (who/what actually calls `invest_idle`/
+   `harvest` on a schedule) — currently admin-gated, manual-only.

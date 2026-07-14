@@ -54,3 +54,30 @@ export function getDocTitle(slug: string): string {
   }
   return slug;
 }
+
+export interface DocMeta extends DocNavItem {
+  /** Section heading the doc sits under (null for the top group). */
+  section: string | null;
+}
+
+/** All docs in reading order, with their section — drives prev/next paging. */
+export function flatDocs(): DocMeta[] {
+  return DOCS_NAV.flatMap((s) =>
+    s.items.map((i) => ({ ...i, section: s.title })),
+  );
+}
+
+export function docNeighbors(slug: string): {
+  prev: DocMeta | null;
+  next: DocMeta | null;
+  section: string | null;
+} {
+  const flat = flatDocs();
+  const i = flat.findIndex((d) => d.slug === slug);
+  if (i === -1) return { prev: null, next: null, section: null };
+  return {
+    prev: i > 0 ? flat[i - 1] : null,
+    next: i < flat.length - 1 ? flat[i + 1] : null,
+    section: flat[i].section,
+  };
+}
