@@ -11,6 +11,7 @@ import { saveResult, getResult, listResults } from "./results.js";
 import { dbConfigured } from "./db/index.js";
 import { graphRevenue } from "./scoring/graph.js";
 import { horizonUsdcTransfers } from "./indexer/horizon.js";
+import { taelRevenueReport } from "./integrations/tael.js";
 import { config } from "./config.js";
 
 const STROOPS = 10_000_000;
@@ -129,6 +130,29 @@ export async function underwrite(
     } catch {
       /* Horizon fallback is best-effort — keep whatever the fast paths found */
     }
+  }
+
+  // Tael revenue is ADDITIVE, not a fallback: it's a genuinely separate income
+  // stream (a different marketplace, a different USDC issuer on testnet), not
+  // another view of the same x402 payments the sources above already found.
+  // Merge distinct payers/payments in rather than picking the larger source.
+  try {
+    const taelRev = await taelRevenueReport(agent);
+    if (taelRev) {
+      const payerSet = new Set([...revenue.payers, ...taelRev.payers]);
+      revenue = {
+        ...revenue,
+        totalRevenueStroops: (
+          BigInt(revenue.totalRevenueStroops) + BigInt(taelRev.totalRevenueStroops)
+        ).toString(),
+        totalRevenueUsdc: revenue.totalRevenueUsdc + taelRev.totalRevenueUsdc,
+        distinctPayers: payerSet.size,
+        payers: [...payerSet],
+        payments: [...revenue.payments, ...taelRev.payments],
+      };
+    }
+  } catch {
+    /* Tael revenue is best-effort — never break the underwrite pass on it */
   }
 
   // Counterparty independence: only revenue from payers NOT funded by the agent

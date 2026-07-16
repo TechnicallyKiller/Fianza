@@ -33,6 +33,7 @@ import {
   creditShortfallUsdc,
 } from "./util.js";
 import { ApiError, TxError } from "./errors.js";
+import { isTaelChallenge, payTael } from "./tael-pay.js";
 
 // Re-export the error types + pure helpers so callers can catch typed errors
 // and reuse the conversions.
@@ -243,6 +244,46 @@ export class TrustLineAgent {
     if (need > 0) {
       await this.borrow(need);
     }
+
+    // Tael-wrapped resources (rahulsainlll/tael-protocol) 402 with a CLASSIC
+    // asset descriptor ({ code, issuer }), not the Soroban-contract asset
+    // shape @x402/stellar's ExactStellarScheme expects — the two are
+    // genuinely different x402 payloads despite both being "Stellar x402".
+    //
+    // IMPORTANT: this must not cost the caller a second request against the
+    // existing (SAC-based) path — an earlier version of this probed with its
+    // own `fetch(url, opts.init)` unconditionally, which silently double-hit
+    // every server (real side effects on a non-idempotent endpoint) and could
+    // corrupt a stream-body `init` before the real payment attempt read it.
+    // Only a plain, safely-clonable body (string/undefined/null — the common
+    // case for JSON POSTs, and what every caller in this codebase actually
+    // passes) is probed; anything else (a ReadableStream, FormData, etc.)
+    // skips straight to the generic scheme, unchanged from pre-Tael behavior,
+    // since we can't safely inspect it without consuming it.
+    const rawBody = opts.init?.body;
+    const bodyIsSafeToProbe =
+      rawBody === undefined || rawBody === null || typeof rawBody === "string";
+    if (bodyIsSafeToProbe) {
+      const probe = await fetch(url, opts.init);
+      if (probe.status === 402) {
+        const body = await probe.json().catch(() => undefined);
+        if (isTaelChallenge(body)) {
+          return payTael(url, body, { secret: this.keypair.secret(), init: opts.init });
+        }
+        // Not Tael-shaped: this probe's response IS the 402 the generic path
+        // would have gotten anyway — but wrapFetchWithPaymentFromConfig always
+        // re-fetches internally and there's no supported hook to hand it a
+        // pre-fetched response, so we still fall through to it below. This
+        // means exactly one extra GET/POST-with-safe-body per NON-Tael 402
+        // response (not per successful call — a 200 on the first try returns
+        // immediately without ever reaching the fallback). Accepted as a
+        // known, bounded cost until @x402/fetch exposes a way to seed its
+        // first probe; tracked as a follow-up, not silently shipped.
+      } else {
+        return probe; // 200 (or a non-402 error) on the first try — no payment needed.
+      }
+    }
+
     const caip =
       this.passphrase === TESTNET_PASSPHRASE ? "stellar:testnet" : "stellar:pubnet";
     const { wrapFetchWithPaymentFromConfig } = await import("@x402/fetch");

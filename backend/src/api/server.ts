@@ -15,6 +15,8 @@ import { dbConfigured, migrate } from "../db/index.js";
 import { startContinuousIngest } from "../indexer/persistent.js";
 import { addToWaitlist, waitlistCount, isValidEmail } from "../waitlist.js";
 import { drip, faucetConfigured, hasClaimed } from "../faucet.js";
+import { defindexStatus } from "../integrations/defindex.js";
+import { taelRevenueReport } from "../integrations/tael.js";
 
 export async function buildServer() {
   const app = Fastify({ logger: true });
@@ -30,6 +32,17 @@ export async function buildServer() {
   }
 
   app.get("/health", async () => ({ ok: true, ts: Date.now() }));
+
+  // DeFindex yield-on-idle integration status (lender-side), for the /lender UI.
+  // Read-only; live DeFindex vault TVL + APY (when a key is set), plus the
+  // testnet asset-fragmentation note and mainnet-compatibility flag.
+  app.get("/integrations/defindex", async () => {
+    try {
+      return await defindexStatus();
+    } catch (e) {
+      return { configured: false, error: e instanceof Error ? e.message : String(e) };
+    }
+  });
 
   // Public config for the frontend (no secrets).
   app.get("/config", async () => ({
@@ -132,6 +145,13 @@ export async function buildServer() {
       }),
   );
 
+  // Live Tael-attributed USDC revenue for an agent (cheap read, memo-filtered
+  // Horizon walk) — null revenue means either no Tael income yet or
+  // TAEL_USDC_ISSUER isn't configured.
+  app.get<{ Params: { address: string } }>("/agent/:address/tael-revenue", async (req) =>
+    taelRevenueReport(req.params.address),
+  );
+
   // Full underwriting pass: index + Reclaim proof + score + attest (+ submit).
   app.post<{
     Params: { address: string };
@@ -159,6 +179,30 @@ export async function buildServer() {
       return { record, score: result.score.score, tier: result.score.tier, defaulted: result.score.defaulted };
     },
   );
+
+  // Cheap, stable read for third-party integrations (e.g. a Tael "credit"
+  // capability — see TRUSTLINE_INTEGRATION.md): the last stored underwriting
+  // result's credit-relevant fields only, no live on-chain simulate.
+  //
+  // rampedLimitUsdc is the agent's current ramped CEILING (what the vault
+  // contract will let it draw up to), NOT limit-minus-outstanding — getting
+  // the true live available-to-borrow figure requires a real-time vault read
+  // (see the SDK's availableCreditUsdc(), which this endpoint deliberately
+  // does not replicate, to stay a cheap, no-chain-read call). Callers that
+  // need the precise live number should read the vault directly, same as the
+  // SDK does; this is a discovery/estimate signal, not the source of truth.
+  app.get<{ Params: { address: string } }>("/agent/:address/available-credit", async (req, reply) => {
+    const r = await getResult(req.params.address);
+    if (!r) {
+      return reply.code(200).send({ agent: req.params.address, rampedLimitUsdc: 0, tier: 0, aprBps: 0 });
+    }
+    return {
+      agent: req.params.address,
+      rampedLimitUsdc: r.score.rampedLimitUsdc,
+      tier: r.score.tier,
+      aprBps: r.score.aprBps,
+    };
+  });
 
   // Last stored underwriting result for an agent.
   app.get<{ Params: { address: string } }>("/agent/:address", async (req, reply) => {

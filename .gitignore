@@ -34,3 +34,8 @@ backend/_oz_wire.sh
 
 # python test venv (agent-sdk-py)
 .venv-sdktest/
+
+# Local reference clone of the Tael partner repo (rahulsainlll/tael-protocol) —
+# its own git repo, kept alongside for integration work; must never be committed
+# into this repo. See TAEL_PARTNERSHIP.md for context.
+tael-protocol/

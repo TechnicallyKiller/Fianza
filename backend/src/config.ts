@@ -93,6 +93,39 @@ export const config = {
   faucetSecret: opt("FAUCET_SECRET"),
   faucetDripUsdc: Number(opt("FAUCET_DRIP_USDC", "10")) || 10,
 
+  // DeFindex yield-on-idle integration (lender-side). Idle liquidity in a
+  // DeFindex-integrated lending_vault is swept into a DeFindex vault to earn
+  // Blend yield while it waits to be borrowed. Testnet-only reality: DeFindex/
+  // Blend settle in their OWN testnet USDC (defindexUsdc), distinct from
+  // TrustLine's main USDC with no swap pool between them — so this integration
+  // runs in DeFindex's USDC. On mainnet all converge on Circle USDC and the
+  // split vanishes (see docs / the /lender note).
+  defindex: {
+    // TrustLine's DeFindex-integrated lending_vault (token = defindexUsdc).
+    integratedVault: opt("DEFINDEX_INTEGRATED_VAULT", "CBZ4IGN7XDORTZ7DFWGYSJ67BUNRN475KJB3IJUORITY76Y6RDZOJDAA"),
+    // The DeFindex USDC vault the treasury sweeps idle capital into.
+    treasuryVault: opt("DEFINDEX_TREASURY_VAULT", "CBMVK2JK6NTOT2O4HNQAIQFJY232BHKGLIMXDVQVHIIZKDACXDFZDWHN"),
+    // DeFindex/Blend testnet USDC (classic-wrapped SAC, issuer GATALTGT…).
+    usdc: opt("DEFINDEX_USDC", "CAQCFVLOBK5GIULPNZRGATJJMIZL5BSP7X5YJVMGCPTUEPFM4AVSRCJU"),
+    // Optional hosted-API key for live APY reads (display only; the value path
+    // is on-chain). Falls back to a documented figure when unset.
+    apiKey: opt("DEFINDEX_API_KEY"),
+    apiBaseUrl: opt("DEFINDEX_API_BASE_URL", "https://api.defindex.io"),
+  },
+
+  // Tael revenue indexing (seller-side underwriting). Tael settles as classic
+  // Stellar `payment` ops (not SAC transfer events), tagged with a fixed text
+  // memo, on Tael's OWN testnet USDC issuer — distinct from TrustLine's own
+  // testnet USDC, same fragmentation story as DeFindex above. Reading this
+  // revenue needs Tael's issuer + memo, not config.usdcIssuer/usdcSac.
+  tael: {
+    // Tael's testnet USDC issuer (classic asset "USDC:<issuer>", NOT a SAC).
+    usdcIssuer: opt("TAEL_USDC_ISSUER"),
+    // Stellar text memo Tael stamps on every settlement (packages/stellar/src/pay.ts
+    // in rahulsainlll/tael-protocol: `export const TAEL_MEMO = "tael"`).
+    memo: opt("TAEL_MEMO", "tael"),
+  },
+
   // API
   port: Number(opt("PORT", "8787")),
   host: opt("HOST", "0.0.0.0"),
