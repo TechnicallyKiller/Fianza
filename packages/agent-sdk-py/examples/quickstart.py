@@ -13,7 +13,7 @@ Usage:
     python examples/quickstart.py
 
 Optional env:
-    TRUSTLINE_API   defaults to https://trustline.onrender.com
+    TRUSTLINE_API   defaults to https://trustline-rpxt.onrender.com
     AGENT_SECRET    reuse an existing funded Stellar secret instead of
                     generating + funding a brand-new one
 """
@@ -26,7 +26,7 @@ from stellar_sdk import Keypair
 
 from trustline import TrustLineAgent
 
-API = os.environ.get("TRUSTLINE_API", "https://trustline.onrender.com")
+API = os.environ.get("TRUSTLINE_API", "https://trustline-rpxt.onrender.com")
 FRIENDBOT = "https://friendbot.stellar.org"
 
 

@@ -43,7 +43,7 @@ autonomously. No collateral, no human in the loop, no wallet-age heuristics.
 |---|---|
 | Live app | [0xtrustline.vercel.app](https://0xtrustline.vercel.app) |
 | Live underwriter (paste any address) | [/underwrite](https://0xtrustline.vercel.app/underwrite) |
-| Backend API | `https://trustline.onrender.com` |
+| Backend API | `https://trustline-rpxt.onrender.com` |
 | GitHub | [TechnicallyKiller/TrustLine](https://github.com/TechnicallyKiller/TrustLine) |
 | Agent SDK | [`packages/agent-sdk`](../packages/agent-sdk) |
 

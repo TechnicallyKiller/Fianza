@@ -85,7 +85,7 @@ underwritten to Tier B (695), autonomously borrowed against its line from a real
 lender deposit, and repaid — full lifecycle, on-chain, from zero.** This is the
 strongest artifact.
 
-**Deployed:** backend `https://trustline.onrender.com` (Render free tier —
+**Deployed:** backend `https://trustline-rpxt.onrender.com` (Render free tier —
 SLEEPS after ~15 min, first request wakes it ~30–60s). Frontend
 `https://0xtrustline.vercel.app`. Repo `github.com/TechnicallyKiller/TrustLine`
 (branch `main`).
@@ -267,7 +267,7 @@ values shown):**
 - `spikes/.env`, `spikes/spike2-reclaim-revenue/.env` — SEEDPHRASE, Stripe key, OZ.
 - On Render: same as `backend/.env`, set in the dashboard; `render.yaml` locks
   non-secret vars + build (`npm install && npm run build`) / start (`npm start`).
-- On Vercel: `NEXT_PUBLIC_API_BASE_URL=https://trustline.onrender.com`.
+- On Vercel: `NEXT_PUBLIC_API_BASE_URL=https://trustline-rpxt.onrender.com`.
 
 **Running services right now:** Scout `:3020`, DataCo `:3021` (local only).
 Backend is on Render, not local. Nothing else local.
@@ -417,7 +417,7 @@ funding source again.
    Analyst actually deployed first) plus the user setting up the free external
    pinger.
 6. **Backend cold-start mitigated** — user has a UptimeRobot (or similar) ping
-   on `https://trustline.onrender.com/health` from earlier tonight; confirm
+   on `https://trustline-rpxt.onrender.com/health` from earlier tonight; confirm
    it's still active in a new session (`curl .../health` should respond
    instantly, not after a 30-60s cold-start delay, if the ping is working).
 7. **Render dashboard historically has NOT auto-synced from `render.yaml`'s

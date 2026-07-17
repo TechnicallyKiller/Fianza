@@ -56,7 +56,7 @@ from trustline import TrustLineAgent
 
 tl = TrustLineAgent(
     secret,                                    # the agent's S... secret
-    api_base_url="https://trustline.onrender.com",  # the TrustLine backend
+    api_base_url="https://trustline-rpxt.onrender.com",  # the TrustLine backend
     # rpc_url=..., network_passphrase=...,     # default: testnet
     # contracts={"registry","creditLine","vault"},  # else auto-resolved from /config
 )

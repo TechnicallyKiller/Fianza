@@ -5,6 +5,7 @@
 // network come from /config so the frontend can wire wallet flows.
 
 import { readFileSync } from "node:fs";
+import { createHmac, timingSafeEqual } from "node:crypto";
 import Fastify from "fastify";
 import cors from "@fastify/cors";
 import { config } from "../config.js";
@@ -17,6 +18,45 @@ import { addToWaitlist, waitlistCount, isValidEmail } from "../waitlist.js";
 import { drip, faucetConfigured, hasClaimed } from "../faucet.js";
 import { defindexStatus } from "../integrations/defindex.js";
 import { taelRevenueReport } from "../integrations/tael.js";
+
+// Max age of a Tael partner signature we'll accept (replay window). Tael stamps
+// x-tael-timestamp as Date.now() ms; anything older than this is rejected.
+const TAEL_SIG_MAX_AGE_MS = 5 * 60 * 1000; // 5 minutes
+
+/**
+ * Verify Tael's `x-tael-agent-sig` HMAC on a proxied call. Mirrors their
+ * construction exactly (apps/api/src/modules/gateway/upstream.ts):
+ *   sig = HMAC_SHA256(PARTNER_HMAC_SECRET, `${timestamp}.${agentAddress}`)  (hex)
+ *
+ * Returns { ok: true } when verification passes OR when no secret is configured
+ * (endpoint stays open — lets us deploy before exchanging the secret). Returns
+ * { ok: false, reason } only when a secret IS set and the signature is
+ * missing / stale / wrong.
+ */
+function verifyTaelSignature(headers: {
+  agent?: string;
+  timestamp?: string;
+  sig?: string;
+}): { ok: true } | { ok: false; reason: string } {
+  const secret = config.tael.partnerHmacSecret;
+  if (!secret) return { ok: true }; // verification disabled until the secret is set
+
+  const { agent, timestamp, sig } = headers;
+  if (!agent || !timestamp || !sig) {
+    return { ok: false, reason: "missing x-tael-agent / x-tael-timestamp / x-tael-agent-sig" };
+  }
+  const ts = Number(timestamp);
+  if (!Number.isFinite(ts) || Math.abs(Date.now() - ts) > TAEL_SIG_MAX_AGE_MS) {
+    return { ok: false, reason: "stale or invalid x-tael-timestamp" };
+  }
+  const expected = createHmac("sha256", secret).update(`${ts}.${agent}`).digest("hex");
+  const a = Buffer.from(expected, "hex");
+  const b = Buffer.from(sig, "hex");
+  if (a.length !== b.length || !timingSafeEqual(a, b)) {
+    return { ok: false, reason: "signature mismatch" };
+  }
+  return { ok: true };
+}
 
 export async function buildServer() {
   const app = Fastify({ logger: true });
@@ -192,6 +232,24 @@ export async function buildServer() {
   // need the precise live number should read the vault directly, same as the
   // SDK does; this is a discovery/estimate signal, not the source of truth.
   app.get<{ Params: { address: string } }>("/agent/:address/available-credit", async (req, reply) => {
+    // When a Tael partner secret is configured, require a valid signature so
+    // only calls that genuinely came through Tael's gateway are honored. No
+    // secret set → open (unchanged). See verifyTaelSignature above.
+    const agentHeader = req.headers["x-tael-agent"];
+    const check = verifyTaelSignature({
+      agent: typeof agentHeader === "string" ? agentHeader : undefined,
+      timestamp: typeof req.headers["x-tael-timestamp"] === "string" ? req.headers["x-tael-timestamp"] : undefined,
+      sig: typeof req.headers["x-tael-agent-sig"] === "string" ? req.headers["x-tael-agent-sig"] : undefined,
+    });
+    if (!check.ok) {
+      return reply.code(401).send({ error: `Tael signature check failed: ${check.reason}` });
+    }
+    // If verified, the signed agent must be the one being queried — a valid
+    // sig for agent A can't be used to read agent B's credit via the path.
+    if (config.tael.partnerHmacSecret && agentHeader !== req.params.address) {
+      return reply.code(401).send({ error: "x-tael-agent does not match the queried address" });
+    }
+
     const r = await getResult(req.params.address);
     if (!r) {
       return reply.code(200).send({ agent: req.params.address, rampedLimitUsdc: 0, tier: 0, aprBps: 0 });

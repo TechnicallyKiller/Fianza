@@ -124,6 +124,12 @@ export const config = {
     // Stellar text memo Tael stamps on every settlement (packages/stellar/src/pay.ts
     // in rahulsainlll/tael-protocol: `export const TAEL_MEMO = "tael"`).
     memo: opt("TAEL_MEMO", "tael"),
+    // Shared secret for verifying Tael's `x-tael-agent-sig` HMAC on proxied
+    // calls (their PARTNER_HMAC_SECRET). When set, the /available-credit
+    // endpoint requires a valid, fresh signature — proving the call really came
+    // through Tael's gateway, not a forged x-tael-agent header. Unset = no
+    // verification (open endpoint, same as before). Get the value from Tael.
+    partnerHmacSecret: opt("TAEL_PARTNER_HMAC_SECRET"),
   },
 
   // API

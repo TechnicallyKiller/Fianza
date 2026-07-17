@@ -21,7 +21,7 @@ npm install @trustline-agents/agent-sdk
 import { TrustLineAgent } from "@trustline-agents/agent-sdk";
 
 const tl = new TrustLineAgent(secret, {
-  apiBaseUrl: "https://trustline.onrender.com", // the underwriting engine
+  apiBaseUrl: "https://trustline-rpxt.onrender.com", // the underwriting engine
   rpcUrl: "https://soroban-testnet.stellar.org", // default: testnet
   networkPassphrase: "Test SDF Network ; September 2015", // default: testnet
   contracts: {           // optional — omit to auto-resolve from /config

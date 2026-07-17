@@ -27,7 +27,7 @@ import { TrustLineAgent } from "@trustline-agents/agent-sdk";
 
 // The agent holds its own Stellar key.
 const tl = new TrustLineAgent(process.env.AGENT_SECRET!, {
-  apiBaseUrl: "https://trustline.onrender.com", // the underwriting engine
+  apiBaseUrl: "https://trustline-rpxt.onrender.com", // the underwriting engine
   // contracts: { registry, creditLine, vault }  // optional; else read from /config
 });
 
