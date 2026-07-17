@@ -101,10 +101,22 @@ export interface UnderwriteOptions {
   fromLedger?: number;
 }
 
-export async function underwrite(
+/**
+ * Gather an agent's best-available revenue (RPC + graph + Horizon fallback +
+ * additive Tael income) and run the anti-Sybil independence check. This is the
+ * shared, side-effect-free core used by both the full {@link underwrite} pass
+ * and the read-only {@link previewCredit} — no zkTLS proof, no attestation, no
+ * on-chain publish. Extracted so the two never drift.
+ */
+async function gatherScoredRevenue(
   agent: string,
-  opts: UnderwriteOptions = {},
-): Promise<UnderwritingResult> {
+  opts: { fromLedger?: number } = {},
+): Promise<{
+  revenue: RevenueReport;
+  independence: IndependenceResult | null;
+  onchainRevenueStroops: string;
+  distinctPayers: number;
+}> {
   const [rpcRevenue, graphRev] = await Promise.all([
     indexRevenue(agent, { fromLedger: opts.fromLedger }),
     graphRevenueReport(agent).catch(() => null),
@@ -152,7 +164,7 @@ export async function underwrite(
       };
     }
   } catch {
-    /* Tael revenue is best-effort — never break the underwrite pass on it */
+    /* Tael revenue is best-effort — never break the pass on it */
   }
 
   // Counterparty independence: only revenue from payers NOT funded by the agent
@@ -174,6 +186,41 @@ export async function underwrite(
   const distinctPayers = independence
     ? independence.independentPayers.length
     : revenue.distinctPayers;
+
+  return { revenue, independence, onchainRevenueStroops, distinctPayers };
+}
+
+/**
+ * Read-only live credit preview: compute an agent's CURRENT score/limit from
+ * its real on-chain revenue right now — no zkTLS proof, no attestation, no
+ * on-chain write, nothing persisted. Cheap enough to call per request (e.g.
+ * from the Tael `credit` capability's endpoint), and unlike reading a stored
+ * result it reflects the agent's live revenue even if it's never been formally
+ * underwritten. Repayment history is still honored (it lifts/collapses the
+ * ramped limit exactly as in a full pass).
+ */
+export async function previewCredit(agent: string): Promise<ScoreResult> {
+  const { onchainRevenueStroops, distinctPayers } = await gatherScoredRevenue(agent);
+  const repayments = await readRepayments(agent);
+  return computeScoreResult({
+    agent,
+    onchainRevenueStroops,
+    distinctPayers,
+    // Read-only preview never runs the (slow, on-chain) zkTLS proof — score on
+    // on-chain revenue only. A formal underwrite() can still add proven
+    // off-chain revenue on top.
+    offchainRevenueStroops: "0",
+    offchainVerified: false,
+    repayments,
+  });
+}
+
+export async function underwrite(
+  agent: string,
+  opts: UnderwriteOptions = {},
+): Promise<UnderwritingResult> {
+  const { revenue, independence, onchainRevenueStroops, distinctPayers } =
+    await gatherScoredRevenue(agent, { fromLedger: opts.fromLedger });
 
   let proof: ProofResult | null = null;
   let proofError: string | null = null;

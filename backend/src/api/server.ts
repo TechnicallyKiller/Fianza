@@ -10,7 +10,7 @@ import Fastify from "fastify";
 import cors from "@fastify/cors";
 import { config } from "../config.js";
 import { indexRevenue } from "../indexer/index.js";
-import { underwrite, getResult, listResults } from "../underwrite.js";
+import { underwrite, previewCredit, getResult, listResults } from "../underwrite.js";
 import { signerPublicKey, recordRepayment } from "../signer/index.js";
 import { dbConfigured, migrate } from "../db/index.js";
 import { startContinuousIngest } from "../indexer/persistent.js";
@@ -220,17 +220,20 @@ export async function buildServer() {
     },
   );
 
-  // Cheap, stable read for third-party integrations (e.g. a Tael "credit"
-  // capability — see TRUSTLINE_INTEGRATION.md): the last stored underwriting
-  // result's credit-relevant fields only, no live on-chain simulate.
+  // Live credit read for third-party integrations (e.g. a Tael "credit"
+  // capability — see TRUSTLINE_INTEGRATION.md). Runs a READ-ONLY underwriting
+  // pass on demand (previewCredit): indexes the agent's real on-chain revenue
+  // right now — RPC + graph + Horizon + additive Tael income — plus the
+  // anti-Sybil independence check and repayment history, then scores it. No
+  // zkTLS proof, no attestation, nothing written on-chain or persisted, so it's
+  // cheap enough to call per request. Unlike reading a stored result, this
+  // returns a real number even for an agent that's never been formally
+  // underwritten — which is the whole point (otherwise every uncalled agent
+  // reads 0).
   //
-  // rampedLimitUsdc is the agent's current ramped CEILING (what the vault
-  // contract will let it draw up to), NOT limit-minus-outstanding — getting
-  // the true live available-to-borrow figure requires a real-time vault read
-  // (see the SDK's availableCreditUsdc(), which this endpoint deliberately
-  // does not replicate, to stay a cheap, no-chain-read call). Callers that
-  // need the precise live number should read the vault directly, same as the
-  // SDK does; this is a discovery/estimate signal, not the source of truth.
+  // rampedLimitUsdc is the ramped CEILING (what the vault will let it draw up
+  // to), NOT limit-minus-outstanding — the precise live available-to-borrow
+  // figure needs a real-time vault read (the SDK's availableCreditUsdc()).
   app.get<{ Params: { address: string } }>("/agent/:address/available-credit", async (req, reply) => {
     // When a Tael partner secret is configured, require a valid signature so
     // only calls that genuinely came through Tael's gateway are honored. No
@@ -250,16 +253,23 @@ export async function buildServer() {
       return reply.code(401).send({ error: "x-tael-agent does not match the queried address" });
     }
 
-    const r = await getResult(req.params.address);
-    if (!r) {
-      return reply.code(200).send({ agent: req.params.address, rampedLimitUsdc: 0, tier: 0, aprBps: 0 });
+    try {
+      const score = await previewCredit(req.params.address);
+      return {
+        agent: req.params.address,
+        rampedLimitUsdc: score.rampedLimitUsdc,
+        limitUsdc: score.limitUsdc,
+        tier: score.tier,
+        aprBps: score.aprBps,
+        revenueUsdc: score.revenueUsdc,
+        distinctPayers: score.distinctPayers,
+      };
+    } catch (e) {
+      req.log.error(e, "previewCredit failed");
+      // Never 500 a marketplace read — a scoring/RPC hiccup returns zeros, same
+      // shape as an agent with no revenue.
+      return reply.code(200).send({ agent: req.params.address, rampedLimitUsdc: 0, limitUsdc: 0, tier: 0, aprBps: 0, revenueUsdc: 0, distinctPayers: 0 });
     }
-    return {
-      agent: req.params.address,
-      rampedLimitUsdc: r.score.rampedLimitUsdc,
-      tier: r.score.tier,
-      aprBps: r.score.aprBps,
-    };
   });
 
   // Last stored underwriting result for an agent.
