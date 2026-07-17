@@ -93,6 +93,26 @@ export const config = {
   faucetSecret: opt("FAUCET_SECRET"),
   faucetDripUsdc: Number(opt("FAUCET_DRIP_USDC", "10")) || 10,
 
+  // TrustLine treasury — the lender-of-first-resort that seeds liquidity into
+  // an underwritten agent's isolated vault so the agent can actually BORROW
+  // (a credit line is only permission; a lender must deposit the USDC that
+  // backs it). On testnet TrustLine bootstraps this itself with faucet USDC.
+  //
+  // TESTNET-ONLY BOOTSTRAP. On mainnet, independent third-party lenders take
+  // the default risk — TrustLine lending into vaults its own engine underwrote
+  // is fine to kick-start a testnet demo but is NOT a mainnet posture. Gate it
+  // hard: unset treasurySecret => the top-up path is inert.
+  //
+  // NOTE — not the same trap as the faucet: the treasury DEPOSITS into a vault
+  // (lender → vault shares), it never PAYS the agent, so it does not appear as
+  // agent revenue and cannot contaminate the anti-Sybil independence score.
+  treasurySecret: opt("TREASURY_SECRET"),
+  // Max the treasury will top up into any single agent's vault per request.
+  // The treasury's own wallet USDC balance is the global cap (it can't lend
+  // what it doesn't hold) — keep that wallet funded to a level you're willing
+  // to expose. A precise cross-vault exposure ledger is a mainnet concern.
+  treasuryMaxPerVaultUsdc: Number(opt("TREASURY_MAX_PER_VAULT_USDC", "10")) || 10,
+
   // DeFindex yield-on-idle integration (lender-side). Idle liquidity in a
   // DeFindex-integrated lending_vault is swept into a DeFindex vault to earn
   // Blend yield while it waits to be borrowed. Testnet-only reality: DeFindex/

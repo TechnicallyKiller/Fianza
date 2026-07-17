@@ -18,6 +18,7 @@ import { addToWaitlist, waitlistCount, isValidEmail } from "../waitlist.js";
 import { drip, faucetConfigured, hasClaimed } from "../faucet.js";
 import { defindexStatus } from "../integrations/defindex.js";
 import { taelRevenueReport } from "../integrations/tael.js";
+import { ensureLiquidity, treasuryConfigured, treasuryPublicKey } from "../treasury.js";
 
 // Max age of a Tael partner signature we'll accept (replay window). Tael stamps
 // x-tael-timestamp as Date.now() ms; anything older than this is rejected.
@@ -83,6 +84,29 @@ export async function buildServer() {
       return { configured: false, error: e instanceof Error ? e.message : String(e) };
     }
   });
+
+  // TrustLine treasury (testnet lender-of-first-resort): ensure an agent's
+  // vault has enough borrowable liquidity, seeding it from the treasury if
+  // short. Called by a borrow flow before it borrows, or manually to pre-fund a
+  // vault. Body: { neededUsdc: number }. Inert (deposited:false) if
+  // TREASURY_SECRET is unset. TESTNET bootstrap — see treasury.ts.
+  app.post<{ Params: { address: string }; Body: { neededUsdc?: number } }>(
+    "/agent/:address/ensure-liquidity",
+    async (req, reply) => {
+      const needed = Number(req.body?.neededUsdc);
+      if (!Number.isFinite(needed) || needed <= 0) {
+        return reply.code(400).send({ error: "body must be { neededUsdc: positive number }" });
+      }
+      return ensureLiquidity(req.params.address, needed);
+    },
+  );
+
+  // Treasury status (no secret) — is it configured, and which wallet is it.
+  app.get("/treasury", async () => ({
+    configured: treasuryConfigured(),
+    address: treasuryPublicKey(),
+    maxPerVaultUsdc: config.treasuryMaxPerVaultUsdc,
+  }));
 
   // Public config for the frontend (no secrets).
   app.get("/config", async () => ({
