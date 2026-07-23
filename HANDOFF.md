@@ -1,8 +1,14 @@
 # TrustLine — Reality & Handoff (READ THIS FIRST)
 
-_Last updated: 2026-07-04. If you're a new session, read this whole file before
+_Last updated: 2026-07-17. If you're a new session, read this whole file before
 touching anything. It is deliberately blunt. `PROJECT_LOG.md` has the granular
 history; this file is the truth + the plan._
+
+_Newest work: **Part 10 — the Tael partnership integration is SHIPPED and LIVE**
+(SDK 0.2.0 on npm, credit endpoints live on `trustline-rpxt.onrender.com`, our
+code merged into Tael's repo, and a funded testnet treasury so agents can
+actually borrow). Backend URL changed to `https://trustline-rpxt.onrender.com`.
+Read Part 10 for the full state + the traps._
 
 ---
 
@@ -906,3 +912,126 @@ Rust tests pass, including these):**
    production frontend.
 5. Decide on an off-chain rebalancer (who/what actually calls `invest_idle`/
    `harvest` on a schedule) — currently admin-gated, manual-only.
+
+## Part 10 — Tael partnership integration: SHIPPED + LIVE, + testnet treasury (2026-07-17)
+
+**Partner:** Tael (`github.com/rahulsainlll/tael-protocol`) — an x402/HTTP-402
+payment layer where AI agents pay per-call for APIs/MCP tools, settled in USDC
+on Stellar. Same rails as TrustLine (x402, Stellar, USDC, **same testnet USDC
+issuer `GBBD47IF…`** — no fragmentation, unlike DeFindex). A read-only clone
+lives at `/tael-protocol` (gitignored — a nested repo, NOT part of this repo;
+do not commit it). Their repo is the source of truth for their side.
+
+**The thesis:** Tael answers "how does an agent get paid." TrustLine adds "what
+if it can't pay" (credit line) and "what can it do with what it earns"
+(revenue-based underwriting). Docs: `TAEL_PARTNERSHIP.md` (strategy, honest
+about gaps), `tael.md` (their protocol scraped), `TAEL_CODEBASE_SCAN_PROMPT.md`.
+
+### What shipped on OUR side (TrustLine repo, all on `main`, pushed, LIVE on Render)
+
+- **SDK `@trustline-agents/agent-sdk@0.2.0` — PUBLISHED to npm.** Fixes a real
+  incompatibility discovered by reading both SDKs: `payWithCredit` used
+  `@x402/stellar`'s scheme which builds a **Soroban-SAC** payment, but Tael's
+  verifier only accepts a **classic `Operation.payment`** (its
+  `requirements.asset` is `{code,issuer}`, not a contract address). Added
+  `packages/agent-sdk/src/tael-pay.ts` (`isTaelChallenge` + `buildTaelPaymentTx`
+  + `payTael`) and a branch in `payWithCredit` that detects Tael's classic-asset
+  402 and pays it correctly, falling back to the generic scheme otherwise.
+  Tests in `test/tael-pay.test.ts`. **TRAP fixed:** the first version probed with
+  an unconditional extra `fetch` that double-hit every server and could corrupt
+  a stream body — now only probes when the body is safely re-sendable (string/
+  null/undefined). Verified live: SAC path (`plain.mjs`) AND Tael path
+  (`tael-demo.mjs`) both settle real testnet payments.
+- **`backend/src/integrations/tael.ts`** — indexes an agent's Tael revenue
+  (memo-`tael`-filtered Horizon walk). Additive into `underwrite()` via the
+  extracted `gatherScoredRevenue()`. NOTE: because Tael's USDC issuer == ours,
+  Tael earnings are ALREADY counted by the main indexer — `TAEL_USDC_ISSUER` is
+  a future-proofing knob (for if Tael ever uses a different issuer), NOT
+  required today. Verified: a Tael-memo-earning wallet scores non-zero with it
+  unset. `GET /agent/:address/tael-revenue`.
+- **`/agent/:address/available-credit`** — the endpoint the Tael `credit`
+  capability calls. Now runs `previewCredit()` (in `underwrite.ts`): a
+  READ-ONLY live underwriting pass (index on-chain revenue + independence +
+  repayments → score), **no zkTLS proof, no on-chain publish, nothing
+  persisted**. Returns a real live number instead of a stale stored 0. Optional
+  `x-tael-agent-sig` HMAC verification (`config.tael.partnerHmacSecret`, unset =
+  open — the endpoint is public read-only data anyway). Verified live: ANALYST →
+  tier C, $2.96 rev, 5 payers.
+- **`backend/src/treasury.ts` — the testnet lender-of-first-resort.** THE key
+  insight of this session: a credit line is only *permission* to borrow; the
+  USDC must come from a **lender who deposited into the agent's isolated vault**.
+  No organic lenders exist on testnet, so the treasury bootstraps it:
+  `POST /agent/:address/ensure-liquidity {neededUsdc}` tops up a vault by the
+  exact shortfall (capped by per-vault limit + available credit + treasury
+  balance). `GET /treasury` for status. Gated on `TREASURY_SECRET` (unset =
+  inert). Deposits lender→vault (earns yield, never *pays* the agent, so no
+  anti-Sybil contamination). Verified live end-to-end on production:
+  treasury seeded ANALYST's vault (`tx a110da7e`) → agent borrowed (`tx 0749b962`).
+
+### What shipped on THEIR side (merged into `rahulsainlll/tael-protocol` main)
+
+- **PR #51** (via fork `TechnicallyKiller/tael-protocol`): the credit-draw
+  fallback in `run-capability.ts` (opt-in via `TRUSTLINE_API` env +
+  per-agent `policy.allowCreditDraw` toggle — both off by default), the
+  `credit` capability kind (enum + migration + marketplace + wizard), and
+  `SpendingPolicy.allowCreditDraw`. Docs `TRUSTLINE_INTEGRATION.md` +
+  `TRUSTLINE_FOR_TAEL.md` are in their repo.
+- **They then shipped, unprompted:** `{payer}` URL substitution (#68) +
+  `x-tael-agent`/`x-tael-agent-sig` HMAC header forwarding (#67) + credit-kind
+  wizard tile (#66) — from our `TRUSTLINE_PAYER_TEMPLATING.md` ask.
+
+### LIVE production state (verified 2026-07-17)
+
+- Backend URL is now **`https://trustline-rpxt.onrender.com`** (old
+  `trustline.onrender.com` is dead/suspended — all ~26 files updated). Render
+  deploys from `main`; a push auto-redeploys (~2 min).
+- **Treasury is LIVE + funded:** `TREASURY_SECRET` on Render = SCOUT_LENDER
+  (`GAEXGDYL…`, ~20 USDC). `GET /treasury` → `configured:true`. (The dedicated
+  `GDXLI7XG…` wallet I generated mid-session was abandoned in favor of
+  SCOUT_LENDER; its USDC was swept back and its secret file deleted.)
+- The `credit` capability is publishable on Tael's marketplace with:
+  name `trustline-credit`, kind `credit`, GET,
+  upstream `https://trustline-rpxt.onrender.com/agent/{payer}/available-credit`
+  (literal `{payer}` — their gateway substitutes the caller), blank path/secret,
+  price `$0.10`, payTo = a TrustLine wallet.
+
+### Traps / hard-won learnings this session (do NOT relearn these)
+
+1. **Credit ≠ liquidity.** An underwritten agent with an empty vault borrows
+   NOTHING (`InsufficientLiquidity` = vault error #2). Every "why won't it
+   borrow" dead-end traces to: no lender deposited into that vault. The
+   treasury exists solely to fix this on testnet.
+2. **Preview limit ≠ on-chain limit.** `/available-credit` (previewCredit)
+   shows the *live-computed* limit; the vault enforces the *last PUBLISHED*
+   limit. They diverge until you re-run `underwrite()` (which publishes on
+   chain). ANALYST looked "maxed out" only because its published limit was a
+   stale $0.08; re-underwriting published the real $0.44 and freed room.
+3. **Cards ≠ wallets.** The credit-draw fallback lives ONLY in the wallet
+   "Run" flow (`run-capability.ts`), NOT the Card path (`key.service.ts`
+   `payForCall`, which has no credit logic and a misleading "no balance" error
+   that never reads the balance). Flagged to Tael in
+   `tael-protocol/TRUSTLINE_CARD_NOTES.md`. We deliberately did NOT extend
+   credit to Cards (Cards are a spending instrument; credit belongs to the
+   earning agent).
+4. **`payWithCredit` was deliberately NOT wired to auto-call the treasury** —
+   the treasury secret must stay server-side (never in the client SDK), and
+   auto-funding every borrow would be an invisible treasury drain. Top-up is a
+   deliberate server-side lever (`/ensure-liquidity`), separate from the borrow.
+
+### The genuinely UNSOLVED thing (business, not code)
+
+Everything above proves the *mechanism* works — but on testnet it's **TrustLine
+lending its own money to make its own demo function.** The real mainnet
+question — *who are the independent lenders, and why would they risk capital on
+agent defaults for the interest yield* — is untouched. That's the demand-side
+problem to solve before mainnet; the code is ready, the liquidity market is not.
+
+### If Tael or a new session picks this up
+
+- Publish the `credit` capability (values above) — endpoint returns real data now.
+- Tael's remaining ops steps (their side): set `TRUSTLINE_API`, apply the
+  credit-kind migration to prod DB, add the `allowCreditDraw` toggle to their
+  agent-settings UI (code reads it; nothing sets it yet).
+- `TREASURY_MAX_PER_VAULT_USDC` (default 10) + the treasury wallet's balance are
+  the only spend guards — there is NO cross-vault exposure ledger (deferred as a
+  mainnet concern). Keep the treasury wallet funded only to accepted exposure.

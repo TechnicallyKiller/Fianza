@@ -1,0 +1,82 @@
+{
+  "$schema": "https://mintlify.com/docs.json",
+  "theme": "mint",
+  "name": "TrustLine",
+  "description": "Revenue-underwritten, uncollateralized USDC credit for AI agents on Stellar.",
+  "colors": {
+    "primary": "#58F0C8",
+    "light": "#58F0C8",
+    "dark": "#0B0F0E"
+  },
+  "favicon": "/favicon.svg",
+  "background": {
+    "color": {
+      "dark": "#0B0F0E"
+    }
+  },
+  "navigation": {
+    "groups": [
+      {
+        "group": "Get started",
+        "pages": [
+          "index",
+          "what-and-why",
+          "architecture"
+        ]
+      },
+      {
+        "group": "Protocol",
+        "pages": [
+          "credit-engine",
+          "scoring-methodology",
+          "sybil-model"
+        ]
+      },
+      {
+        "group": "Build with TrustLine",
+        "pages": [
+          "onboarding-kit",
+          "sdk-reference",
+          "sdk-reference-python",
+          "contracts"
+        ]
+      },
+      {
+        "group": "Project",
+        "pages": [
+          "roadmap"
+        ]
+      }
+    ]
+  },
+  "logo": {
+    "light": "/logo/light.svg",
+    "dark": "/logo/dark.svg"
+  },
+  "navbar": {
+    "links": [
+      {
+        "label": "GitHub",
+        "href": "https://github.com/TechnicallyKiller/TrustLine"
+      }
+    ],
+    "primary": {
+      "type": "button",
+      "label": "Live app",
+      "href": "https://0xtrustline.online"
+    }
+  },
+  "footer": {
+    "socials": {
+      "github": "https://github.com/TechnicallyKiller/TrustLine"
+    }
+  },
+  "contextual": {
+    "options": [
+      "copy",
+      "view",
+      "chatgpt",
+      "claude"
+    ]
+  }
+}
