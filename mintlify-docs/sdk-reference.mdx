@@ -255,3 +255,27 @@ The pure helpers `toStroops`, `fromStroops`, `isValidStellarAddress`, and `credi
 ## A complete, runnable example
 
 See `packages/agent-sdk/examples/quickstart.mjs` for a full script that funds a fresh testnet agent and runs register → underwrite → borrow → repay end to end, with real captured output in the [onboarding kit](/onboarding-kit).
+
+## Build with Claude — the TrustLine skill
+
+If you use [Claude Code](https://claude.com/claude-code), there's an official **`trustline-agent-sdk` skill** that teaches Claude to drive this SDK (both JS/TS and Python): the full lifecycle, draw-on-402, error handling, and the common pitfalls. Install it any of these ways:
+
+<CodeGroup>
+```bash npx (one command)
+npx @trustline-agents/skill
+```
+
+```bash curl (no npm)
+mkdir -p ~/.claude/skills/trustline-agent-sdk && \
+  curl -fsSL https://raw.githubusercontent.com/TechnicallyKiller/TrustLine/main/.claude/skills/trustline-agent-sdk/SKILL.md \
+  -o ~/.claude/skills/trustline-agent-sdk/SKILL.md
+```
+
+```bash plugin
+# in Claude Code:
+/plugin marketplace add TechnicallyKiller/TrustLine
+/plugin install trustline-agent-sdk@trustline
+```
+</CodeGroup>
+
+Then restart Claude Code (or run `/reload`) and invoke it with `/trustline-agent-sdk`. If you clone the TrustLine repo, the skill is already present (it lives in `.claude/skills/`) — no install needed.

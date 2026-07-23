@@ -1,0 +1,15 @@
+{
+  "name": "trustline-agent-sdk",
+  "displayName": "TrustLine Agent SDK",
+  "version": "1.0.0",
+  "description": "Drive the TrustLine agent SDK (JS/TS or Python) so an AI agent can take and repay revenue-underwritten, uncollateralized USDC credit on Stellar: register, underwrite, borrow, repay, and pay x402 APIs on credit (draw-on-402).",
+  "author": {
+    "name": "TrustLine",
+    "url": "https://0xtrustline.online"
+  },
+  "homepage": "https://docs.0xtrustline.online/sdk-reference-python",
+  "repository": "https://github.com/TechnicallyKiller/TrustLine",
+  "license": "MIT",
+  "keywords": ["stellar", "soroban", "usdc", "x402", "agent", "credit", "defi"],
+  "skills": "./.claude/skills/"
+}
