@@ -9,13 +9,17 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-const LINKS = [
+// The docs live on a separately-hosted Mintlify site (docs.0xtrustline.online),
+// not the internal Next.js /docs route — so the docs link is external.
+const DOCS_URL = "https://docs.0xtrustline.online";
+
+const LINKS: { href: string; label: string; external?: boolean }[] = [
   { href: "/", label: "manifesto" },
   { href: "/underwrite", label: "underwrite" },
   { href: "/demo", label: "demo" },
   { href: "/borrower", label: "borrower" },
   { href: "/lender", label: "lender" },
-  { href: "/docs", label: "docs" },
+  { href: DOCS_URL, label: "docs", external: true },
 ];
 
 export default function TLNav({
@@ -45,17 +49,27 @@ export default function TLNav({
 
       <div className="hidden items-center gap-1.5 font-tl-mono text-xs md:flex">
         {LINKS.map((l) => {
-          // Sub-routes (e.g. /docs/sdk-reference) keep the section tab lit.
+          // Sub-routes (e.g. /underwrite/x) keep the section tab lit.
           const active =
-            pathname === l.href ||
-            (l.href !== "/" && pathname.startsWith(`${l.href}/`));
-          return (
-            <Link
+            !l.external &&
+            (pathname === l.href ||
+              (l.href !== "/" && pathname.startsWith(`${l.href}/`)));
+          const className = "rounded-md px-3 py-1.5 transition-colors";
+          const style = { color: active ? "#FFB020" : "#A7ADA6" };
+          // External links (the Mintlify-hosted docs) use a plain anchor.
+          return l.external ? (
+            <a
               key={l.href}
               href={l.href}
-              className="rounded-md px-3 py-1.5 transition-colors"
-              style={{ color: active ? "#FFB020" : "#A7ADA6" }}
+              target="_blank"
+              rel="noopener noreferrer"
+              className={className}
+              style={style}
             >
+              {l.label}
+            </a>
+          ) : (
+            <Link key={l.href} href={l.href} className={className} style={style}>
               {l.label}
             </Link>
           );
