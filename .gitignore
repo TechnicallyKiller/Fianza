@@ -39,3 +39,7 @@ backend/_oz_wire.sh
 # its own git repo, kept alongside for integration work; must never be committed
 # into this repo. See TAEL_PARTNERSHIP.md for context.
 tael-protocol/
+.treasury-wallet.local
+
+# Local wallet key files (demo holding wallets, treasury, etc.) — never commit.
+*.local
