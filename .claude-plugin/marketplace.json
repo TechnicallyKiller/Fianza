@@ -1,0 +1,19 @@
+{
+  "name": "trustline",
+  "owner": {
+    "name": "TrustLine",
+    "url": "https://0xtrustline.online"
+  },
+  "description": "TrustLine — revenue-underwritten, uncollateralized USDC credit for AI agents on Stellar.",
+  "plugins": [
+    {
+      "name": "trustline-agent-sdk",
+      "source": ".",
+      "description": "Drive the TrustLine agent SDK (JS/TS or Python): register, underwrite, borrow, repay, and pay x402 APIs on credit (draw-on-402).",
+      "version": "1.0.0",
+      "author": {
+        "name": "TrustLine"
+      }
+    }
+  ]
+}

@@ -1,0 +1,24 @@
+{
+  "name": "@trustline-agents/skill",
+  "version": "1.0.0",
+  "description": "One-command installer for the TrustLine Agent SDK Claude Code skill. Run `npx @trustline-agents/skill` to add it to ~/.claude/skills.",
+  "bin": {
+    "trustline-skill": "./bin/install.mjs"
+  },
+  "type": "module",
+  "files": [
+    "bin/",
+    "skill/"
+  ],
+  "keywords": ["claude-code", "skill", "trustline", "stellar", "agent", "sdk"],
+  "homepage": "https://docs.0xtrustline.online/sdk-reference-python",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/TechnicallyKiller/TrustLine.git",
+    "directory": "packages/skill-installer"
+  },
+  "license": "MIT",
+  "engines": {
+    "node": ">=18"
+  }
+}
