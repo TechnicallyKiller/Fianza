@@ -212,7 +212,15 @@ async function buyPremiumData({ topic }) {
 
 async function repay({ amountUsdc }) {
   let amt = Number(amountUsdc);
-  if (!(amt > 0)) return { error: "repay amount must be positive" };
+  if (!(amt > 0)) {
+    // Nothing to repay (the agent paid from cash and drew no credit this run).
+    // Return a clean, non-error signal so the model wraps up gracefully instead
+    // of treating it as a failure.
+    return {
+      repaid: false,
+      reason: "nothing to repay — no credit was drawn this run (paid from cash).",
+    };
+  }
   // You can only repay with cash you actually hold. Cap the repayment at the
   // spendable balance (leaving a tiny dust buffer) so the agent never tries to
   // transfer USDC it doesn't have (which fails on-chain with a balance error).
@@ -273,6 +281,48 @@ const handlers = {
 
 function round(n) {
   return Math.round(Number(n || 0) * 1e6) / 1e6;
+}
+
+// The amount of cash to leave the agent when you manually drain it (via the UI
+// "drain" button → POST /drain). Kept low so the $0.30 data call forces a real
+// credit draw on the next run — but this is operator-triggered, not automatic.
+const START_CASH = Number(process.env.DEMO_START_CASH_USDC || 0.05);
+
+/**
+ * Operator action: sweep the agent's spare cash to the customer/holding wallet,
+ * leaving ~START_CASH, so the next run must draw credit (the money moment).
+ * Triggered manually from the UI so YOU stay in control of the demo state.
+ */
+export async function drainAgentCash() {
+  if (!customer) return { drained: false, reason: "no customer wallet configured" };
+  const bal = await tl.usdcBalanceUsdc();
+  const excess = round(bal - START_CASH);
+  if (excess <= 0.001) {
+    return { drained: false, reason: "already cash-poor", balanceUsdc: round(bal) };
+  }
+  const acct = await horizon.loadAccount(tl.publicKey());
+  const tx = new TransactionBuilder(acct, {
+    fee: BASE_FEE,
+    networkPassphrase: Networks.TESTNET,
+  })
+    .addOperation(
+      Operation.payment({
+        destination: customer.publicKey(),
+        asset: USDC,
+        amount: excess.toFixed(7),
+      }),
+    )
+    .setTimeout(60)
+    .build();
+  tx.sign(tl.keypair);
+  const r = await horizon.submitTransaction(tx);
+  return {
+    drained: true,
+    sweptUsdc: excess,
+    balanceUsdc: START_CASH,
+    txHash: r.hash,
+    explorerUrl: EXPLORER(r.hash),
+  };
 }
 
 /**
