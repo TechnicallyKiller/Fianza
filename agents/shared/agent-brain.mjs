@@ -21,25 +21,58 @@ dotenv.config({
   path: path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../.env"),
 });
 
-const BASE_URL = process.env.LLM_BASE_URL || "https://api.groq.com/openai/v1";
-const API_KEY = process.env.LLM_API_KEY || process.env.GROQ_API_KEY;
-const MODEL = process.env.LLM_MODEL || process.env.GROQ_MODEL || "llama-3.3-70b-versatile";
+// Providers are tried IN ORDER; the first that succeeds wins. If one 429s
+// (rate limit) or errors, we automatically fall through to the next — so a
+// Groq daily-cap mid-pitch silently fails over to Gemini instead of dying.
+// All are OpenAI-compatible chat-completions + tools endpoints.
+//
+// A custom LLM_* provider (any OpenAI-compatible host, e.g. Grok/xAI) takes
+// priority if configured; then free Groq; then free Gemini's OpenAI shim.
+const PROVIDERS = [
+  process.env.LLM_API_KEY && {
+    name: "custom",
+    baseUrl: process.env.LLM_BASE_URL || "https://api.groq.com/openai/v1",
+    apiKey: process.env.LLM_API_KEY,
+    model: process.env.LLM_MODEL || "llama-3.3-70b-versatile",
+  },
+  process.env.GROQ_API_KEY && {
+    name: "groq",
+    baseUrl: "https://api.groq.com/openai/v1",
+    apiKey: process.env.GROQ_API_KEY,
+    model: process.env.GROQ_MODEL || "llama-3.3-70b-versatile",
+  },
+  // Groq's per-model daily cap means the big model can be exhausted while the
+  // smaller, cheaper model still has quota (and it burns far fewer tokens/day).
+  // A reliable, still-Groq fallback before we leave the provider.
+  process.env.GROQ_API_KEY && {
+    name: "groq-small",
+    baseUrl: "https://api.groq.com/openai/v1",
+    apiKey: process.env.GROQ_API_KEY,
+    model: process.env.GROQ_SMALL_MODEL || "llama-3.1-8b-instant",
+  },
+  process.env.GEMINI_API_KEY && {
+    name: "gemini",
+    baseUrl: "https://generativelanguage.googleapis.com/v1beta/openai",
+    apiKey: process.env.GEMINI_API_KEY,
+    model: process.env.GEMINI_MODEL || "gemini-2.0-flash",
+  },
+].filter(Boolean);
 
-/** One raw chat-completions call with tools. Returns the assistant message. */
-async function chat(messages, tools) {
-  if (!API_KEY) {
-    throw new Error(
-      "No LLM key: set GROQ_API_KEY (free at console.groq.com) or LLM_API_KEY for another provider.",
-    );
-  }
-  const res = await fetch(`${BASE_URL}/chat/completions`, {
+// For display/reporting: the primary (first) provider.
+const PRIMARY = PROVIDERS[0] || { model: "none", baseUrl: "none" };
+const BASE_URL = PRIMARY.baseUrl;
+const MODEL = PRIMARY.model;
+
+/** One chat call against a specific provider. Throws on non-OK. */
+async function chatWith(provider, messages, tools) {
+  const res = await fetch(`${provider.baseUrl}/chat/completions`, {
     method: "POST",
     headers: {
       "content-type": "application/json",
-      authorization: `Bearer ${API_KEY}`,
+      authorization: `Bearer ${provider.apiKey}`,
     },
     body: JSON.stringify({
-      model: MODEL,
+      model: provider.model,
       messages,
       tools,
       tool_choice: "auto",
@@ -48,12 +81,38 @@ async function chat(messages, tools) {
     }),
   });
   if (!res.ok) {
-    throw new Error(`LLM ${res.status} (${MODEL} @ ${BASE_URL}): ${await res.text()}`);
+    const body = await res.text().catch(() => "");
+    const err = new Error(`${provider.name} ${res.status} (${provider.model}): ${body}`);
+    err.status = res.status;
+    throw err;
   }
   const data = await res.json();
   const msg = data.choices?.[0]?.message;
-  if (!msg) throw new Error(`LLM: no message in response: ${JSON.stringify(data)}`);
+  if (!msg) throw new Error(`${provider.name}: no message in response: ${JSON.stringify(data)}`);
   return msg;
+}
+
+/**
+ * One raw chat-completions call with tools, with automatic provider fallback.
+ * Tries each provider in order; on failure (429/5xx/network) falls through to
+ * the next. Only throws if EVERY provider fails.
+ */
+async function chat(messages, tools) {
+  if (PROVIDERS.length === 0) {
+    throw new Error(
+      "No LLM key: set GROQ_API_KEY (free at console.groq.com), GEMINI_API_KEY, or LLM_API_KEY.",
+    );
+  }
+  let lastErr;
+  for (const provider of PROVIDERS) {
+    try {
+      return await chatWith(provider, messages, tools);
+    } catch (e) {
+      lastErr = e;
+      console.error(`[brain] ${provider.name} failed (${e.status || "?"}), trying next…`, e.message);
+    }
+  }
+  throw lastErr;
 }
 
 /**
@@ -136,4 +195,10 @@ export async function runAgent({ system, user, tools, handlers, onEvent, maxStep
   return { final, steps };
 }
 
-export const llmInfo = { baseUrl: BASE_URL, model: MODEL, hasKey: !!API_KEY };
+export const llmInfo = {
+  baseUrl: BASE_URL,
+  model: MODEL,
+  hasKey: PROVIDERS.length > 0,
+  // The fallback chain, primary first (e.g. ["groq", "gemini"]).
+  providers: PROVIDERS.map((p) => p.name),
+};

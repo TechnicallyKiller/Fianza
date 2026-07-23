@@ -11,8 +11,9 @@
 // they never reach the browser. Run this next to the research endpoint; point
 // the frontend's NEXT_PUBLIC_AGENT_SERVER at it.
 import express from "express";
-import { runScout, agentInfo } from "./agent-runtime.mjs";
+import { runScout, agentInfo, drainAgentCash } from "./agent-runtime.mjs";
 import { llmInfo } from "../shared/agent-brain.mjs";
+import { deadbeatStatus, triggerDefault, defaultInfo } from "./default-scenario.mjs";
 
 // Render (and most PaaS) inject PORT and expect the app to bind to it;
 // AGENT_SERVER_PORT is the local-dev override.
@@ -34,8 +35,42 @@ app.get("/info", (_req, res) => {
     agent: agentInfo.address,
     researchPriceUsdc: agentInfo.researchPriceUsdc,
     trustlineApi: agentInfo.trustlineApi,
-    llm: { model: llmInfo.model, baseUrl: llmInfo.baseUrl, hasKey: llmInfo.hasKey },
+    llm: {
+      model: llmInfo.model,
+      baseUrl: llmInfo.baseUrl,
+      hasKey: llmInfo.hasKey,
+      providers: llmInfo.providers,
+    },
+    deadbeat: defaultInfo.agent,
   });
+});
+
+// Operator: sweep the agent's spare cash so the next run forces a real credit
+// draw (the money moment). Triggered from the UI "drain" button — you stay in
+// control of demo state instead of auto-draining.
+app.post("/drain", async (_req, res) => {
+  try {
+    res.json(await drainAgentCash());
+  } catch (e) {
+    res.status(500).json({ error: e instanceof Error ? e.message : String(e) });
+  }
+});
+
+// The default scenario. GET status (is it staged / overdue / already defaulted),
+// POST fires the real on-chain mark_default.
+app.get("/deadbeat", async (_req, res) => {
+  try {
+    res.json(await deadbeatStatus());
+  } catch (e) {
+    res.status(500).json({ error: e instanceof Error ? e.message : String(e) });
+  }
+});
+app.post("/default", async (_req, res) => {
+  try {
+    res.json(await triggerDefault());
+  } catch (e) {
+    res.status(500).json({ error: e instanceof Error ? e.message : String(e) });
+  }
 });
 
 app.post("/run", async (req, res) => {

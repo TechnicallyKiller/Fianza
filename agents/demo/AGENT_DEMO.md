@@ -63,6 +63,31 @@ LLM_API_KEY=xai-...
 LLM_MODEL=grok-2-latest
 ```
 
+## Operator controls (in the UI)
+
+- **Drain agent cash** — sweeps the agent's spare USDC to the holding wallet so
+  the *next* run must draw credit (the money moment). You trigger it (a real
+  testnet payment) instead of it auto-draining, so you stay in control of demo
+  state. Backed by `POST /drain`.
+- **The default scenario ("what if it doesn't pay?")** — the honest answer to the
+  #1 investor question, shown live. A dedicated **deadbeat** agent
+  (`agents/.deadbeat-wallet.local`) is staged with a real overdue loan; one click
+  fires the real on-chain `mark_default`: reserve absorbs what it can, the rest is
+  a realised loss socialised to lenders (share price drops), and the agent is
+  frozen. Backed by `GET /deadbeat` (status) + `POST /default`.
+
+### Staging the default (run ~6 min before you present)
+
+```bash
+cd agents && node demo/stage-default.mjs
+```
+
+This funds the deadbeat, gives it real revenue from 3 independent payers,
+underwrites it, and has it borrow — starting the 5-minute due clock. After ~5
+min the loan is overdue and the UI "Trigger default" button lights up. (The
+button is disabled until the loan is actually overdue — a real on-chain rule,
+not a fake gate.)
+
 ## Repeatability
 
 The arc is self-sustaining: each run earns ($0.50) more than it borrows

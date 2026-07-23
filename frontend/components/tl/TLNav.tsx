@@ -13,10 +13,11 @@ import { usePathname } from "next/navigation";
 // not the internal Next.js /docs route — so the docs link is external.
 const DOCS_URL = "https://docs.0xtrustline.online";
 
-const LINKS: { href: string; label: string; external?: boolean }[] = [
+const LINKS: { href: string; label: string; external?: boolean; badge?: string }[] = [
   { href: "/", label: "manifesto" },
   { href: "/underwrite", label: "underwrite" },
   { href: "/demo", label: "demo" },
+  { href: "/agent-demo", label: "live agent", badge: "new" },
   { href: "/borrower", label: "borrower" },
   { href: "/lender", label: "lender" },
   { href: DOCS_URL, label: "docs", external: true },
@@ -69,8 +70,18 @@ export default function TLNav({
               {l.label}
             </a>
           ) : (
-            <Link key={l.href} href={l.href} className={className} style={style}>
+            <Link
+              key={l.href}
+              href={l.href}
+              className={`${className} inline-flex items-center gap-1.5`}
+              style={style}
+            >
               {l.label}
+              {l.badge ? (
+                <span className="tl-anim-blink rounded-full bg-nectar/15 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-[0.1em] text-nectar">
+                  {l.badge}
+                </span>
+              ) : null}
             </Link>
           );
         })}

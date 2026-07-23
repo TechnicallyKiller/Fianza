@@ -19,6 +19,9 @@ import {
   CheckCircle2,
   Wallet,
   Sparkles,
+  Droplets,
+  ShieldAlert,
+  SkullIcon,
 } from "lucide-react";
 
 const AGENT_SERVER =
@@ -37,7 +40,16 @@ type Event =
 interface Info {
   agent: string;
   researchPriceUsdc: number;
-  llm: { model: string; hasKey: boolean };
+  llm: { model: string; hasKey: boolean; providers?: string[] };
+  deadbeat?: string | null;
+}
+
+interface Deadbeat {
+  configured: boolean;
+  agent?: string;
+  outstandingUsdc?: number | null;
+  dueDate?: number | null;
+  defaulted?: boolean | null;
 }
 
 const SUGGESTIONS = [
@@ -54,12 +66,64 @@ export default function AgentDemoPage() {
   const [error, setError] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
+  // Operator controls: drain the agent's cash, and the default scenario.
+  const [draining, setDraining] = useState(false);
+  const [drainMsg, setDrainMsg] = useState<string | null>(null);
+  const [deadbeat, setDeadbeat] = useState<Deadbeat | null>(null);
+  const [defaulting, setDefaulting] = useState(false);
+  const [defaultTx, setDefaultTx] = useState<string | null>(null);
+
   useEffect(() => {
     fetch(`${AGENT_SERVER}/info`)
       .then((r) => r.json())
       .then(setInfo)
       .catch(() => setError("Can't reach the agent server. Is agent-server.mjs running?"));
   }, []);
+
+  // Poll the deadbeat status so the default panel shows live state.
+  const refreshDeadbeat = useCallback(() => {
+    fetch(`${AGENT_SERVER}/deadbeat`)
+      .then((r) => r.json())
+      .then(setDeadbeat)
+      .catch(() => {});
+  }, []);
+  useEffect(() => {
+    refreshDeadbeat();
+    const t = setInterval(refreshDeadbeat, 15000);
+    return () => clearInterval(t);
+  }, [refreshDeadbeat]);
+
+  const drain = useCallback(async () => {
+    setDraining(true);
+    setDrainMsg(null);
+    try {
+      const r = await fetch(`${AGENT_SERVER}/drain`, { method: "POST" }).then((x) => x.json());
+      setDrainMsg(
+        r.drained
+          ? `Swept $${r.sweptUsdc} — agent is cash-poor again ($${r.balanceUsdc}). Next run will draw credit.`
+          : r.reason || "nothing to drain",
+      );
+    } catch (e) {
+      setDrainMsg(e instanceof Error ? e.message : String(e));
+    } finally {
+      setDraining(false);
+    }
+  }, []);
+
+  const triggerDefault = useCallback(async () => {
+    setDefaulting(true);
+    setError(null);
+    try {
+      const r = await fetch(`${AGENT_SERVER}/default`, { method: "POST" }).then((x) => x.json());
+      if (r.error) throw new Error(r.error);
+      setDefaultTx(r.txHash);
+      refreshDeadbeat();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setDefaulting(false);
+    }
+  }, [refreshDeadbeat]);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
@@ -115,14 +179,21 @@ export default function AgentDemoPage() {
       <TLNav />
       <div className="tl-grain relative mx-auto w-full max-w-[900px] px-6 py-14 md:px-10">
         {/* hero */}
-        <div className="mx-auto max-w-2xl text-center">
-          <div className="mb-4 font-tl-mono text-[11px] tracking-[0.22em] text-ion">
-            / DEMO · THE AUTONOMOUS AGENT
+        <div className="tl-anim-fadeup mx-auto max-w-2xl text-center">
+          <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-ion/20 bg-ion/[0.06] px-3 py-1 font-tl-mono text-[10px] tracking-[0.2em] text-ion">
+            <span
+              className={`h-[6px] w-[6px] rounded-full shadow-[0_0_8px_currentColor] ${
+                info ? "tl-anim-blink bg-ion" : "bg-ash"
+              }`}
+            />
+            {info ? "AGENT ONLINE" : "CONNECTING…"}
           </div>
           <h1 className="font-tl-serif text-[min(6.5vw,46px)] font-normal leading-[1.06] tracking-[-0.02em]">
             An AI agent that{" "}
-            <span className="italic text-nectar">borrows to earn</span> — and
-            decides on its own.
+            <span className="tl-anim-breathe inline-block italic text-nectar">
+              borrows to earn
+            </span>{" "}
+            — and decides on its own.
           </h1>
           <p className="mx-auto mt-4 max-w-xl font-tl-sans text-sm leading-[1.7] text-ash">
             Ask it for research. To answer well it must buy a paid data call it
@@ -130,8 +201,23 @@ export default function AgentDemoPage() {
             credit on a live testnet transaction, deliver, and repay. Every
             money-move is clickable and real.
           </p>
+
+          {/* how-it-works strip */}
+          <div className="mx-auto mt-6 flex max-w-lg flex-wrap items-center justify-center gap-x-2 gap-y-2 font-tl-mono text-[10px] text-ash">
+            {["check credit", "draw credit", "buy data", "get paid", "repay ↑"].map(
+              (step, i, arr) => (
+                <span key={step} className="inline-flex items-center gap-2">
+                  <span className="rounded-md border border-white/[0.08] bg-void/60 px-2 py-1 text-bone/80">
+                    {step}
+                  </span>
+                  {i < arr.length - 1 ? <span className="text-ion/50">→</span> : null}
+                </span>
+              ),
+            )}
+          </div>
+
           {info ? (
-            <p className="mt-3 font-tl-mono text-[11px] text-ash">
+            <p className="mt-4 font-tl-mono text-[11px] text-ash/80">
               agent {short(info.agent)} · data call ~${info.researchPriceUsdc} ·{" "}
               model {info.llm?.model}
             </p>
@@ -150,7 +236,9 @@ export default function AgentDemoPage() {
           ) : null}
           <div className="flex flex-col gap-3">
             {events.map((ev, i) => (
-              <EventRow key={i} ev={ev} />
+              <div key={i} className="tl-anim-fadeup">
+                <EventRow ev={ev} />
+              </div>
             ))}
             {running ? (
               <div className="flex items-center gap-2 font-tl-mono text-xs text-ash">
@@ -205,6 +293,81 @@ export default function AgentDemoPage() {
             Ask
           </button>
         </form>
+
+        {/* operator controls: drain + default scenario */}
+        <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-2">
+          {/* drain */}
+          <div className="rounded-xl border border-white/[0.08] bg-void/50 p-4">
+            <div className="mb-1 flex items-center gap-2 font-tl-mono text-[11px] tracking-[0.14em] text-ion">
+              <Droplets size={13} /> DRAIN AGENT CASH
+            </div>
+            <p className="mb-3 font-tl-sans text-[11px] leading-[1.5] text-ash">
+              Sweep the agent&apos;s spare cash so the next run must draw credit —
+              the money moment. A real testnet payment.
+            </p>
+            <button
+              onClick={drain}
+              disabled={draining}
+              className="group relative inline-flex w-full items-center justify-center gap-2 overflow-hidden rounded-lg border border-ion/30 bg-ion/[0.07] px-4 py-2.5 font-tl-sans text-sm font-semibold text-ion transition-colors hover:bg-ion/[0.14] disabled:opacity-60"
+            >
+              {/* sweep shimmer */}
+              <span
+                className={`pointer-events-none absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-ion/25 to-transparent ${
+                  draining ? "tl-anim-scan" : "group-hover:translate-x-full group-hover:transition-transform group-hover:duration-700"
+                }`}
+              />
+              {draining ? <Loader2 size={15} className="animate-spin" /> : <Droplets size={15} />}
+              {draining ? "Sweeping…" : "Drain to cash-poor"}
+            </button>
+            {drainMsg ? (
+              <p className="tl-anim-fadeup mt-2 font-tl-mono text-[10px] leading-[1.5] text-ash">
+                {drainMsg}
+              </p>
+            ) : null}
+          </div>
+
+          {/* default scenario */}
+          <div
+            className={`rounded-xl border p-4 transition-colors ${
+              deadbeat?.defaulted
+                ? "border-flare/40 bg-flare/[0.07]"
+                : "border-flare/20 bg-void/50"
+            }`}
+          >
+            <div className="mb-1 flex items-center gap-2 font-tl-mono text-[11px] tracking-[0.14em] text-flare">
+              <ShieldAlert size={13} /> WHAT IF IT DOESN&apos;T PAY?
+            </div>
+            {deadbeat?.defaulted ? (
+              <div className="tl-anim-fadeup">
+                <p className="mb-2 flex items-center gap-2 font-tl-sans text-sm font-semibold text-flare">
+                  <SkullIcon size={15} /> Agent defaulted — lenders took the loss.
+                </p>
+                <p className="mb-2 font-tl-sans text-[11px] leading-[1.5] text-ash">
+                  The loan went unpaid past its due date. On-chain: the reserve
+                  absorbed what it could, the rest was written off (lenders&apos;
+                  share value drops), and this agent is now frozen out of credit.
+                </p>
+                {defaultTx ? <TxLink label="mark_default" hash={defaultTx} /> : null}
+              </div>
+            ) : (
+              <>
+                <p className="mb-3 font-tl-sans text-[11px] leading-[1.5] text-ash">
+                  {deadbeat?.configured
+                    ? `A staged agent owes $${deadbeat.outstandingUsdc ?? "?"} and won't repay. Once its loan is overdue, anyone can mark it defaulted — the loss is socialized to lenders, priced into the APR.`
+                    : "Not staged. Run stage-default.mjs ~6 min before, then trigger the default live."}
+                </p>
+                <button
+                  onClick={triggerDefault}
+                  disabled={defaulting || !deadbeat?.configured}
+                  className="tl-anim-breathe inline-flex w-full items-center justify-center gap-2 rounded-lg border border-flare/40 bg-flare/[0.1] px-4 py-2.5 font-tl-sans text-sm font-semibold text-flare transition-colors hover:bg-flare/20 disabled:animate-none disabled:opacity-50"
+                >
+                  {defaulting ? <Loader2 size={15} className="animate-spin" /> : <ShieldAlert size={15} />}
+                  {defaulting ? "Marking default…" : "Trigger default"}
+                </button>
+              </>
+            )}
+          </div>
+        </div>
 
         <p className="mt-6 text-center font-tl-mono text-[11px] leading-relaxed text-ash/70">
           Spend-to-earn, not speculation: the agent only borrows to buy an input
