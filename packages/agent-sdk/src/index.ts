@@ -308,6 +308,13 @@ export class TrustLineAgent {
   async borrow(usdc: number): Promise<TxResult> {
     assertPositiveAmount(usdc, "borrow amount");
     const c = await this.ensureContracts();
+    // Testnet bootstrap: make sure the vault actually holds the USDC before we
+    // sign the draw. A credit line is only PERMISSION to borrow — the money has
+    // to have been deposited by a lender. On testnet the TrustLine treasury is
+    // the lender-of-first-resort and seeds the exact shortfall on demand; on
+    // mainnet (no treasury) this is a no-op and a real lender must have funded
+    // the vault. Best-effort and non-throwing — see ensureLiquidity.
+    await this.ensureLiquidity(usdc);
     return this.invoke(c.vault, "borrow", [
       this.addr(this.publicKey()),
       this.i128(toStroops(usdc)),
@@ -410,11 +417,36 @@ export class TrustLineAgent {
     }
     return res.json() as Promise<T>;
   }
-  private async apiPost<T = any>(path: string): Promise<T> {
-    const res = await fetch(`${this.apiBaseUrl}${path}`, { method: "POST" });
+  private async apiPost<T = any>(path: string, body?: unknown): Promise<T> {
+    const res = await fetch(`${this.apiBaseUrl}${path}`, {
+      method: "POST",
+      ...(body !== undefined
+        ? { headers: { "content-type": "application/json" }, body: JSON.stringify(body) }
+        : {}),
+    });
     if (!res.ok) {
       throw new ApiError(res.status, "POST", path, await res.text().catch(() => undefined));
     }
     return res.json() as Promise<T>;
+  }
+
+  /**
+   * Ask the TrustLine treasury (testnet lender-of-first-resort) to seed this
+   * agent's vault with at least `usdc` of borrowable liquidity before a draw.
+   * Best-effort: on mainnet, or when no treasury is configured, the backend
+   * simply returns { deposited:false } and we fall through to the normal
+   * on-chain borrow (which will fail with InsufficientLiquidity if a real
+   * lender hasn't funded the vault — exactly the pre-treasury behavior). Never
+   * throws: a treasury hiccup must not block an otherwise-fundable borrow.
+   */
+  private async ensureLiquidity(usdc: number): Promise<void> {
+    try {
+      await this.apiPost(`/agent/${this.publicKey()}/ensure-liquidity`, {
+        neededUsdc: usdc,
+      });
+    } catch {
+      // Swallow — the borrow below is the source of truth. If the vault ends up
+      // short, borrow() surfaces the real InsufficientLiquidity error.
+    }
   }
 }
