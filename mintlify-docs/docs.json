@@ -4,9 +4,9 @@
   "name": "TrustLine",
   "description": "Revenue-underwritten, uncollateralized USDC credit for AI agents on Stellar.",
   "colors": {
-    "primary": "#58F0C8",
-    "light": "#7ff0d6",
-    "dark": "#58F0C8"
+    "primary": "#FFB020",
+    "light": "#FFC24D",
+    "dark": "#FFB020"
   },
   "appearance": {
     "default": "dark",
