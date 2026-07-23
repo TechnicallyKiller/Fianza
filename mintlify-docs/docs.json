@@ -16,8 +16,7 @@
     "color": {
       "light": "#F4F1E9",
       "dark": "#0B0F0E"
-    },
-    "decoration": "gradient"
+    }
   },
   "fonts": {
     "heading": {
@@ -26,9 +25,6 @@
     },
     "body": {
       "family": "Inter"
-    },
-    "code": {
-      "family": "JetBrains Mono"
     }
   },
   "favicon": "/favicon.svg",
