@@ -1,18 +1,40 @@
 {
   "$schema": "https://mintlify.com/docs.json",
-  "theme": "mint",
+  "theme": "maple",
   "name": "TrustLine",
   "description": "Revenue-underwritten, uncollateralized USDC credit for AI agents on Stellar.",
   "colors": {
     "primary": "#58F0C8",
-    "light": "#58F0C8",
-    "dark": "#0B0F0E"
+    "light": "#7ff0d6",
+    "dark": "#58F0C8"
   },
-  "favicon": "/favicon.svg",
+  "appearance": {
+    "default": "dark",
+    "strict": true
+  },
   "background": {
     "color": {
+      "light": "#F4F1E9",
       "dark": "#0B0F0E"
+    },
+    "decoration": "gradient"
+  },
+  "fonts": {
+    "heading": {
+      "family": "Space Grotesk",
+      "weight": 600
+    },
+    "body": {
+      "family": "Inter"
+    },
+    "code": {
+      "family": "JetBrains Mono"
     }
+  },
+  "favicon": "/favicon.svg",
+  "logo": {
+    "light": "/logo/light.svg",
+    "dark": "/logo/dark.svg"
   },
   "navigation": {
     "groups": [
@@ -49,10 +71,6 @@
       }
     ]
   },
-  "logo": {
-    "light": "/logo/light.svg",
-    "dark": "/logo/dark.svg"
-  },
   "navbar": {
     "links": [
       {
@@ -68,7 +86,8 @@
   },
   "footer": {
     "socials": {
-      "github": "https://github.com/TechnicallyKiller/TrustLine"
+      "github": "https://github.com/TechnicallyKiller/TrustLine",
+      "website": "https://0xtrustline.online"
     }
   },
   "contextual": {
