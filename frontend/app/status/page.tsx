@@ -1,127 +1,23 @@
 "use client";
 
-// /status — live service health. Pings each TrustLine service (and the Soroban
-// RPC) and shows real up/down, not a claim. Refreshes on an interval. This is
-// proof the stack is live, the honest way.
+// /status — live service health. Calls our OWN same-origin /api/status, which
+// pings each service server-side. Same-origin means privacy browsers (Brave
+// Shields, Firefox strict, ad-blockers) never block it — the earlier version
+// pinged *.onrender.com directly from the browser and Brave blocked those as
+// third-party requests, showing a false "down." This is the robust fix.
 
 import { useCallback, useEffect, useState } from "react";
 import TLNav from "@/components/tl/TLNav";
 import { CheckCircle2, XCircle, Loader2, RefreshCw } from "lucide-react";
 
-const API_BASE =
-  process.env.NEXT_PUBLIC_API_BASE_URL ?? "https://trustline-rpxt.onrender.com";
-const AGENT_SERVER =
-  process.env.NEXT_PUBLIC_AGENT_SERVER ?? "https://trustline-1.onrender.com";
-const DATA_SELLER =
-  process.env.NEXT_PUBLIC_DATA_SELLER ?? "https://trustline-data-seller.onrender.com";
-const SOROBAN_RPC = "https://soroban-testnet.stellar.org";
+type State = "up" | "down" | "checking";
 
-type State = "up" | "down" | "checking" | "waking";
-
-// A fetch with a hard timeout so a hang doesn't read as "down".
-async function fetchT(url: string, init: RequestInit = {}, ms = 8000): Promise<Response> {
-  const ctrl = new AbortController();
-  const t = setTimeout(() => ctrl.abort(), ms);
-  try {
-    return await fetch(url, { ...init, signal: ctrl.signal, cache: "no-store" });
-  } finally {
-    clearTimeout(t);
-  }
-}
-
-// "Is this GET endpoint reachable?" — robust to CORS. First try a normal fetch
-// and read .ok. If that throws (e.g. the server didn't send CORS headers, so
-// the browser blocks reading the response), fall back to a `no-cors` ping: it
-// returns an opaque response we can't inspect, but if it RESOLVES at all the
-// host answered — i.e. it's up. This stops a missing CORS header from looking
-// like a dead service. Cache-busted so we never read a stale result.
-async function reachable(url: string, ms = 8000): Promise<boolean> {
-  const bust = `${url}${url.includes("?") ? "&" : "?"}_=${Date.now()}`;
-  try {
-    const r = await fetchT(bust, {}, ms);
-    return r.ok;
-  } catch {
-    try {
-      await fetchT(bust, { mode: "no-cors" }, ms);
-      return true; // resolved despite no-cors → host reachable
-    } catch {
-      return false;
-    }
-  }
-}
-
-// Retry a check a few times before believing it's down — Render free-tier
-// services sleep and take ~30–50s to cold-start, so the FIRST hit after idle
-// often fails while the service wakes. `onWaking` lets the UI show "waking…"
-// instead of a false "down" during the grace period.
-async function withRetry(
-  fn: () => Promise<boolean>,
-  onWaking: () => void,
-  tries = 4,
-  gapMs = 3500,
-): Promise<boolean> {
-  for (let i = 0; i < tries; i++) {
-    try {
-      if (await fn()) return true;
-    } catch {
-      /* keep retrying */
-    }
-    if (i < tries - 1) {
-      onWaking();
-      await new Promise((r) => setTimeout(r, gapMs));
-    }
-  }
-  return false;
-}
-
-interface Svc {
-  key: string;
-  name: string;
-  desc: string;
-  check: () => Promise<boolean>;
-}
-
-// Each check resolves true if the service answered OK. Kept forgiving: a
-// service that 200s on any of its known endpoints counts as up.
-const SERVICES: Svc[] = [
-  {
-    key: "backend",
-    name: "Underwriting API",
-    desc: "Scores agents, publishes on-chain, seeds vault liquidity",
-    check: () => reachable(`${API_BASE}/health`),
-  },
-  {
-    key: "portfolio",
-    name: "Credit book",
-    desc: "Live on-chain portfolio / risk view",
-    check: () => reachable(`${API_BASE}/portfolio`),
-  },
-  {
-    key: "agent",
-    name: "Autonomous agent",
-    desc: "The LLM-driven demo agent (borrow → earn → repay)",
-    check: () => reachable(`${AGENT_SERVER}/info`),
-  },
-  {
-    key: "seller",
-    name: "x402 data seller",
-    desc: "The paid capability the agent buys from",
-    check: () => reachable(`${DATA_SELLER}/health`),
-  },
-  {
-    key: "rpc",
-    name: "Soroban RPC (testnet)",
-    desc: "Stellar testnet — where the contracts live",
-    check: () =>
-      fetchT(SOROBAN_RPC, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "getHealth" }),
-      })
-        .then((r) => r.json())
-        .then((j) => j?.result?.status === "healthy")
-        .catch(() => false),
-  },
+const SERVICES = [
+  { key: "backend", name: "Underwriting API", desc: "Scores agents, publishes on-chain, seeds vault liquidity" },
+  { key: "portfolio", name: "Credit book", desc: "Live on-chain portfolio / risk view" },
+  { key: "agent", name: "Autonomous agent", desc: "The LLM-driven demo agent (borrow → earn → repay)" },
+  { key: "seller", name: "x402 data seller", desc: "The paid capability the agent buys from" },
+  { key: "rpc", name: "Soroban RPC (testnet)", desc: "Stellar testnet — where the contracts live" },
 ];
 
 export default function StatusPage() {
@@ -130,43 +26,39 @@ export default function StatusPage() {
   );
   const [lastChecked, setLastChecked] = useState<string>("");
   const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const runChecks = useCallback(async () => {
     setRefreshing(true);
-    setStates((prev) => {
-      const n = { ...prev };
-      for (const s of SERVICES) n[s.key] = "checking";
-      return n;
-    });
-    await Promise.all(
-      SERVICES.map(async (s) => {
-        // Retry with a grace period — a first-hit failure on a sleeping Render
-        // service shows "waking…", not a false "down". Only after all retries
-        // fail is it truly marked down.
-        const up = await withRetry(s.check, () =>
-          setStates((prev) => (prev[s.key] === "up" ? prev : { ...prev, [s.key]: "waking" })),
-        );
-        setStates((prev) => ({ ...prev, [s.key]: up ? "up" : "down" }));
-      }),
-    );
+    setError(null);
+    setStates((prev) => Object.fromEntries(SERVICES.map((s) => [s.key, "checking"])) as Record<string, State>);
+    try {
+      // Same-origin, cache-busted — no cross-origin request the browser can block.
+      const res = await fetch(`/api/status?_=${Date.now()}`, { cache: "no-store" });
+      const data = (await res.json()) as { services: Record<string, boolean> };
+      setStates(
+        Object.fromEntries(
+          SERVICES.map((s) => [s.key, data.services?.[s.key] ? "up" : "down"]),
+        ) as Record<string, State>,
+      );
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+      setStates(Object.fromEntries(SERVICES.map((s) => [s.key, "down"])) as Record<string, State>);
+    }
     setLastChecked(new Date().toLocaleTimeString());
     setRefreshing(false);
   }, []);
 
   useEffect(() => {
     runChecks();
-    // Re-check periodically; the interval is long enough that a full retry
-    // cycle (up to ~14s per service, in parallel) finishes well before it fires.
     const t = setInterval(runChecks, 45000);
     return () => clearInterval(t);
   }, [runChecks]);
 
   const values = Object.values(states);
-  const allUp = values.every((v) => v === "up");
+  const allUp = values.length > 0 && values.every((v) => v === "up");
   const anyDown = values.some((v) => v === "down");
-  const anyBusy = values.some((v) => v === "checking" || v === "waking");
-  // While anything is still checking/waking, treat overall as in-progress (not
-  // a scary "down") so a cold start never flashes red.
+  const anyBusy = values.some((v) => v === "checking");
   const overall: State = anyBusy ? "checking" : allUp ? "up" : "down";
 
   return (
@@ -197,12 +89,11 @@ export default function StatusPage() {
             </button>
           </div>
           <p className="mt-3 font-tl-mono text-[11px] text-ash">
-            Live health of every TrustLine service on Stellar testnet.
-            {lastChecked ? ` Last checked ${lastChecked}.` : ""}
+            Live health of every TrustLine service on Stellar testnet, checked
+            server-side.{lastChecked ? ` Last checked ${lastChecked}.` : ""}
           </p>
         </div>
 
-        {/* overall banner */}
         <div
           className={`mt-8 flex items-center gap-3 rounded-xl border p-4 ${
             overall === "up"
@@ -220,17 +111,20 @@ export default function StatusPage() {
                 : allUp
                   ? "Everything is live"
                   : anyDown
-                    ? "One or more services are down"
+                    ? "One or more services are waking or down"
                     : "Status unknown"}
             </div>
             <div className="font-tl-mono text-[11px] text-ash">
-              Free-tier services can sleep after idle — a “down” may just be a cold
+              Free-tier services can sleep after idle — a “down” may be a cold
               start; hit refresh.
             </div>
           </div>
         </div>
 
-        {/* per-service list */}
+        {error ? (
+          <p className="mt-3 font-tl-mono text-xs text-flare">status check error: {error}</p>
+        ) : null}
+
         <div className="mt-4 overflow-hidden rounded-xl border border-white/[0.08] bg-void/50">
           {SERVICES.map((s, i) => (
             <div
@@ -259,18 +153,16 @@ export default function StatusPage() {
                   ? "operational"
                   : states[s.key] === "down"
                     ? "down"
-                    : states[s.key] === "waking"
-                      ? "waking…"
-                      : "checking…"}
+                    : "checking…"}
               </span>
             </div>
           ))}
         </div>
 
         <p className="mt-6 font-tl-mono text-[10px] leading-relaxed text-ash/60">
-          This page pings each service directly from your browser — the results
-          are real, not cached claims. Contracts live on Stellar testnet:
-          score registry, credit line, lending vault.
+          Checks run server-side (same-origin /api/status) so privacy browsers
+          and ad-blockers can’t false-flag them. Contracts live on Stellar
+          testnet: score registry, credit line, lending vault.
         </p>
       </div>
     </div>
@@ -280,7 +172,6 @@ export default function StatusPage() {
 function StatusIcon({ state, big }: { state: State; big?: boolean }) {
   const size = big ? 22 : 17;
   if (state === "checking") return <Loader2 size={size} className="animate-spin text-ash" />;
-  if (state === "waking") return <Loader2 size={size} className="animate-spin text-nectar" />;
   if (state === "up") return <CheckCircle2 size={size} className="text-ion" />;
   return <XCircle size={size} className="text-flare" />;
 }

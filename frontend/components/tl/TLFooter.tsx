@@ -7,8 +7,6 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
-const API_BASE =
-  process.env.NEXT_PUBLIC_API_BASE_URL ?? "https://trustline-rpxt.onrender.com";
 const X_HANDLE = "0xtrustline";
 const CONTACT_EMAIL = "divyanshhkalra1234@gmail.com";
 
@@ -17,9 +15,12 @@ export default function TLFooter() {
   const [live, setLive] = useState<boolean | null>(null);
   useEffect(() => {
     let done = false;
-    fetch(`${API_BASE}/health`, { cache: "no-store" })
-      .then((r) => {
-        if (!done) setLive(r.ok);
+    // Same-origin /api/status (server-side checks) — avoids privacy-browser
+    // blocking of a direct cross-origin *.onrender.com ping.
+    fetch(`/api/status?_=${Date.now()}`, { cache: "no-store" })
+      .then((r) => r.json())
+      .then((d: { services?: Record<string, boolean> }) => {
+        if (!done) setLive(!!d.services?.backend);
       })
       .catch(() => {
         if (!done) setLive(false);
