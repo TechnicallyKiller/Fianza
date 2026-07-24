@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowLeft, ArrowRight, Check } from "lucide-react";
 import SiteHeader from "@/components/SiteHeader";
-import SiteFooter from "@/components/SiteFooter";
 
 export const metadata: Metadata = {
   title: "TrustLine — Dashboards launching soon",
@@ -125,7 +124,6 @@ export default function ComingSoon() {
         </div>
       </main>
 
-      <SiteFooter />
     </div>
   );
 }

@@ -3,6 +3,7 @@ import { Inter, JetBrains_Mono, Space_Grotesk, Spectral, Space_Mono } from "next
 import "./globals.css";
 import ShaderBackground from "@/components/ShaderBackground";
 import { WalletProvider } from "@/components/WalletProvider";
+import TLFooter from "@/components/tl/TLFooter";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -66,6 +67,7 @@ export default function RootLayout({
       <body className="min-h-screen font-sans antialiased">
         <ShaderBackground />
         <WalletProvider>{children}</WalletProvider>
+        <TLFooter />
       </body>
     </html>
   );

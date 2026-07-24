@@ -8,7 +8,6 @@ import {
   Zap,
 } from "lucide-react";
 import SiteHeader from "@/components/SiteHeader";
-import SiteFooter from "@/components/SiteFooter";
 
 const features = [
   {
@@ -235,7 +234,6 @@ export default function Home() {
         </section>
       </main>
 
-      <SiteFooter />
     </div>
   );
 }
