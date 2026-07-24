@@ -20,14 +20,29 @@ import type { ScoreResult } from "../scoring/index.js";
 let cachedKeypair: Keypair | null = null;
 let ephemeral = false;
 
-/** The trusted signer keypair (from SCORE_SIGNER_SECRET; ephemeral if unset). */
+/**
+ * The trusted signer keypair (from SCORE_SIGNER_SECRET).
+ *
+ * If the secret is unset, we FALL BACK to a random ephemeral key ONLY when
+ * ALLOW_EPHEMERAL_SIGNER=true — because an ephemeral key changes on every
+ * restart, so its attestations become unverifiable across restarts. Making it
+ * opt-in means a misconfigured production deploy fails loudly instead of
+ * silently issuing worthless attestations.
+ */
 export function signerKeypair(): Keypair {
   if (cachedKeypair) return cachedKeypair;
   if (config.scoreSignerSecret) {
     cachedKeypair = Keypair.fromSecret(config.scoreSignerSecret);
-  } else {
+  } else if (process.env.ALLOW_EPHEMERAL_SIGNER === "true") {
     cachedKeypair = Keypair.random();
     ephemeral = true;
+    console.warn(
+      "[signer] SCORE_SIGNER_SECRET unset — using an EPHEMERAL signer (attestations won't survive restart). Dev only.",
+    );
+  } else {
+    throw new Error(
+      "SCORE_SIGNER_SECRET is not set. Set it, or set ALLOW_EPHEMERAL_SIGNER=true for local dev (attestations will be non-persistent).",
+    );
   }
   return cachedKeypair;
 }
@@ -76,6 +91,35 @@ export interface SubmitResult {
 }
 
 /**
+ * Sign, send, and CONFIRM a prepared tx. Polls getTransaction until it lands in
+ * SUCCESS — so a caller that gets { submitted: true } knows the state change
+ * actually happened on-chain. A tx that errors at submit or fails at consensus
+ * returns { submitted: false, reason }, never a false success. (Previously these
+ * returned submitted:true right after sendTransaction, which could report e.g.
+ * "default recorded" for a tx that never landed.)
+ */
+async function sendAndConfirm(
+  server: rpc.Server,
+  prepared: Awaited<ReturnType<rpc.Server["prepareTransaction"]>>,
+  kp: Keypair,
+): Promise<SubmitResult> {
+  prepared.sign(kp);
+  const sent = await server.sendTransaction(prepared);
+  if (sent.status === "ERROR") {
+    return { submitted: false, txHash: sent.hash, reason: "submit rejected by RPC" };
+  }
+  let got = await server.getTransaction(sent.hash);
+  for (let i = 0; i < 40 && got.status === rpc.Api.GetTransactionStatus.NOT_FOUND; i++) {
+    await new Promise((r) => setTimeout(r, 1000));
+    got = await server.getTransaction(sent.hash);
+  }
+  if (got.status !== rpc.Api.GetTransactionStatus.SUCCESS) {
+    return { submitted: false, txHash: sent.hash, reason: `tx ${got.status}` };
+  }
+  return { submitted: true, txHash: sent.hash };
+}
+
+/**
  * Submit the score on-chain via score_registry.publish_score, authorized by the
  * signer key. No-op until SCORE_REGISTRY_CONTRACT_ID is set (Phase 4 deploy).
  */
@@ -107,9 +151,7 @@ export async function submitScore(s: ScoreResult): Promise<SubmitResult> {
     .build();
 
   const prepared = await server.prepareTransaction(tx);
-  prepared.sign(kp);
-  const sent = await server.sendTransaction(prepared);
-  return { submitted: true, txHash: sent.hash };
+  return sendAndConfirm(server, prepared, kp);
 }
 
 /**
@@ -142,7 +184,5 @@ export async function recordRepayment(agent: string, onTime: boolean): Promise<S
     .build();
 
   const prepared = await server.prepareTransaction(tx);
-  prepared.sign(kp);
-  const sent = await server.sendTransaction(prepared);
-  return { submitted: true, txHash: sent.hash };
+  return sendAndConfirm(server, prepared, kp);
 }

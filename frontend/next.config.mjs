@@ -16,6 +16,11 @@ const nextConfig = {
         destination: "https://docs.0xtrustline.online",
         permanent: false,
       },
+      // Legacy blue-theme pages (coming-soon, preview) predate the shipped
+      // dashboards and clash with the current design system — redirect to home
+      // so a stray link never shows a stale "almost here" page.
+      { source: "/coming-soon", destination: "/", permanent: false },
+      { source: "/preview", destination: "/", permanent: false },
     ];
   },
 };

@@ -58,14 +58,12 @@ export const config = {
     ? opt("X402_EXCLUDE_ADDRESSES").split(",").map((s) => s.trim()).filter(Boolean)
     : DEFAULT_EXCLUDE,
 
-  // Reclaim zkTLS (deployed Soroban verifier from spike2). The Reclaim app
-  // creds default to the validated demo values the spikes used (hardcoded in
-  // spike2 config.js, not its .env); override via env if you have your own.
+  // Reclaim zkTLS (deployed Soroban verifier from spike2). The app ID is a
+  // public identifier; the SECRET must come from env — never commit a secret
+  // literal to source (a security reviewer will flag it, and it leaks the demo
+  // app's credentials). Unset secret => zkTLS off-chain proof is simply skipped.
   reclaimAppId: opt("RECLAIM_APP_ID", "0x381994d6B9B08C3e7CfE3A4Cd544C85101b8f201"),
-  reclaimAppSecret: opt(
-    "RECLAIM_APP_SECRET",
-    "0xfdc676e00ac9c648dfbcc271263c2dd95233a8abd391458c91ea88526a299223",
-  ),
+  reclaimAppSecret: opt("RECLAIM_APP_SECRET"),
   reclaimVerifierContractId: opt("CONTRACT_ID", "CA3EMXR6JOOTNP44T3OAJFMMMGKRRETDJKBLZP2RU3SIY4SDFAH54DU5"),
   seedphrase: opt("SEEDPHRASE"), // funds the on-chain verify tx (zktls only)
   stripeTestKey: opt("STRIPE_TEST_KEY"), // off-chain revenue source (private)
