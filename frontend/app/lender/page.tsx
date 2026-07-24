@@ -2,15 +2,15 @@
 
 // Lender — TrustLine.dc.html isolated-vaults screen. Wired to the live
 // /agents API (same data as before this redesign) + the real deposit
-// contract call. No simulated/fake numbers: "your positions" stays an
-// honest gated note since the frontend doesn't yet read per-lender vault
-// shares on-chain — same as before, restyled.
+// contract call. "Your positions" reads the connected wallet's real on-chain
+// vault shares via the vault's position(lender, agent) view — one simulate-
+// only call per listed agent, no new contract surface needed.
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Loader2, RefreshCw, AlertTriangle, Info } from "lucide-react";
+import { Loader2, RefreshCw, AlertTriangle, Info, Layers } from "lucide-react";
 import TLShell from "@/components/tl/TLShell";
 import { useWallet } from "@/components/WalletProvider";
-import { invokeContract, sc, STELLAR_EXPERT_TX } from "@/lib/stellar";
+import { invokeContract, readContract, sc, STELLAR_EXPERT_TX } from "@/lib/stellar";
 import {
   api,
   aprPct,
@@ -18,6 +18,7 @@ import {
   shortAddr,
   tierLabel,
   type AgentSummary,
+  type DefindexStatus,
   type Tier,
 } from "@/lib/api";
 
@@ -28,11 +29,23 @@ const riskColor: Record<Tier, string> = {
   Unrated: "#5a635e",
 };
 
+interface LenderPosition {
+  agent: string;
+  tier: Tier;
+  /** Current claim value in USDC at the vault's live share price. */
+  valueUsdc: number;
+}
+
 export default function LenderDashboard() {
   const [agents, setAgents] = useState<AgentSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
+  const [dfx, setDfx] = useState<DefindexStatus | null>(null);
+  const { address, config } = useWallet();
+  const [positions, setPositions] = useState<LenderPosition[] | null>(null);
+  const [positionsLoading, setPositionsLoading] = useState(false);
+  const [positionsError, setPositionsError] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -51,6 +64,54 @@ export default function LenderDashboard() {
   useEffect(() => {
     refresh();
   }, [refresh]);
+
+  // DeFindex yield-on-idle integration status (best-effort; non-blocking).
+  useEffect(() => {
+    api.defindex().then(setDfx).catch(() => setDfx(null));
+  }, []);
+
+  // "YOUR POSITIONS" — read the connected wallet's REAL on-chain vault shares.
+  // One position(lender, agent) simulate-only call per listed agent (small
+  // list, cheap). Best-effort per-agent: one failing read doesn't hide the
+  // rest. Recomputes whenever the wallet or the agent list changes.
+  const fetchPositions = useCallback(async () => {
+    if (!address || !config?.lendingVaultContractId || agents.length === 0) {
+      setPositions(null);
+      return;
+    }
+    setPositionsLoading(true);
+    setPositionsError(null);
+    try {
+      const results = await Promise.all(
+        agents.map(async (a): Promise<LenderPosition | null> => {
+          try {
+            const valueStroops = await readContract({
+              contractId: config.lendingVaultContractId!,
+              method: "position",
+              args: [sc.address(address), sc.address(a.agent)],
+              sourcePublicKey: address,
+            });
+            const usdcValue = Number(valueStroops as bigint) / 1e7;
+            if (!(usdcValue > 0)) return null;
+            return { agent: a.agent, tier: a.tier, valueUsdc: usdcValue };
+          } catch {
+            return null; // this agent's vault may not exist / read failed — skip it
+          }
+        }),
+      );
+      setPositions(results.filter((p): p is LenderPosition => p !== null));
+    } catch (e) {
+      setPositionsError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setPositionsLoading(false);
+    }
+  }, [address, config?.lendingVaultContractId, agents]);
+
+  useEffect(() => {
+    fetchPositions();
+  }, [fetchPositions]);
+
+  const yourDepositsUsdc = positions?.reduce((s, p) => s + p.valueUsdc, 0) ?? null;
 
   const selectedAgent = useMemo(
     () => agents.find((a) => a.agent === selected) ?? null,
@@ -101,8 +162,23 @@ export default function LenderDashboard() {
           <StatCard label="AGENTS UNDERWRITTEN" value={String(agents.length)} />
           <StatCard label="TOTAL CREDIT AVAILABLE" value={usdc(totalCredit)} />
           <StatCard label="AVERAGE APR" value={avgApr ? aprPct(avgApr) : "—"} color="#58F0C8" />
-          <StatCard label="YOUR DEPOSITS" value="—" note="on-chain, per-vault (see below)" />
+          <StatCard
+            label="YOUR DEPOSITS"
+            value={
+              !address
+                ? "—"
+                : positionsLoading
+                  ? "…"
+                  : yourDepositsUsdc != null
+                    ? usdc(yourDepositsUsdc)
+                    : "—"
+            }
+            color="#FFB020"
+            note={!address ? "connect wallet to see your positions" : "live, read from your vault shares"}
+          />
         </div>
+
+        {dfx?.configured ? <DefindexCard dfx={dfx} /> : null}
 
         <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-[1fr_380px]">
           {/* agent table */}
@@ -174,15 +250,78 @@ export default function LenderDashboard() {
           </div>
         </div>
 
-        {/* positions (honest, gated) */}
+        {/* positions — real on-chain read of the connected wallet's vault shares */}
         <div className="mt-14 border-t border-white/[0.07] pt-8">
-          <h2 className="mb-3 font-tl-mono text-[10px] tracking-[0.16em] text-ash">YOUR POSITIONS</h2>
-          <div className="flex items-center gap-3 rounded-lg border border-white/[0.07] bg-obsidian/60 p-4 font-tl-mono text-xs text-ash">
-            <Info size={15} className="shrink-0 text-ion" />
-            Deposits are live on-chain per isolated vault. A dashboard reading
-            your own vault shares back out isn&apos;t wired up yet — check a
-            deposit&apos;s tx on Stellar Expert after depositing below.
+          <div className="mb-3 flex items-center justify-between">
+            <h2 className="font-tl-mono text-[10px] tracking-[0.16em] text-ash">YOUR POSITIONS</h2>
+            {address ? (
+              <button
+                onClick={fetchPositions}
+                disabled={positionsLoading}
+                className="inline-flex items-center gap-1.5 rounded-md border border-white/10 px-2.5 py-1 font-tl-mono text-[10px] text-ash transition-colors hover:text-bone disabled:opacity-60"
+              >
+                {positionsLoading ? (
+                  <Loader2 size={11} className="animate-spin" />
+                ) : (
+                  <RefreshCw size={11} />
+                )}
+                Refresh
+              </button>
+            ) : null}
           </div>
+
+          {!address ? (
+            <div className="flex items-center gap-3 rounded-lg border border-white/[0.07] bg-obsidian/60 p-4 font-tl-mono text-xs text-ash">
+              <Info size={15} className="shrink-0 text-ion" />
+              Connect your wallet to see the vaults you&apos;ve supplied and their
+              current value, read live from each vault&apos;s share price.
+            </div>
+          ) : positionsError ? (
+            <div className="flex items-center gap-3 rounded-lg border border-flare/30 bg-flare/10 p-4 font-tl-mono text-xs text-flare">
+              <AlertTriangle size={15} className="shrink-0" />
+              {positionsError}
+            </div>
+          ) : positionsLoading && positions === null ? (
+            <div className="flex items-center gap-2 rounded-lg border border-white/[0.07] bg-obsidian/60 p-4 font-tl-mono text-xs text-ash">
+              <Loader2 size={14} className="animate-spin" /> reading your vault shares on-chain…
+            </div>
+          ) : positions && positions.length > 0 ? (
+            <div className="overflow-hidden rounded-lg border border-white/[0.07]">
+              <div className="hidden grid-cols-[minmax(0,1.6fr)_80px_100px] gap-3.5 border-b border-white/[0.06] bg-obsidian/60 px-4 py-2.5 font-tl-mono text-[9px] tracking-[0.08em] text-[#5a635e] sm:grid">
+                <span>AGENT VAULT</span>
+                <span>TIER</span>
+                <span className="text-right">CURRENT VALUE</span>
+              </div>
+              {positions.map((p) => (
+                <div
+                  key={p.agent}
+                  className="grid grid-cols-[minmax(0,1.6fr)_80px_100px] items-center gap-3.5 border-b border-white/[0.04] bg-obsidian/40 px-4 py-3 font-tl-mono text-xs last:border-0"
+                >
+                  <span className="truncate text-bone" title={p.agent}>
+                    {shortAddr(p.agent)}
+                  </span>
+                  <span style={{ color: riskColor[p.tier] }}>{tierLabel(p.tier)}</span>
+                  <span className="text-right text-nectar">{usdc(p.valueUsdc)}</span>
+                </div>
+              ))}
+              <div className="flex items-center justify-between bg-obsidian/60 px-4 py-2.5 font-tl-mono text-[11px] text-ash">
+                <span>total across {positions.length} vault{positions.length === 1 ? "" : "s"}</span>
+                <span className="text-bone">{usdc(yourDepositsUsdc ?? 0)}</span>
+              </div>
+            </div>
+          ) : (
+            <div className="flex items-center gap-3 rounded-lg border border-white/[0.07] bg-obsidian/60 p-4 font-tl-mono text-xs text-ash">
+              <Info size={15} className="shrink-0 text-ion" />
+              No supplied liquidity found for this wallet across the
+              agents listed above. Supply USDC to an agent&apos;s vault to open a
+              position.
+            </div>
+          )}
+          <p className="mt-2 font-tl-mono text-[10px] text-[#5a635e]">
+            Value is read live from each vault&apos;s <code>position()</code> — your
+            share balance priced at the vault&apos;s current assets, so it moves
+            with accrued yield and any socialized loss.
+          </p>
         </div>
       </main>
     </TLShell>
@@ -199,6 +338,65 @@ function StatCard({ label, value, color, note }: { label: string; value: string;
         {value}
       </div>
       {note ? <div className="mt-1 font-tl-mono text-[10px] text-[#5a635e]">{note}</div> : null}
+    </div>
+  );
+}
+
+function DefindexCard({ dfx }: { dfx: DefindexStatus }) {
+  return (
+    <div className="mb-8 overflow-hidden rounded-xl border border-ion/25 bg-ion/[0.04]">
+      <div className="flex flex-wrap items-start justify-between gap-4 p-5">
+        <div className="flex items-start gap-3">
+          <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-ion/30 bg-ion/10">
+            <Layers size={17} className="text-ion" />
+          </span>
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="font-tl-sans text-[15px] font-semibold text-bone">
+                Idle capital earns yield via DeFindex
+              </span>
+              <span className="tl-anim-blink h-[7px] w-[7px] rounded-full bg-ion shadow-[0_0_8px_#58F0C8]" />
+            </div>
+            <p className="mt-1 max-w-[56ch] font-tl-sans text-[13px] leading-[1.6] text-ash">
+              Lender liquidity that isn&apos;t currently borrowed is swept into a
+              DeFindex vault ({dfx.strategy}) to earn yield while it waits, then
+              divested on demand for instant draws — the value path is fully
+              on-chain.
+            </p>
+          </div>
+        </div>
+        <div className="flex gap-6">
+          <div>
+            <div className="font-tl-mono text-[9px] tracking-[0.12em] text-ash">NET APY</div>
+            <div className="font-tl-sans text-xl font-bold text-ion">
+              {dfx.netApy != null ? `${(dfx.netApy * 100).toFixed(1)}%` : "—"}
+            </div>
+          </div>
+          <div>
+            <div className="font-tl-mono text-[9px] tracking-[0.12em] text-ash">DEFINDEX VAULT TVL</div>
+            <div className="font-tl-sans text-xl font-bold text-bone">
+              {dfx.vaultTvlUsdc != null ? `${usdc(dfx.vaultTvlUsdc)}` : "—"}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* The honest testnet-fragmentation note + mainnet framing. */}
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-ion/15 bg-obsidian/40 px-5 py-3">
+        <span className="inline-flex items-center gap-1.5 rounded-full border border-ion/40 bg-ion/10 px-2.5 py-1 font-tl-mono text-[10px] font-bold uppercase tracking-[0.08em] text-ion">
+          ✓ Mainnet-compatible
+        </span>
+        <p className="flex items-start gap-1.5 font-tl-mono text-[11px] leading-[1.6] text-[#8a9088]">
+          <Info size={12} className="mt-0.5 shrink-0 text-[#5a635e]" />
+          <span>
+            <span className="text-ash">Testnet note:</span> DeFindex/Blend settle
+            in their own testnet USDC — separate from TrustLine&apos;s main testnet
+            USDC, with no swap pool between them — so this yield leg runs in
+            DeFindex&apos;s USDC. On mainnet everything settles in Circle USDC and
+            the split disappears; the integration is mainnet-compatible as built.
+          </span>
+        </p>
+      </div>
     </div>
   );
 }

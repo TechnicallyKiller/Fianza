@@ -8,6 +8,7 @@ import { readFileSync } from "node:fs";
 import { createHmac, timingSafeEqual } from "node:crypto";
 import Fastify from "fastify";
 import cors from "@fastify/cors";
+import rateLimit from "@fastify/rate-limit";
 import { config } from "../config.js";
 import { indexRevenue } from "../indexer/index.js";
 import { underwrite, previewCredit, getResult, listResults } from "../underwrite.js";
@@ -64,6 +65,18 @@ export async function buildServer() {
   const app = Fastify({ logger: true });
   await app.register(cors, { origin: true });
 
+  // Global rate limit (generous — this is per-IP browsing protection, not an
+  // auth gate). The specific expensive/mutating routes below (underwrite,
+  // repayment, ensure-liquidity) get much stricter per-route overrides, since
+  // those are the ones that fan out into dozens of RPC/Horizon calls or move
+  // treasury funds and were flagged as open to trivial cost-amplification /
+  // DoS with no limit at all.
+  await app.register(rateLimit, {
+    global: true,
+    max: 120,
+    timeWindow: "1 minute",
+  });
+
   // Persistence + continuous graph indexing (Track C), only when a DB is set.
   if (dbConfigured()) {
     await migrate();
@@ -93,6 +106,9 @@ export async function buildServer() {
   // TREASURY_SECRET is unset. TESTNET bootstrap — see treasury.ts.
   app.post<{ Params: { address: string }; Body: { neededUsdc?: number } }>(
     "/agent/:address/ensure-liquidity",
+    // Moves treasury funds — a tight per-IP limit so this can't be hammered to
+    // drain the treasury's per-call budget faster than intended.
+    { config: { rateLimit: { max: 10, timeWindow: "1 minute" } } },
     async (req, reply) => {
       const needed = Number(req.body?.neededUsdc);
       if (!Number.isFinite(needed) || needed <= 0) {
@@ -218,22 +234,30 @@ export async function buildServer() {
   );
 
   // Full underwriting pass: index + Reclaim proof + score + attest (+ submit).
+  // This fans out into many RPC/Horizon calls (+ a slow zkTLS proof unless
+  // skipProof) per request — rate-limited so it can't be used as a trivial
+  // cost-amplification / DoS vector against an arbitrary address.
   app.post<{
     Params: { address: string };
     Querystring: { skipProof?: string; fromLedger?: string };
-  }>("/agent/:address/underwrite", async (req) =>
-    underwrite(req.params.address, {
-      skipProof: req.query.skipProof === "true",
-      fromLedger: req.query.fromLedger ? Number(req.query.fromLedger) : undefined,
-    }),
+  }>(
+    "/agent/:address/underwrite",
+    { config: { rateLimit: { max: 20, timeWindow: "1 minute" } } },
+    async (req) =>
+      underwrite(req.params.address, {
+        skipProof: req.query.skipProof === "true",
+        fromLedger: req.query.fromLedger ? Number(req.query.fromLedger) : undefined,
+      }),
   );
 
   // Record a repayment outcome on-chain, then re-underwrite so the agent's score
   // reflects it immediately. `onTime: false` is the default path — it records the
   // miss (feeding the on-chain credit ramp) and the fresh score collapses below
-  // lending grade. Body: { onTime: boolean }.
+  // lending grade. Body: { onTime: boolean }. Writes on-chain history + fans
+  // out into a full underwrite pass, so it gets the same strict limit.
   app.post<{ Params: { address: string }; Body: { onTime?: boolean } }>(
     "/agent/:address/repayment",
+    { config: { rateLimit: { max: 20, timeWindow: "1 minute" } } },
     async (req, reply) => {
       if (typeof req.body?.onTime !== "boolean") {
         return reply.code(400).send({ error: "body must be { onTime: boolean }" });
@@ -304,9 +328,15 @@ export async function buildServer() {
     return r;
   });
 
-  // All underwritten agents (lender dashboard).
-  app.get("/agents", async () =>
-    (await listResults()).map((r) => ({
+  // All underwritten agents (lender dashboard). Optional ?limit=&offset= for
+  // pagination as the underwritten set grows past a handful of demo agents;
+  // response stays a plain array (unchanged contract) and defaults to the
+  // previous unbounded behavior at small scale (capped at 500 as a backstop).
+  app.get<{ Querystring: { limit?: string; offset?: string } }>("/agents", async (req) => {
+    const limit = Math.min(Math.max(Number(req.query.limit) || 500, 1), 500);
+    const offset = Math.max(Number(req.query.offset) || 0, 0);
+    const all = await listResults();
+    return all.slice(offset, offset + limit).map((r) => ({
       agent: r.agent,
       score: r.score.score,
       tier: r.score.tier,
@@ -315,8 +345,8 @@ export async function buildServer() {
       revenueUsdc: r.score.revenueUsdc,
       distinctPayers: r.revenue.distinctPayers,
       underwroteAt: r.underwroteAt,
-    })),
-  );
+    }));
+  });
 
   // Protocol-wide risk/portfolio view: total lent, utilization, reserve
   // coverage, default rate, lender yield, per-agent positions. Read-only

@@ -122,6 +122,9 @@ export interface IndependenceResult {
   hhi: number;
   perPayer: PayerWeight[];
   maxHops: number;
+  /** True if this pass only saw funding/reciprocity facts within the RPC's
+   *  ~24h retention window (no DB configured) rather than full history. */
+  windowLimited?: boolean;
 }
 
 export interface UnderwritingResult {

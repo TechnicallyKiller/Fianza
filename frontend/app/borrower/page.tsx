@@ -65,6 +65,10 @@ export default function BorrowerDashboard() {
   const [underwriting, setUnderwriting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  // Registration is the required FIRST step (score_registry.register) — a new
+  // agent that skips it and clicks Draw hits a bare contract error with no
+  // explanation. Read on-chain and surface it as an explicit stepper instead.
+  const [isRegistered, setIsRegistered] = useState<boolean | null>(null);
 
   const fromLedgerNum = fromLedger.trim() ? Number(fromLedger.trim()) : undefined;
 
@@ -90,6 +94,28 @@ export default function BorrowerDashboard() {
     [walletConfig, address],
   );
 
+  const loadRegistration = useCallback(
+    async (addr: string) => {
+      const registryId = walletConfig?.scoreRegistryContractId;
+      if (!registryId || !address) {
+        setIsRegistered(null);
+        return;
+      }
+      try {
+        const registered = (await readContract({
+          contractId: registryId,
+          method: "is_registered",
+          args: [sc.address(addr)],
+          sourcePublicKey: address,
+        })) as boolean;
+        setIsRegistered(registered);
+      } catch {
+        setIsRegistered(null); // unknown — don't block on a read failure
+      }
+    },
+    [walletConfig, address],
+  );
+
   const load = useCallback(
     async (addr: string, fl?: number) => {
       setError(null);
@@ -108,12 +134,12 @@ export default function BorrowerDashboard() {
         else if (prior.reason instanceof ApiError && prior.reason.status !== 404) {
           setError(prior.reason.message);
         }
-        await loadVaultState(addr);
+        await Promise.all([loadVaultState(addr), loadRegistration(addr)]);
       } finally {
         setLoadingRevenue(false);
       }
     },
-    [loadVaultState],
+    [loadVaultState, loadRegistration],
   );
 
   useEffect(() => {
@@ -291,6 +317,8 @@ export default function BorrowerDashboard() {
               readOnly={readOnly}
               defaulted={!!vaultState?.defaulted}
               aprBps={score?.aprBps}
+              isRegistered={isRegistered}
+              hasRevenueSignal={!!score && score.revenueUsdc > 0}
               onAction={() => target && load(target, fromLedgerNum)}
             />
           </div>
@@ -442,6 +470,8 @@ function VaultActions({
   readOnly,
   defaulted,
   aprBps,
+  isRegistered,
+  hasRevenueSignal,
   onAction,
 }: {
   hasLimit: boolean;
@@ -449,6 +479,10 @@ function VaultActions({
   readOnly: boolean;
   defaulted: boolean;
   aprBps?: number;
+  /** null = unknown (read failed/not yet loaded) — don't block on it. */
+  isRegistered: boolean | null;
+  /** Has the underwriter found ANY effective revenue for this agent yet. */
+  hasRevenueSignal: boolean;
   onAction: () => void;
 }) {
   const { address, config } = useWallet();
@@ -526,8 +560,53 @@ function VaultActions({
       }),
     );
 
+  // Onboarding sequence: register → get underwritten (a real revenue signal
+  // + a credit line) → draw. Show it explicitly instead of burying "register"
+  // as a footnote and letting a new agent hit a bare contract error on Draw.
+  const registeredKnown = isRegistered !== null;
+  const steps: { label: string; done: boolean }[] = [
+    { label: "Register on-chain", done: isRegistered === true },
+    { label: "Get underwritten (earn a revenue signal)", done: hasRevenueSignal },
+    { label: "Draw against your credit line", done: hasLimit },
+  ];
+  const onboardingIncomplete = registeredKnown && !isRegistered;
+
   return (
     <div className={box}>
+      {registeredKnown ? (
+        <div className="mb-4 flex flex-col gap-2 rounded-lg border border-white/[0.07] bg-obsidian/40 p-3">
+          {steps.map((s, i) => (
+            <div key={s.label} className="flex items-center gap-2.5 font-tl-mono text-xs">
+              <span
+                className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full border font-tl-mono text-[10px]"
+                style={{
+                  borderColor: s.done ? "#58F0C8" : "#3a3f3c",
+                  color: s.done ? "#58F0C8" : "#5a635e",
+                  background: s.done ? "rgba(88,240,200,.08)" : "transparent",
+                }}
+              >
+                {s.done ? "✓" : i + 1}
+              </span>
+              <span style={{ color: s.done ? "#bcbeb8" : "#8a8f89" }}>{s.label}</span>
+            </div>
+          ))}
+        </div>
+      ) : null}
+      {onboardingIncomplete ? (
+        <div className="mb-4 rounded-lg border border-nectar/25 bg-nectar/[0.06] p-3.5">
+          <p className="mb-2.5 font-tl-mono text-xs leading-[1.6] text-ash">
+            This wallet isn&apos;t registered yet — that&apos;s step 1, required
+            before anything else works.
+          </p>
+          <button
+            onClick={register}
+            disabled={!!busy}
+            className="w-full rounded-lg bg-nectar py-2.5 font-tl-sans text-sm font-semibold text-obsidian transition-colors hover:bg-[#ffbf40] disabled:opacity-50"
+          >
+            {busy === "register" ? "Registering…" : "Register on-chain →"}
+          </button>
+        </div>
+      ) : null}
       <div className="mb-3.5 flex items-baseline justify-between">
         <span className="font-tl-mono text-[11px] tracking-[0.08em] text-ash">
           DRAW AGAINST HEADROOM
@@ -554,14 +633,15 @@ function VaultActions({
         />
         <button
           onClick={borrow}
-          disabled={!hasLimit || !!busy}
+          disabled={!hasLimit || onboardingIncomplete || !!busy}
+          title={onboardingIncomplete ? "Register first (step 1 above)" : undefined}
           className="flex-1 rounded-lg bg-nectar py-3 font-tl-sans text-sm font-semibold text-obsidian transition-colors hover:bg-[#ffbf40] disabled:opacity-50"
         >
           {busy === "borrow" ? "Drawing…" : `Draw ${usdc(num)}`}
         </button>
         <button
           onClick={repay}
-          disabled={!!busy}
+          disabled={onboardingIncomplete || !!busy}
           className="flex-1 rounded-lg border border-ion/40 py-3 font-tl-sans text-sm font-semibold text-ion transition-colors hover:bg-ion/10 disabled:opacity-50"
         >
           {busy === "repay" ? "Repaying…" : `Repay ${usdc(num)}`}
@@ -571,13 +651,21 @@ function VaultActions({
         <span className="text-ash">dynamic APR (utilization)</span>
         <span style={{ color: defaulted ? "#FF5C4D" : "#FFB020" }}>{apr}</span>
       </div>
-      <button
-        onClick={register}
-        disabled={!!busy}
-        className="mt-3 w-full text-center font-tl-mono text-xs text-ash transition-colors hover:text-bone"
-      >
-        {busy === "register" ? "Registering…" : "Register on-chain (first time)"}
-      </button>
+      {!onboardingIncomplete && registeredKnown ? (
+        <button
+          onClick={register}
+          disabled={!!busy}
+          className="mt-3 w-full text-center font-tl-mono text-xs text-ash transition-colors hover:text-bone"
+        >
+          {busy === "register" ? "Registering…" : "Re-register on-chain"}
+        </button>
+      ) : null}
+      {!hasLimit && !onboardingIncomplete && registeredKnown ? (
+        <p className="mt-2 text-center font-tl-mono text-[11px] text-ash">
+          No independent revenue yet — earn from ≥3 distinct payers, then
+          re-underwrite above to open a credit line.
+        </p>
+      ) : null}
       {defaulted ? (
         <p className="mt-2 text-center font-tl-mono text-xs text-flare">
           ⚠ Defaulted — frozen out of further borrowing.

@@ -100,6 +100,18 @@ export interface IndependenceResult {
     hhiFloor: number;
   };
   maxHops: number;
+  /**
+   * True when this analysis came from the no-DB RPC path (`gatherPayerFacts`),
+   * which can only see funding/reciprocity facts within the Soroban RPC's
+   * ~24h event-retention window — regardless of how far back the agent's
+   * actual revenue spans. The DB-backed graph path (`gatherPayerFactsFromGraph`,
+   * windowLimited: false) reads full history and has no such gap. Surface this
+   * honestly rather than silently score a long-lived agent as if a day of
+   * funding history were the whole picture — a caller/UI can choose to treat a
+   * window-limited independence pass with extra caution (e.g. don't let it
+   * alone clear MIN_COUNTERPARTIES for a high tier).
+   */
+  windowLimited: boolean;
 }
 
 /** Coefficient-of-variation-based organicity: scripted (regular) cadence scores
@@ -119,7 +131,10 @@ function organicityFactor(allIntervals: number[]): number {
  * Pure independence scoring: per-payer facts → R_eff + per-payer breakdown.
  * No I/O — this is the deterministically-testable core of the moat.
  */
-export function scoreIndependence(facts: PayerFacts[]): IndependenceResult {
+export function scoreIndependence(
+  facts: PayerFacts[],
+  windowLimited = false,
+): IndependenceResult {
   const totalRaw = facts.reduce((a, f) => a + f.revenueStroops, 0n);
   const params = {
     maxHops: MAX_HOPS,
@@ -141,6 +156,7 @@ export function scoreIndependence(facts: PayerFacts[]): IndependenceResult {
       perPayer: [],
       params,
       maxHops: MAX_HOPS,
+      windowLimited,
     };
   }
 
@@ -232,6 +248,7 @@ export function scoreIndependence(facts: PayerFacts[]): IndependenceResult {
     perPayer,
     params,
     maxHops: MAX_HOPS,
+    windowLimited,
   };
 }
 
@@ -503,8 +520,14 @@ export async function analyzeIndependence(
   report: RevenueReport,
   fromLedger: number,
 ): Promise<IndependenceResult> {
-  const facts = dbConfigured()
+  const usingGraph = dbConfigured();
+  const facts = usingGraph
     ? await gatherPayerFactsFromGraph(agent, report)
     : await gatherPayerFacts(agent, report, fromLedger);
-  return scoreIndependence(facts);
+  // The no-DB path's funding/reciprocity facts only cover the RPC's ~24h
+  // event-retention window (see gatherPayerFacts / usdcCounterparties), no
+  // matter how far back `report`'s revenue actually spans — flag it so callers
+  // don't treat a window-limited pass as equivalent to the full-history graph
+  // check. See underwrite.ts's gatherScoredRevenue for how this is used.
+  return scoreIndependence(facts, !usingGraph);
 }

@@ -516,9 +516,16 @@ function GoodDone({ result }: { result: UnderwritingResult }) {
         <div className="mb-2 font-tl-mono text-[10px] tracking-[0.16em] text-ash">
           PER-PAYER INDEPENDENCE
         </div>
-        <div className="mb-5 font-tl-mono text-[11px] text-[#5a635e]">
+        <div className="mb-2 font-tl-mono text-[11px] text-[#5a635e]">
           w = age × diversity × funding-independence × reciprocity
         </div>
+        {ind?.windowLimited ? (
+          <div className="mb-5 rounded-md border border-[#FFB020]/25 bg-[#FFB020]/[0.06] px-3 py-2 font-tl-mono text-[10px] leading-[1.5] text-[#FFB020]">
+            No database configured for this pass — funding/reciprocity facts
+            only cover the RPC&apos;s ~24h retention window, not this agent&apos;s
+            full history. The independence check is real but window-limited.
+          </div>
+        ) : null}
         {ind && ind.perPayer.length > 0 ? (
           <div className="flex flex-col">
             {ind.perPayer.map((p) => (

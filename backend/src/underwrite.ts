@@ -67,6 +67,14 @@ async function graphRevenueReport(agent: string): Promise<RevenueReport | null> 
   const g = await graphRevenue(agent, 0);
   if (g.payers.length === 0) return null;
   const total = BigInt(g.totalStroops);
+  // The graph's payments carry real per-payment ledger numbers (unlike the
+  // Horizon fallback below), so windowFromLedger can be the true earliest
+  // ledger this agent's revenue spans — NOT 0. Passing 0 downstream made the
+  // independence check's RPC calls get clamped to the RPC's ~24h retention
+  // floor even though the revenue itself spans the graph's full history (see
+  // analyzeIndependence call site in gatherScoredRevenue). This was silently
+  // weakening the anti-Sybil check whenever the graph source won.
+  const ledgers = g.payments.map((p) => p.ledger).filter((l) => l > 0);
   return {
     agent,
     totalRevenueStroops: g.totalStroops,
@@ -74,7 +82,7 @@ async function graphRevenueReport(agent: string): Promise<RevenueReport | null> 
     distinctPayers: g.payers.length,
     payers: g.payers,
     payments: g.payments,
-    windowFromLedger: 0,
+    windowFromLedger: ledgers.length ? Math.min(...ledgers) : 0,
     windowToLedger: g.payments.at(-1)?.ledger ?? 0,
   };
 }

@@ -85,6 +85,74 @@ export interface VaultState {
   aprBps: number;
 }
 
+/** Which tier band an agent's score falls into. Mirrors the backend/contracts. */
+export type Tier = "A" | "B" | "C" | "Unrated";
+
+/**
+ * The composite score/limit/APR result the underwriting engine computes.
+ * Mirrors `backend/src/scoring/index.ts`'s `ScoreResult` field-for-field.
+ */
+export interface ScoreResult {
+  agent: string;
+  score: number;
+  tier: Tier;
+  /** Effective verified revenue used to size credit (stroops + USDC). */
+  revenueStroops: string;
+  revenueUsdc: number;
+  /** Tier ceiling — what this agent could draw with a perfect repayment
+   * track record. NOT what it can borrow right now — see `rampedLimitUsdc`. */
+  limitStroops: string;
+  limitUsdc: number;
+  /** The REAL, currently-drawable limit the vault contract enforces. */
+  rampedLimitStroops: string;
+  rampedLimitUsdc: number;
+  aprBps: number;
+  distinctPayers: number;
+  minCounterparties: number;
+  onchainCounts: boolean;
+  repayments: { onTime: number; total: number; missed: number };
+  /** True when a recorded default has collapsed the score below lending grade. */
+  defaulted: boolean;
+  components: {
+    onchainUsdc: number;
+    offchainUsdc: number;
+    offchainWeight: number;
+    historyDelta: number;
+  };
+  issuedAt: number;
+}
+
+/**
+ * Full result of a `POST /agent/:address/underwrite` pass. `revenue`,
+ * `independence`, `proof`, `attestation`, and `submission` are intentionally
+ * typed loosely (`Record<string, unknown>`) rather than fully mirrored here —
+ * they're diagnostic/audit detail whose shape lives in the backend, not part
+ * of the SDK's stable contract. `score` (the actual credit decision) is fully
+ * typed — see {@link ScoreResult}.
+ */
+export interface UnderwritingResult {
+  agent: string;
+  revenue: Record<string, unknown>;
+  independence: Record<string, unknown> | null;
+  proof: Record<string, unknown> | null;
+  proofError: string | null;
+  score: ScoreResult;
+  attestation: Record<string, unknown>;
+  submission: Record<string, unknown>;
+  underwroteAt: number;
+}
+
+/** Response shape of `GET /agent/:address/available-credit` — see {@link previewCredit}. */
+export interface CreditPreview {
+  agent: string;
+  rampedLimitUsdc: number;
+  limitUsdc: number;
+  tier: Tier;
+  aprBps: number;
+  revenueUsdc: number;
+  distinctPayers: number;
+}
+
 export interface TxResult {
   txHash: string;
   returnValue: unknown;
@@ -159,7 +227,7 @@ export class TrustLineAgent {
   /** Run the full underwriting pass (revenue → proof → score → publish). */
   async underwrite(
     opts: { skipProof?: boolean; fromLedger?: number } = {},
-  ): Promise<any> {
+  ): Promise<UnderwritingResult> {
     const q = new URLSearchParams();
     if (opts.skipProof) q.set("skipProof", "true");
     if (opts.fromLedger) q.set("fromLedger", String(opts.fromLedger));
@@ -172,11 +240,21 @@ export class TrustLineAgent {
   /** Convenience: register on-chain, then run an underwriting pass. */
   async onboard(opts: { skipProof?: boolean; fromLedger?: number } = {}): Promise<{
     register: TxResult;
-    underwrite: any;
+    underwrite: UnderwritingResult;
   }> {
     const register = await this.register();
     const underwrite = await this.underwrite(opts);
     return { register, underwrite };
+  }
+
+  /**
+   * Read-only live credit preview (`GET /agent/:address/available-credit`) —
+   * this agent's CURRENT score/limit/tier from its real on-chain revenue right
+   * now, no zkTLS proof, no on-chain write, nothing persisted. Cheap enough to
+   * call before every draw to check headroom without a full {@link underwrite}.
+   */
+  async previewCredit(): Promise<CreditPreview> {
+    return this.apiGet(`/agent/${this.publicKey()}/available-credit`);
   }
 
   // ---- On-chain reads (simulate-only) ----
@@ -329,6 +407,23 @@ export class TrustLineAgent {
       this.addr(this.publicKey()),
       this.i128(toStroops(usdc)),
     ]);
+  }
+
+  /**
+   * Repay everything currently owed (principal + accrued interest), reading
+   * `amountOwedUsdc` from the vault first so the caller doesn't have to track
+   * it manually. Capped at the agent's spendable USDC balance — repays as much
+   * as it can rather than throwing, and returns `null` (no tx) if either there
+   * is nothing owed or there is no spare balance to repay with. Reversed order
+   * from a hand-rolled "read then repay" so this is the one-call convenience.
+   */
+  async repayAll(): Promise<TxResult | null> {
+    const [state, balance] = await Promise.all([this.vaultState(), this.usdcBalanceUsdc()]);
+    const owed = state.amountOwedUsdc;
+    if (!(owed > 0)) return null;
+    const amount = Math.min(owed, balance);
+    if (!(amount > 0)) return null;
+    return this.repay(amount);
   }
 
   /**

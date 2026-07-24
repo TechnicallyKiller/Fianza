@@ -45,10 +45,15 @@ export async function getResult(agent: string): Promise<UnderwritingResult | und
   return rows[0]?.result; // pg returns JSONB already parsed
 }
 
+// Backstop cap so this query can't unbounded-scan as the underwritten set
+// grows well past demo scale — /agents in server.ts does real limit/offset
+// pagination on top of this for callers that want fewer than the cap.
+const LIST_RESULTS_CAP = 500;
+
 export async function listResults(): Promise<UnderwritingResult[]> {
   if (!dbConfigured()) return [...mem.values()];
   const rows = await query<{ result: UnderwritingResult }>(
-    "SELECT result FROM underwriting_results ORDER BY updated_at DESC",
+    `SELECT result FROM underwriting_results ORDER BY updated_at DESC LIMIT ${LIST_RESULTS_CAP}`,
   );
   return rows.map((r) => r.result);
 }

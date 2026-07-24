@@ -100,12 +100,41 @@ const usdc = (v: unknown): number => {
   }
 };
 
+// Short-TTL cache + in-flight de-duplication. /portfolio does one simulated
+// RPC call per underwritten agent (currently a handful, but it's O(n) and this
+// is polled every 20s per open browser tab — see frontend/app/portfolio/page.tsx
+// — plus read by /api/status). Without this, N tabs polling at once each
+// trigger their own full fan-out of RPC calls. A short cache means concurrent/
+// rapid callers within the window share one fan-out instead of one each.
+const CACHE_TTL_MS = 12_000;
+let cache: { at: number; data: Portfolio } | null = null;
+let inflight: Promise<Portfolio> | null = null;
+
 /**
  * Build the protocol-wide portfolio view. Reads every underwritten agent's
  * vault state in parallel and aggregates. Best-effort per agent: an agent whose
- * state can't be read is skipped rather than failing the whole view.
+ * state can't be read is skipped rather than failing the whole view. Cached for
+ * CACHE_TTL_MS; pass `fresh: true` to bypass (e.g. a manual refresh button).
  */
-export async function getPortfolio(): Promise<Portfolio> {
+export async function getPortfolio(opts: { fresh?: boolean } = {}): Promise<Portfolio> {
+  if (!opts.fresh && cache && Date.now() - cache.at < CACHE_TTL_MS) {
+    return cache.data;
+  }
+  if (!opts.fresh && inflight) {
+    return inflight;
+  }
+  const p = buildPortfolio();
+  inflight = p;
+  try {
+    const data = await p;
+    cache = { at: Date.now(), data };
+    return data;
+  } finally {
+    inflight = null;
+  }
+}
+
+async function buildPortfolio(): Promise<Portfolio> {
   const agents = await listResults();
 
   const positions: AgentPosition[] = [];
