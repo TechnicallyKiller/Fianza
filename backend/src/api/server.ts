@@ -19,6 +19,7 @@ import { drip, faucetConfigured, hasClaimed } from "../faucet.js";
 import { defindexStatus } from "../integrations/defindex.js";
 import { taelRevenueReport } from "../integrations/tael.js";
 import { ensureLiquidity, treasuryConfigured, treasuryPublicKey } from "../treasury.js";
+import { getPortfolio } from "../portfolio.js";
 
 // Max age of a Tael partner signature we'll accept (replay window). Tael stamps
 // x-tael-timestamp as Date.now() ms; anything older than this is rejected.
@@ -316,6 +317,17 @@ export async function buildServer() {
       underwroteAt: r.underwroteAt,
     })),
   );
+
+  // Protocol-wide risk/portfolio view: total lent, utilization, reserve
+  // coverage, default rate, lender yield, per-agent positions. Read-only
+  // (simulates vault state()). This is the "credit book" dashboard.
+  app.get("/portfolio", async () => {
+    try {
+      return await getPortfolio();
+    } catch (e) {
+      return { error: e instanceof Error ? e.message : String(e) };
+    }
+  });
 
   return app;
 }

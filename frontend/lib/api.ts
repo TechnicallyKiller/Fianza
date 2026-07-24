@@ -199,10 +199,26 @@ export interface DemoInfo {
   txs: Record<string, string>;
 }
 
+export interface DefindexStatus {
+  configured: boolean;
+  integratedVault: string;
+  treasuryVault: string;
+  usdc: string;
+  vaultTvlUsdc: number | null;
+  netApy: number | null;
+  apySource: "api" | "unavailable";
+  strategy: string;
+  note: string;
+  mainnetCompatible: boolean;
+}
+
 export const api = {
   health: () => request<{ ok: boolean; ts: number }>("/health"),
 
   config: () => request<PublicConfig>("/config"),
+
+  /** DeFindex yield-on-idle integration status (lender-side). */
+  defindex: () => request<DefindexStatus>("/integrations/defindex"),
 
   /** The two showcase agents + recorded settlement txs for the /demo page. */
   demo: () => request<DemoInfo>("/demo"),
@@ -236,7 +252,42 @@ export const api = {
 
   /** All underwritten agents (lender dashboard). */
   agents: () => request<AgentSummary[]>("/agents"),
+
+  /** Protocol-wide risk/portfolio view (the credit book). */
+  portfolio: () => request<Portfolio>("/portfolio"),
 };
+
+export interface PortfolioPosition {
+  agent: string;
+  tier: Tier;
+  aprBps: number;
+  limitUsdc: number;
+  owedUsdc: number;
+  principalUsdc: number;
+  liquidityUsdc: number;
+  reserveUsdc: number;
+  yieldPoolUsdc: number;
+  realizedLossUsdc: number;
+  defaulted: boolean;
+}
+
+export interface Portfolio {
+  agents: number;
+  activeLoans: number;
+  defaults: number;
+  defaultRatePct: number;
+  totalOwedUsdc: number;
+  totalPrincipalUsdc: number;
+  totalLiquidityUsdc: number;
+  utilizationPct: number;
+  totalReserveUsdc: number;
+  reserveCoverageX: number;
+  totalYieldUsdc: number;
+  totalRealizedLossUsdc: number;
+  avgAprBps: number;
+  positions: PortfolioPosition[];
+  lenderModel: string;
+}
 
 // ---- Formatting helpers (shared by both dashboards) ----
 

@@ -20,6 +20,7 @@ const LINKS: { href: string; label: string; external?: boolean; badge?: string }
   { href: "/agent-demo", label: "live agent", badge: "new" },
   { href: "/borrower", label: "borrower" },
   { href: "/lender", label: "lender" },
+  { href: "/portfolio", label: "credit book" },
   { href: DOCS_URL, label: "docs", external: true },
 ];
 
