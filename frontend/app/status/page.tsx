@@ -16,7 +16,42 @@ const DATA_SELLER =
   process.env.NEXT_PUBLIC_DATA_SELLER ?? "https://trustline-data-seller.onrender.com";
 const SOROBAN_RPC = "https://soroban-testnet.stellar.org";
 
-type State = "up" | "down" | "checking";
+type State = "up" | "down" | "checking" | "waking";
+
+// A fetch with a hard timeout so a hang doesn't read as "down".
+async function fetchT(url: string, init: RequestInit = {}, ms = 8000): Promise<Response> {
+  const ctrl = new AbortController();
+  const t = setTimeout(() => ctrl.abort(), ms);
+  try {
+    return await fetch(url, { ...init, signal: ctrl.signal, cache: "no-store" });
+  } finally {
+    clearTimeout(t);
+  }
+}
+
+// Retry a check a few times before believing it's down — Render free-tier
+// services sleep and take ~30–50s to cold-start, so the FIRST hit after idle
+// often fails while the service wakes. `onWaking` lets the UI show "waking…"
+// instead of a false "down" during the grace period.
+async function withRetry(
+  fn: () => Promise<boolean>,
+  onWaking: () => void,
+  tries = 4,
+  gapMs = 3500,
+): Promise<boolean> {
+  for (let i = 0; i < tries; i++) {
+    try {
+      if (await fn()) return true;
+    } catch {
+      /* keep retrying */
+    }
+    if (i < tries - 1) {
+      onWaking();
+      await new Promise((r) => setTimeout(r, gapMs));
+    }
+  }
+  return false;
+}
 
 interface Svc {
   key: string;
@@ -32,36 +67,35 @@ const SERVICES: Svc[] = [
     key: "backend",
     name: "Underwriting API",
     desc: "Scores agents, publishes on-chain, seeds vault liquidity",
-    check: () => fetch(`${API_BASE}/health`, { cache: "no-store" }).then((r) => r.ok),
+    check: () => fetchT(`${API_BASE}/health`).then((r) => r.ok),
   },
   {
     key: "portfolio",
     name: "Credit book",
     desc: "Live on-chain portfolio / risk view",
-    check: () => fetch(`${API_BASE}/portfolio`, { cache: "no-store" }).then((r) => r.ok),
+    check: () => fetchT(`${API_BASE}/portfolio`).then((r) => r.ok),
   },
   {
     key: "agent",
     name: "Autonomous agent",
     desc: "The LLM-driven demo agent (borrow → earn → repay)",
-    check: () => fetch(`${AGENT_SERVER}/info`, { cache: "no-store" }).then((r) => r.ok),
+    check: () => fetchT(`${AGENT_SERVER}/info`).then((r) => r.ok),
   },
   {
     key: "seller",
     name: "x402 data seller",
     desc: "The paid capability the agent buys from",
-    check: () => fetch(`${DATA_SELLER}/health`, { cache: "no-store" }).then((r) => r.ok),
+    check: () => fetchT(`${DATA_SELLER}/health`).then((r) => r.ok),
   },
   {
     key: "rpc",
     name: "Soroban RPC (testnet)",
     desc: "Stellar testnet — where the contracts live",
     check: () =>
-      fetch(SOROBAN_RPC, {
+      fetchT(SOROBAN_RPC, {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "getHealth" }),
-        cache: "no-store",
       })
         .then((r) => r.json())
         .then((j) => j?.result?.status === "healthy")
@@ -85,12 +119,12 @@ export default function StatusPage() {
     });
     await Promise.all(
       SERVICES.map(async (s) => {
-        let up = false;
-        try {
-          up = await s.check();
-        } catch {
-          up = false;
-        }
+        // Retry with a grace period — a first-hit failure on a sleeping Render
+        // service shows "waking…", not a false "down". Only after all retries
+        // fail is it truly marked down.
+        const up = await withRetry(s.check, () =>
+          setStates((prev) => (prev[s.key] === "up" ? prev : { ...prev, [s.key]: "waking" })),
+        );
         setStates((prev) => ({ ...prev, [s.key]: up ? "up" : "down" }));
       }),
     );
@@ -100,18 +134,19 @@ export default function StatusPage() {
 
   useEffect(() => {
     runChecks();
-    const t = setInterval(runChecks, 30000);
+    // Re-check periodically; the interval is long enough that a full retry
+    // cycle (up to ~14s per service, in parallel) finishes well before it fires.
+    const t = setInterval(runChecks, 45000);
     return () => clearInterval(t);
   }, [runChecks]);
 
   const values = Object.values(states);
   const allUp = values.every((v) => v === "up");
   const anyDown = values.some((v) => v === "down");
-  const overall: State = values.some((v) => v === "checking")
-    ? "checking"
-    : allUp
-      ? "up"
-      : "down";
+  const anyBusy = values.some((v) => v === "checking" || v === "waking");
+  // While anything is still checking/waking, treat overall as in-progress (not
+  // a scary "down") so a cold start never flashes red.
+  const overall: State = anyBusy ? "checking" : allUp ? "up" : "down";
 
   return (
     <div className="tl-select relative min-h-screen bg-obsidian text-bone">
@@ -203,7 +238,9 @@ export default function StatusPage() {
                   ? "operational"
                   : states[s.key] === "down"
                     ? "down"
-                    : "checking…"}
+                    : states[s.key] === "waking"
+                      ? "waking…"
+                      : "checking…"}
               </span>
             </div>
           ))}
@@ -222,6 +259,7 @@ export default function StatusPage() {
 function StatusIcon({ state, big }: { state: State; big?: boolean }) {
   const size = big ? 22 : 17;
   if (state === "checking") return <Loader2 size={size} className="animate-spin text-ash" />;
+  if (state === "waking") return <Loader2 size={size} className="animate-spin text-nectar" />;
   if (state === "up") return <CheckCircle2 size={size} className="text-ion" />;
   return <XCircle size={size} className="text-flare" />;
 }
