@@ -53,6 +53,18 @@ const resourceServer = new x402ResourceServer(facilitator).register(
 
 const app = express();
 app.use(express.json());
+
+// Permissive CORS so the status page (and any browser client) can read /health.
+// Without this the browser blocks the response even on a 200, which looked like
+// the service was "down" when it was actually up.
+app.use((req, res, next) => {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "content-type, x-payment");
+  if (req.method === "OPTIONS") return res.sendStatus(204);
+  next();
+});
+
 app.use(
   paymentMiddleware(
     {

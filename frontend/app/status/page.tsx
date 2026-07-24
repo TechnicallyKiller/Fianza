@@ -29,6 +29,27 @@ async function fetchT(url: string, init: RequestInit = {}, ms = 8000): Promise<R
   }
 }
 
+// "Is this GET endpoint reachable?" — robust to CORS. First try a normal fetch
+// and read .ok. If that throws (e.g. the server didn't send CORS headers, so
+// the browser blocks reading the response), fall back to a `no-cors` ping: it
+// returns an opaque response we can't inspect, but if it RESOLVES at all the
+// host answered — i.e. it's up. This stops a missing CORS header from looking
+// like a dead service. Cache-busted so we never read a stale result.
+async function reachable(url: string, ms = 8000): Promise<boolean> {
+  const bust = `${url}${url.includes("?") ? "&" : "?"}_=${Date.now()}`;
+  try {
+    const r = await fetchT(bust, {}, ms);
+    return r.ok;
+  } catch {
+    try {
+      await fetchT(bust, { mode: "no-cors" }, ms);
+      return true; // resolved despite no-cors → host reachable
+    } catch {
+      return false;
+    }
+  }
+}
+
 // Retry a check a few times before believing it's down — Render free-tier
 // services sleep and take ~30–50s to cold-start, so the FIRST hit after idle
 // often fails while the service wakes. `onWaking` lets the UI show "waking…"
@@ -67,25 +88,25 @@ const SERVICES: Svc[] = [
     key: "backend",
     name: "Underwriting API",
     desc: "Scores agents, publishes on-chain, seeds vault liquidity",
-    check: () => fetchT(`${API_BASE}/health`).then((r) => r.ok),
+    check: () => reachable(`${API_BASE}/health`),
   },
   {
     key: "portfolio",
     name: "Credit book",
     desc: "Live on-chain portfolio / risk view",
-    check: () => fetchT(`${API_BASE}/portfolio`).then((r) => r.ok),
+    check: () => reachable(`${API_BASE}/portfolio`),
   },
   {
     key: "agent",
     name: "Autonomous agent",
     desc: "The LLM-driven demo agent (borrow → earn → repay)",
-    check: () => fetchT(`${AGENT_SERVER}/info`).then((r) => r.ok),
+    check: () => reachable(`${AGENT_SERVER}/info`),
   },
   {
     key: "seller",
     name: "x402 data seller",
     desc: "The paid capability the agent buys from",
-    check: () => fetchT(`${DATA_SELLER}/health`).then((r) => r.ok),
+    check: () => reachable(`${DATA_SELLER}/health`),
   },
   {
     key: "rpc",
