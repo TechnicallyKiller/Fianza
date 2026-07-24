@@ -1,14 +1,15 @@
 # TrustLine — Reality & Handoff (READ THIS FIRST)
 
-_Last updated: 2026-07-17. If you're a new session, read this whole file before
+_Last updated: 2026-07-24. If you're a new session, read this whole file before
 touching anything. It is deliberately blunt. `PROJECT_LOG.md` has the granular
 history; this file is the truth + the plan._
 
-_Newest work: **Part 10 — the Tael partnership integration is SHIPPED and LIVE**
-(SDK 0.2.0 on npm, credit endpoints live on `trustline-rpxt.onrender.com`, our
-code merged into Tael's repo, and a funded testnet treasury so agents can
-actually borrow). Backend URL changed to `https://trustline-rpxt.onrender.com`.
-Read Part 10 for the full state + the traps._
+_Newest work: **Part 11 — autonomous agent demo, live credit-book dashboard,
+site polish (mobile nav / status / footer / brand), SDK 0.2.1 (Tael borrow
+fix), a full 3-part product audit, and Tier-1 hardening — all SHIPPED on `main`.**
+A prioritized **Tier-2 plan** is at the end of Part 11 — a new session should
+start there. Backend is `https://trustline-rpxt.onrender.com` (NOT
+`trustline.onrender.com`, which is SUSPENDED). Read Part 11 first, then Part 10._
 
 ---
 
@@ -1035,3 +1036,89 @@ problem to solve before mainnet; the code is ready, the liquidity market is not.
 - `TREASURY_MAX_PER_VAULT_USDC` (default 10) + the treasury wallet's balance are
   the only spend guards — there is NO cross-vault exposure ledger (deferred as a
   mainnet concern). Keep the treasury wallet funded only to accepted exposure.
+
+## Part 11 — Autonomous agent demo, credit book, site polish, product audit + Tier-1 hardening (2026-07-24)
+
+**A new session: start here, then jump to the Tier-2 plan at the bottom of this Part.**
+
+### Live URLs (all verified this session)
+- Frontend: **https://www.0xtrustline.online** (Vercel, auto-deploys `main`). Canonical is `www`.
+- Backend (underwriting API): **https://trustline-rpxt.onrender.com** — `trustline.onrender.com` is **SUSPENDED**, do not use it.
+- Agent server (demo LLM loop): **https://trustline-1.onrender.com**
+- Data seller (x402 endpoint the demo agent buys from): **https://trustline-data-seller.onrender.com**
+- Docs: **https://docs.0xtrustline.online** (Mintlify — real, substantive). The internal Next `/docs` tree was DELETED this session (dead/unreachable); `/docs` 307-redirects to Mintlify. Canonical doc source is top-level `docs/*.md`.
+- Product X handle: **@0xtrustline** (personal is @divyanshh_kalra). Contact: divyanshhkalra1234@gmail.com.
+
+### What SHIPPED this session (all on `main`, pushed, live)
+
+**1. Autonomous agent demo (`/agent-demo`) — the flagship "wow".**
+A real LLM (free Groq default, with fallback chain) drives a tool-loop that, live on testnet: checks credit → draws credit for a shortfall → buys a paid x402 data call → delivers research → gets paid → repays. Every money-move is a real tx with a Stellar Expert link.
+- `agents/shared/agent-brain.mjs` — model-agnostic tool-calling loop. **LLM fallback chain: Groq big → Groq small (`llama-3.1-8b-instant`) → Gemini** (all OpenAI-compatible). Swap via `LLM_BASE_URL`/`LLM_API_KEY`/`LLM_MODEL`. **KNOWN RISK: free Groq + Gemini daily quotas can BOTH exhaust after heavy testing → the demo's TEXT 429s (tx still work).** Let quotas reset or add a paid key before a pitch.
+- `agents/demo/agent-runtime.mjs` — the 4 tools wired to the SDK (check_credit / buy_premium_data / deliver_and_get_paid / repay). Demo agent = the **ANALYST wallet** (has real revenue → Tier C, ~$0.44 limit). Its spare cash is swept to a HOLDING wallet (`agents/.demo-holding-wallet.local`, gitignored) so it's cash-poor and MUST draw credit. The holding wallet doubles as the "customer" that pays the agent (the one staged part — labeled honestly; the credit/borrow/repay/default are 100% real).
+- `agents/demo/agent-server.mjs` — SSE bridge (`POST /run`, `GET /info`, `POST /drain`, `GET /deadbeat`, `POST /default`). Binds `$PORT`.
+- `agents/demo/data-seller.mjs` — $0.30 x402 seller (real `@x402/express`). **Now has CORS** (added this session).
+- `frontend/app/agent-demo/page.tsx` — chat UI + **operator controls**: a "drain agent cash" button (sweep to force a credit draw next run) and a **default scenario** panel.
+- **Default scenario (the "what if they don't pay?" answer, proven live):** `agents/demo/default-scenario.mjs` + `stage-default.mjs`. A dedicated DEADBEAT wallet (`agents/.deadbeat-wallet.local`, gitignored) is staged with real revenue from 3 independent payers, underwritten, and borrows to start the 5-min due clock. After ~5 min, `POST /default` fires the REAL on-chain `mark_default`. **The deadbeat is ONE-SHOT** (once defaulted it's frozen) — to re-run, stage a fresh deadbeat. Loan term is `term_secs = 300` (5 min) on the deployed vault.
+- Run/deploy guides: `agents/demo/AGENT_DEMO.md`, `agents/demo/DEPLOY.md`.
+
+**2. Live credit-book dashboard (`/portfolio`).**
+`backend/src/portfolio.ts` + `GET /portfolio`: reads every underwritten agent's on-chain vault `state()` and aggregates — total outstanding, utilization, default rate, realized loss, reserve coverage, weighted-avg APR, lender yield, per-agent positions. `frontend/app/portfolio/page.tsx` renders it (stat tiles + positions table + lender-pool teaser). Read-only. **This is the "it's a credit business, not a demo" proof.** Real numbers as of this session: 15 agents, 3 active loans, 1 default (6.67%), $0.10 realized loss, ~13% avg APR.
+
+**3. SDK 0.2.1 published to npm** — `borrow()` now auto-seeds the vault via the treasury (`ensureLiquidity`). **This was the fix for Tael's "borrow doesn't work"** — the published 0.2.0 lacked it, so Tael borrowed against an empty vault → InsufficientLiquidity. 0.2.1 verified working via the exact published package. **Tael still needs to: reinstall `@latest`, and set `USDC_ISSUER=GBBD47IF…` in their dashboard env** (their buy-side default `GBCDXWBE…` is a DIFFERENT USDC than everything else uses). The `GC62IXD4…` address Tael mentioned is a FEE wallet, not a USDC issuer.
+
+**4. Tael repay PR** — `feat/trustline-repay` on the fork → **PR #137** to `rahulsainlll/tael-protocol`: adds `maybeRepayTrustLineCredit` in `run-capability.ts` (opportunistic repay from spare cash after a successful call). Closes the loop (borrow existed, repay didn't). Docs: `TAEL_SPEC_VS_REALITY.md`, `TAEL_REPAY_SKETCH.md`.
+
+**5. Site polish:**
+- `/status` — server-side health page via same-origin `/api/status` (Next route handler pings services server-side). **CRITICAL FIX: privacy browsers (Brave Shields) block direct cross-origin `*.onrender.com` pings from the browser → false "down". The `/api/status` proxy fixes it for every browser.** Don't revert to browser-side pinging.
+- Global footer (`components/tl/TLFooter.tsx`, in `layout.tsx`) — brand, live status pill, links, `npx @trustline-agents/skill`, @0xtrustline, contact. Removed old blue `SiteFooter` from the 2 pages that had it.
+- `/brand` — brand kit (palette/type/one-liners).
+- **Mobile nav** — `TLNav` got a hamburger + full-screen menu (was completely hidden on phones before).
+- MIT `LICENSE` added at repo root (open-source claim is now true).
+
+**6. Pitch materials (prompts, not built decks):** `PITCH_DECK_PROMPT.md` (pitch + GTM, real sourced market stats: 69k agents / 165M tx / ~$50M x402 vol by Apr 2026 — Coinbase; x402 Foundation w/ Visa/MC/Stripe; EIP-8004 for differentiation), `ROADMAP_DIAGRAM_PROMPT.md`, `LENDER_POOL_DESIGN.md`.
+
+**7. Mainnet XLM deploy form** — measured real Soroban deploy cost on testnet: Score Registry 0.43 / Credit Line 0.35 / Lending Vault 3.44 XLM = **4.22 real; asked for 6 (buffered)**. Freighter mainnet address on file: `GADUJHCLCDXVCBQZYQMLB66WO7AL3PNAO65JSKF3FKO4ER6XUE2IJDNW`.
+
+### Tier-1 hardening DONE this session (from the product audit)
+- Mobile nav (was unusable on phones). `/coming-soon` + `/preview` (stale blue-theme) redirect to `/`. Deleted the dead internal `/docs` tree (~2.3k lines).
+- **signer bug FIXED:** `submitScore`/`recordRepayment` now send-AND-confirm (poll to SUCCESS) instead of returning `submitted:true` right after send — they were reporting success for txs that could fail at consensus.
+- **Security:** removed the committed `RECLAIM_APP_SECRET` literal (env-only now); ephemeral-signer fallback is opt-in (`ALLOW_EPHEMERAL_SIGNER=true`) and throws otherwise. zkTLS still fails-gracefully when the secret's unset (try/catch in underwrite), so no prod breakage — but if you want zkTLS live on Render, set `RECLAIM_APP_SECRET` there.
+
+### THE PRODUCT AUDIT (3 parallel agents, this session) — what a reviewer will hit
+
+**Genuinely strong (lead with these, don't touch):** fuzzed solvency invariants on the vault; O(1) socialized-loss via share repricing; per-agent isolation; the **anti-Sybil independence engine + adversarial catalog** (6 named attacks pass, and it HONESTLY documents the one gap A7b — reviewers respect that); ERC-4626 inflation attack is closed; three real revenue rails (x402/Tael/zkTLS); `payWithCredit` is senior-level; the spectator demo path (landing → underwrite → duel → agent-demo) is best-in-class and pitch-ready TODAY.
+
+### >>> TIER 2 — START HERE (new session). Days, not weeks. Ranked by impact. <<<
+
+Full findings are in the audit; these are the confirmed high-value items. NONE are new features — all are hardening the real thing.
+
+**P0 correctness/trust:**
+1. **Anti-Sybil window bug (the moat runs weaker than claimed).** In the NO-DB path, `analyzeIndependence` gets `windowFromLedger = 0` (`backend/src/underwrite.ts:178`), so `gatherPayerFacts` (`independence.ts:~508`) does RPC `getEvents` from ledger 0 → RPC clamps to ~24h retention → the funding/out-degree graph only covers ~24h even for full-history revenue. The DB path (`gatherPayerFactsFromGraph`) is correct. FIX: pass the real revenue window, OR make in-memory mode refuse to claim independence rather than under-compute it. **This is the thing a technical judge probes.**
+2. **`DIVERSITY_FULL=1`** (`independence.ts:~36`) saturates diversity at a single external counterparty on testnet — the moat is tuned near its weakest defensible setting. Consider raising for a real-scrutiny demo.
+
+**P1 product-readiness (turns demo → company):**
+3. **Lender "YOUR POSITIONS" read-back** — `frontend/app/lender/page.tsx:111,189` is hardcoded `"—"`; a lender can't see what they own after depositing. Read their vault shares on-chain. **Biggest functional hole.**
+4. **API auth + rate-limiting** — `POST /underwrite`, `/repayment`, `/ensure-liquidity` are OPEN (only `/available-credit` has the Tael HMAC guard). Add `@fastify/rate-limit` + an API-key/bearer guard (reuse the `verifyTaelSignature` pattern in `server.ts`). Trivial DoS/cost-amplification today.
+5. **Borrower onboarding stepper** — `frontend/app/borrower/page.tsx:574` buries "Register on-chain (first time)" as a ghost link; new users click Draw → contract error. Add a register→underwrite→draw stepper, gate Draw behind registration.
+6. **Contract upgrade path** — no `upgrade()` on any contract holding lender USDC (#1 "production-ready" red flag). Add `env.deployer().update_current_contract_wasm` + admin rotation on the vault, OR explicitly declare immutability with a `version()` view and lean on the isolation/pause story.
+7. **Paginate `/agents` + `/portfolio`** — currently O(n) RPC per request (a vault `state()` per agent in a loop). Won't scale past demo; cache the reads.
+
+**P1 correctness (backend):**
+8. **Untested score math** — `computeScoreResult` (`backend/src/scoring/index.ts`) has ZERO tests (tier bands, ramp, default collapse, counterparty gating). Wire a backend `test` script; add unit tests. This is the money math.
+
+**P2 differentiators (the "best, not just solid" moves):**
+9. **Contract admin/treasury events** (pause/unpause/cap/treasury/invest/harvest emit nothing) + **genuine-auth negative tests** (prove an attacker can't borrow as another agent / drain another lender — most tests use `mock_all_auths`).
+10. **SDK polish:** `underwrite()`/`onboard()` return `any` (mirror the backend `ScoreResult`/`UnderwritingResult` types); add `repayAll()` (reads `amountOwedUsdc` then repays) and `previewCredit()` wrappers; no portfolio/agents reads.
+11. **Instance-TTL bumping** on contracts (no `instance().extend_ttl` anywhere → config keys can expire and brick the contract on low traffic). One-liner per entrypoint.
+12. **Portable credit attestation** — the 10x "we're the credit BUREAU" move. `publish_score` is on-chain already; expose a signed, portable tier/score proof other protocols read (EIP-8004 validates the demand). Highest ceiling.
+13. **Close A7b** — raise `DIVERSITY_FULL` + add a minimum-external-volume / global-graph signal so the documented non-reciprocal collusion-ring gap closes; extend the adversarial catalog.
+
+### Traps / hard-won learnings this session (do NOT relearn)
+- **`trustline.onrender.com` is SUSPENDED.** Live backend is `trustline-rpxt.onrender.com`. `agents/.env` had the dead one — fixed. Check `NEXT_PUBLIC_API_BASE_URL` everywhere.
+- **Brave Shields blocks browser→onrender cross-origin pings** → false "down" on a naive status page. Always check service health SERVER-side (`/api/status`), never client-side cross-origin.
+- **Render free tier sleeps (~15min idle, 30-50s cold start).** A keep-warm pinger (cron-job.org, every 10 min, hitting the 3 service health URLs) is set up — keep it. Ping services ~1 min before any live demo regardless.
+- **npm publish is immutable** — the published 0.2.0 was a stale build; had to bump to 0.2.1. When you fix the SDK, ALWAYS bump the version and republish (needs OTP; user does it).
+- **Two USDC issuers exist in Tael's code** (`GBBD47IF` = correct/shared; `GBCDXWBE` = their buy-side default = wrong). Same code, different issuer = different token. Align everything to `GBBD47IF` on testnet.
+- **The deadbeat default agent is one-shot** — stage a fresh one to re-demo default.
+- **LLM quotas (Groq/Gemini free) exhaust** — plan around it for pitch day.
+- Local wallet key files are gitignored (`*.local`): `agents/.demo-holding-wallet.local`, `agents/.deadbeat-wallet.local`. Don't commit them; don't lose them.
