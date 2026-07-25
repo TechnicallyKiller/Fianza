@@ -34,6 +34,12 @@ import {
 // x-tael-timestamp as Date.now() ms; anything older than this is rejected.
 const TAEL_SIG_MAX_AGE_MS = 5 * 60 * 1000; // 5 minutes
 
+// Real mainnet USDC, publicly reachable, no auth gate on the mainnet demo
+// routes (deliberate — the amounts are small enough to accept the exposure).
+// Still cap the blast radius of a single call regardless of what the agent's
+// actual on-chain credit limit allows.
+const MAINNET_MAX_ACTION_USDC = 0.5;
+
 /**
  * Verify Tael's `x-tael-agent-sig` HMAC on a proxied call. Mirrors their
  * construction exactly (apps/api/src/modules/gateway/upstream.ts):
@@ -355,13 +361,21 @@ export async function buildServer() {
     }
   });
 
-  app.post<{ Body: { amountUsdc?: number } }>("/mainnet/agent/borrow", async (req, reply) => {
+  app.post<{ Body: { amountUsdc?: number } }>(
+    "/mainnet/agent/borrow",
+    { config: { rateLimit: { max: 5, timeWindow: "1 minute" } } },
+    async (req, reply) => {
     if (!mainnetAgentConfigured()) {
       return reply.code(503).send({ error: "mainnet agent not configured (MAINNET_AGENT_SECRET unset)" });
     }
     const amount = Number(req.body?.amountUsdc);
     if (!(amount > 0)) {
       return reply.code(400).send({ error: "amountUsdc must be a positive number" });
+    }
+    // Real mainnet USDC, publicly reachable, no auth gate — cap the blast
+    // radius of any single call regardless of the agent's actual credit limit.
+    if (amount > MAINNET_MAX_ACTION_USDC) {
+      return reply.code(400).send({ error: `amountUsdc capped at $${MAINNET_MAX_ACTION_USDC} per call` });
     }
     try {
       const txHash = await mainnetBorrow(amount);
@@ -370,15 +384,22 @@ export async function buildServer() {
       req.log.error(e, "mainnetBorrow failed");
       return reply.code(502).send({ error: e instanceof Error ? e.message : String(e) });
     }
-  });
+    },
+  );
 
-  app.post<{ Body: { amountUsdc?: number } }>("/mainnet/agent/repay", async (req, reply) => {
+  app.post<{ Body: { amountUsdc?: number } }>(
+    "/mainnet/agent/repay",
+    { config: { rateLimit: { max: 5, timeWindow: "1 minute" } } },
+    async (req, reply) => {
     if (!mainnetAgentConfigured()) {
       return reply.code(503).send({ error: "mainnet agent not configured (MAINNET_AGENT_SECRET unset)" });
     }
     const amount = Number(req.body?.amountUsdc);
     if (!(amount > 0)) {
       return reply.code(400).send({ error: "amountUsdc must be a positive number" });
+    }
+    if (amount > MAINNET_MAX_ACTION_USDC) {
+      return reply.code(400).send({ error: `amountUsdc capped at $${MAINNET_MAX_ACTION_USDC} per call` });
     }
     try {
       const txHash = await mainnetRepay(amount);
@@ -387,7 +408,8 @@ export async function buildServer() {
       req.log.error(e, "mainnetRepay failed");
       return reply.code(502).send({ error: e instanceof Error ? e.message : String(e) });
     }
-  });
+    },
+  );
 
   // Last stored underwriting result for an agent.
   app.get<{ Params: { address: string } }>("/agent/:address", async (req, reply) => {

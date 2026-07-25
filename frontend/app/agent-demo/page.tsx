@@ -23,6 +23,7 @@ import {
   ShieldAlert,
   SkullIcon,
 } from "lucide-react";
+import MainnetPanel from "./MainnetPanel";
 
 const AGENT_SERVER =
   process.env.NEXT_PUBLIC_AGENT_SERVER || "http://localhost:3040";
@@ -59,6 +60,7 @@ const SUGGESTIONS = [
 ];
 
 export default function AgentDemoPage() {
+  const [network, setNetwork] = useState<"testnet" | "mainnet">("testnet");
   const [info, setInfo] = useState<Info | null>(null);
   const [prompt, setPrompt] = useState("");
   const [running, setRunning] = useState(false);
@@ -178,6 +180,34 @@ export default function AgentDemoPage() {
     <div className="tl-select relative min-h-screen bg-obsidian text-bone">
       <TLNav />
       <div className="tl-grain relative mx-auto w-full max-w-[900px] px-6 py-14 md:px-10">
+        {/* network tabs */}
+        <div className="tl-anim-fadeup mx-auto mb-8 flex max-w-2xl items-center justify-center gap-2">
+          <button
+            onClick={() => setNetwork("testnet")}
+            className={`rounded-full border px-4 py-1.5 font-tl-mono text-[11px] tracking-[0.1em] transition-colors ${
+              network === "testnet"
+                ? "border-ion/40 bg-ion/[0.1] text-ion"
+                : "border-white/10 text-ash hover:border-white/20"
+            }`}
+          >
+            TESTNET · full agent loop
+          </button>
+          <button
+            onClick={() => setNetwork("mainnet")}
+            className={`rounded-full border px-4 py-1.5 font-tl-mono text-[11px] tracking-[0.1em] transition-colors ${
+              network === "mainnet"
+                ? "border-flare/40 bg-flare/[0.1] text-flare"
+                : "border-white/10 text-ash hover:border-white/20"
+            }`}
+          >
+            MAINNET · real funds
+          </button>
+        </div>
+
+        {network === "mainnet" ? (
+          <MainnetPanel />
+        ) : (
+        <>
         {/* hero */}
         <div className="tl-anim-fadeup mx-auto max-w-2xl text-center">
           <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-ion/20 bg-ion/[0.06] px-3 py-1 font-tl-mono text-[10px] tracking-[0.2em] text-ion">
@@ -374,6 +404,8 @@ export default function AgentDemoPage() {
           for paid work, then repays from the payout. Underwritten against its
           own on-chain revenue.
         </p>
+        </>
+        )}
       </div>
     </div>
   );
