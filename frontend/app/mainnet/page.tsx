@@ -1,6 +1,6 @@
 "use client";
 
-// /mainnet — the honest mainnet status page. TrustLine's three contracts are
+// /mainnet — the honest mainnet status page. Fianza's three contracts are
 // deployed for real on Stellar mainnet, settling in Circle's actual USDC — but
 // the live product/backend still runs on testnet while the lender/liquidity
 // side is built out. This page states both facts plainly: real contracts,
@@ -52,7 +52,7 @@ export default function MainnetPage() {
             Not yet the live app.
           </h1>
           <p className="mt-4 max-w-xl font-tl-sans text-sm leading-[1.7] text-ash">
-            TrustLine&apos;s three Soroban contracts are deployed on Stellar
+            Fianza&apos;s three Soroban contracts are deployed on Stellar
             mainnet, settling in Circle&apos;s real USDC — not a testnet stand-in.
             The product you can click around today still runs on{" "}
             <span className="text-bone">testnet</span> while the mainnet
@@ -166,12 +166,12 @@ export default function MainnetPage() {
             </p>
             <p className="mt-1.5 max-w-2xl font-tl-sans text-[13px] leading-[1.65] text-ash">
               A credit product needs someone to actually fund the vaults —
-              today that&apos;s TrustLine&apos;s own treasury on testnet, a
+              today that&apos;s Fianza&apos;s own treasury on testnet, a
               deliberate bootstrap posture, not a mainnet one. Wiring the live
               product to these mainnet contracts means standing up the pooled
               lender market first (see the{" "}
               <span className="text-bone">credit book</span> and its lender-pool
-              teaser), so real third-party capital — not TrustLine&apos;s own
+              teaser), so real third-party capital — not Fianza&apos;s own
               money — is what funds mainnet agents. The contracts are ready
               today; the liquidity side is the next build.
             </p>

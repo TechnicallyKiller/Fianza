@@ -1,6 +1,10 @@
-# TrustLine docs (Mintlify)
+# Fianza docs (Mintlify)
 
-The TrustLine documentation site, built with [Mintlify](https://mintlify.com).
+_Formerly "TrustLine" — renamed to Fianza to avoid confusion with an
+unrelated, already-funded SCF project of the same name. Domain/infra rename
+still in progress; some links below still point at 0xtrustline.online._
+
+The Fianza documentation site, built with [Mintlify](https://mintlify.com).
 Content lives in `*.mdx` files; navigation, theme, and the built-in **Ask AI**
 assistant are configured in [`docs.json`](./docs.json).
 
@@ -38,7 +42,7 @@ If the CLI is out of date: `mint update`. To validate links: `mint broken-links`
 
 **Ask AI** is included and needs no code or API key — it indexes these `.mdx`
 pages automatically once deployed. It appears as a search/chat control in the
-top bar. Ask it something grounded in the docs (e.g. *"How does TrustLine size a
+top bar. Ask it something grounded in the docs (e.g. *"How does Fianza size a
 credit line?"*) to confirm.
 
 ---

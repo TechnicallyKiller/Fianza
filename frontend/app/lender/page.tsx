@@ -1,6 +1,6 @@
 "use client";
 
-// Lender — TrustLine.dc.html isolated-vaults screen. Wired to the live
+// Lender — Fianza.dc.html isolated-vaults screen. Wired to the live
 // /agents API (same data as before this redesign) + the real deposit
 // contract call. "Your positions" reads the connected wallet's real on-chain
 // vault shares via the vault's position(lender, agent) view — one simulate-
@@ -390,7 +390,7 @@ function DefindexCard({ dfx }: { dfx: DefindexStatus }) {
           <Info size={12} className="mt-0.5 shrink-0 text-[#5a635e]" />
           <span>
             <span className="text-ash">Testnet note:</span> DeFindex/Blend settle
-            in their own testnet USDC — separate from TrustLine&apos;s main testnet
+            in their own testnet USDC — separate from Fianza&apos;s main testnet
             USDC, with no swap pool between them — so this yield leg runs in
             DeFindex&apos;s USDC. On mainnet everything settles in Circle USDC and
             the split disappears; the integration is mainnet-compatible as built.

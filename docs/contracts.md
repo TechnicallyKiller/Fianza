@@ -19,7 +19,26 @@ the source of truth the frontend and SDK actually resolve against.
 | USDC (Soroban SAC) | `CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA` | The settlement asset, wrapped for Soroban contract calls. |
 | USDC issuer (classic asset) | `GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5` | Same USDC, classic-asset side — used for trustlines and classic payments (e.g. the faucet). |
 | Score signer (trusted, v1) | `GCNFNO4A4WPHUNNT3YJ36J4NIW4SV46XNO35Y355TMJF6DVPVXM3KWXF` | The one key that publishes scores to `score_registry` today. See [Roadmap](roadmap.md) for the decentralization plan. |
-| Testnet USDC faucet | `GCUVT3UH4JFHAK7APFHU655SY5QC4JQGRWH5NPGUC3RXCIBYH2NTB2UB` | Drips a small one-time amount of testnet USDC to new agents. Deliberately unrelated to any TrustLine agent/customer wallet — see the [onboarding kit](onboarding-kit.md#3-get-testnet-usdc) for why. |
+| Testnet USDC faucet | `GCUVT3UH4JFHAK7APFHU655SY5QC4JQGRWH5NPGUC3RXCIBYH2NTB2UB` | Drips a small one-time amount of testnet USDC to new agents. Deliberately unrelated to any Fianza agent/customer wallet — see the [onboarding kit](onboarding-kit.md#3-get-testnet-usdc) for why. |
+
+## Mainnet deployment (real, not wired to the live app yet)
+
+Same three contracts, same code, deployed for real on Stellar mainnet,
+settling in Circle's actual mainnet USDC. **The live product/backend still
+runs on testnet** — these are not yet what the app/SDK point at by default.
+
+| Contract | Address |
+|---|---|
+| `score_registry` | `CAHWYFLMQI6BBOL6ZLZRRINCK6KVBX73ACH7LCPB24WDED4LSMCI7YZC` |
+| `credit_line` | `CDK7S4UWY227FHFKDSV37DGT7AIJ5Z2QEYO5AY456M7RBGJN25WYJVGC` |
+| `lending_vault` | `CAE5C5UJYVED5DAVY4YKYT6E2C4NBZCIUBAK2MXGKGLKZESBBXKFPZ4U` |
+| USDC (Soroban SAC, mainnet) | `CCW67TSZV3SSS2HXMBQ5JFGCKJNXKZM7UQUWUZPUTHXSTZLEO7SJMI75` |
+| USDC issuer (Circle, official, mainnet) | `GA5ZSEJYB37JRC5AVCIA5MOP4RHTM335X2KGX3IHOJAPP5RE34K4KZVN` |
+
+Config: 30-day loan term, $100/vault deposit cap (launch-conservative,
+admin-adjustable). Verified live end-to-end (registration, score publish,
+cross-contract term derivation) with real on-chain transactions — see the
+[`/mainnet`](https://0xtrustline.online/mainnet) status page for tx links.
 
 ## Superseded (kept for reference — do not build against these)
 

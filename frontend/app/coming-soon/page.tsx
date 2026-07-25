@@ -4,9 +4,9 @@ import { ArrowLeft, ArrowRight, Check } from "lucide-react";
 import SiteHeader from "@/components/SiteHeader";
 
 export const metadata: Metadata = {
-  title: "TrustLine — Dashboards launching soon",
+  title: "Fianza — Dashboards launching soon",
   description:
-    "The TrustLine borrower and lender dashboards are being wired to live Stellar testnet data. Coming soon.",
+    "The Fianza borrower and lender dashboards are being wired to live Stellar testnet data. Coming soon.",
 };
 
 const pipeline = [
@@ -65,7 +65,7 @@ export default function ComingSoon() {
               Back to home
             </Link>
             <a
-              href="mailto:divyanshhkalra1234@gmail.com?subject=TrustLine%20early%20access"
+              href="mailto:divyanshhkalra1234@gmail.com?subject=Fianza%20early%20access"
               className="electric-blue-glow inline-flex items-center gap-2 rounded bg-primary-container px-6 py-3 font-body-md font-medium text-on-primary-container transition-all duration-300 hover:scale-[1.02] hover:bg-primary hover:text-surface"
             >
               Request early access

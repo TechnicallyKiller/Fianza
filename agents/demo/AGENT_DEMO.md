@@ -11,6 +11,15 @@ customer payment — the holding wallet plays the buyer paying for the research.
 In production that's a real x402 buyer; the agent's existing $2.96 credit
 history is exactly those real payments.
 
+> ⚠️ **PITCH-DAY QUOTA WARNING.** The demo uses free LLM tiers (Groq → Groq
+> small → Gemini fallback). All three can exhaust their daily/minute quotas
+> after heavy testing, and then BOTH the agent's reasoning AND the data-seller's
+> research generation fail with 429 (the research note comes back as an error
+> string). The transactions still work — but the text is garbage. Before you
+> pitch, either (a) let Groq's daily cap reset (~24h), or (b) add a paid Groq Dev
+> key (cheap; no code change — the fallback just uses it). Do NOT rely on a
+> hammered free tier during a live pitch.
+
 ## The pieces
 
 | Piece | File | What it is |

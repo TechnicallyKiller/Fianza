@@ -1,4 +1,4 @@
-# TrustLine — Project Log & Handoff
+# Fianza — Project Log & Handoff
 
 **On-chain, revenue-underwritten credit protocol for AI agents on Stellar.**
 Borrowing power is underwritten by verified revenue (on-chain x402 earnings +
@@ -87,7 +87,7 @@ over x402. Every credit line is an isolated per-agent vault.
 │   ├── app/borrower/      # SAMPLE agent dashboard (illustrative data)
 │   ├── app/lender/        # SAMPLE lender dashboard (illustrative data)
 │   ├── app/coming-soon/   # earlier coming-soon page
-│   ├── components/        # CinematicBackground, BrandMark, TrustLineMark, NotifyForm, DashboardChrome, SiteHeader/Footer, ...
+│   ├── components/        # CinematicBackground, BrandMark, FianzaMark, NotifyForm, DashboardChrome, SiteHeader/Footer, ...
 │   └── public/logo6.png   # the real logo (2048², ~6.2MB — optimize later)
 ├── spikes/               # VALIDATED de-risking spikes (testnet) — DO NOT reinvent
 │   ├── spike1-x402-payer/        # Gate 1: x402 payer identity (transfer.from = agent)
@@ -321,7 +321,7 @@ roadmap; **curated LPs**, testnet for demo day; goal = win the hackathon with a
 investment-worthy product (production infra, full independence model, originate→open).
 
 **Done this session:**
-- **Agent SDK** — `packages/agent-sdk/` (`@trustline/agent-sdk`). `TrustLineAgent`
+- **Agent SDK** — `packages/agent-sdk/` (`@trustline/agent-sdk`). `FianzaAgent`
   class: `register / underwrite / onboard / creditLine / vaultState / borrow / repay`
   over a Node `Keypair`. Built + **validated on testnet** (autonomous borrow+repay
   settled: tx `7274c448…`, `d680da1b…`). README = the "infrastructure" signal.
@@ -372,7 +372,7 @@ investment-worthy product (production infra, full independence model, originate�
 
 ## 9. Scout — the live autonomous agent (2026-07-01/02)
 
-**A brand-new agent, zero starting capital, ran the ENTIRE TrustLine lifecycle
+**A brand-new agent, zero starting capital, ran the ENTIRE Fianza lifecycle
 organically through real usage — no pre-arranged demo script.** New top-level
 `agents/` workspace (`agents/{shared,dataco,scout}/`), $0 real cost throughout
 (free Groq/Gemini inference, free testnet USDC, free Render/local hosting).

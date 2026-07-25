@@ -1,0 +1,543 @@
+<title>Fianza × Tael — Partnership Brief</title>
+<style>
+  :root {
+    --obsidian: #0b0f0e;
+    --void: #060908;
+    --bone: #f4f1e9;
+    --nectar: #ffb020;
+    --ion: #58f0c8;
+    --flare: #ff5c4d;
+    --ash: #a7ada6;
+
+    --bg: var(--void);
+    --surface: #10151389;
+    --surface-raised: rgba(244, 241, 233, 0.045);
+    --ink: var(--bone);
+    --ink-soft: var(--ash);
+    --accent: var(--ion);
+    --accent-dim: rgba(88, 240, 200, 0.1);
+    --brass: var(--nectar);
+    --brass-line: rgba(255, 176, 32, 0.28);
+    --warn: var(--flare);
+    --warn-bg: rgba(255, 92, 77, 0.1);
+    --rule: rgba(244, 241, 233, 0.1);
+    --code-bg: rgba(88, 240, 200, 0.08);
+  }
+
+  /* Fianza's system is dark-first by design (globals.css: color-scheme: dark).
+     Light mode lightens the ground while keeping the same brand hues legible. */
+  :root[data-theme="light"] {
+    --bg: var(--bone);
+    --surface: #ffffff;
+    --surface-raised: rgba(11, 15, 14, 0.035);
+    --ink: #14201c;
+    --ink-soft: #5a6560;
+    --accent: #0d8f6f;
+    --accent-dim: rgba(13, 143, 111, 0.08);
+    --brass: #a6690a;
+    --brass-line: rgba(166, 105, 10, 0.3);
+    --warn: #b7382a;
+    --warn-bg: rgba(183, 56, 42, 0.08);
+    --rule: rgba(20, 32, 28, 0.12);
+    --code-bg: rgba(13, 143, 111, 0.08);
+  }
+
+  @media (prefers-color-scheme: light) {
+    :root:not([data-theme="dark"]) {
+      --bg: var(--bone);
+      --surface: #ffffff;
+      --surface-raised: rgba(11, 15, 14, 0.035);
+      --ink: #14201c;
+      --ink-soft: #5a6560;
+      --accent: #0d8f6f;
+      --accent-dim: rgba(13, 143, 111, 0.08);
+      --brass: #a6690a;
+      --brass-line: rgba(166, 105, 10, 0.3);
+      --warn: #b7382a;
+      --warn-bg: rgba(183, 56, 42, 0.08);
+      --rule: rgba(20, 32, 28, 0.12);
+      --code-bg: rgba(13, 143, 111, 0.08);
+    }
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: "Söhne", "Space Grotesk", system-ui, -apple-system, sans-serif;
+    font-size: 17px;
+    line-height: 1.65;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .page {
+    max-width: 780px;
+    margin: 0 auto;
+    padding: 5.5rem 2rem 8rem;
+  }
+
+  /* ---------- Masthead ---------- */
+
+  .masthead {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 1rem;
+    padding-bottom: 1.5rem;
+    border-bottom: 2px solid var(--ink);
+    margin-bottom: 0.75rem;
+    flex-wrap: wrap;
+  }
+
+  .masthead-mark {
+    font-family: "Space Grotesk", "Söhne", sans-serif;
+    font-weight: 700;
+    font-size: 1.02rem;
+    letter-spacing: 0.01em;
+  }
+  .masthead-mark .x { color: var(--brass); font-weight: 400; padding: 0 0.35em; }
+
+  .masthead-tag {
+    font-family: "Space Mono", ui-monospace, "SF Mono", monospace;
+    font-size: 0.7rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+  }
+
+  h1.title {
+    font-family: "Spectral", Georgia, serif;
+    font-weight: 600;
+    font-size: clamp(2.1rem, 5vw, 2.9rem);
+    line-height: 1.1;
+    letter-spacing: -0.005em;
+    margin: 1.15rem 0 0.4rem;
+    text-wrap: balance;
+  }
+  h1.title em {
+    font-style: italic;
+    color: var(--accent);
+  }
+
+  .status-line {
+    font-family: "Space Mono", ui-monospace, monospace;
+    font-size: 0.76rem;
+    color: var(--brass);
+    letter-spacing: 0.04em;
+    margin-bottom: 3rem;
+  }
+
+  /* ---------- TL;DR ---------- */
+
+  .tldr {
+    background: var(--surface-raised);
+    border-left: 3px solid var(--accent);
+    padding: 1.6rem 1.8rem;
+    margin-bottom: 3.2rem;
+    border-radius: 2px;
+  }
+  .tldr .thesis {
+    font-family: "Spectral", Georgia, serif;
+    font-weight: 600;
+    font-style: italic;
+    font-size: 1.3rem;
+    color: var(--accent);
+    margin: 0 0 0.9rem;
+    text-wrap: balance;
+  }
+  .tldr p { margin: 0 0 0.9rem; color: var(--ink-soft); }
+  .tldr p:last-child { margin-bottom: 0; }
+  .tldr ol { margin: 0.9rem 0; padding-left: 1.3rem; color: var(--ink-soft); }
+  .tldr li { margin-bottom: 0.5rem; }
+  .tldr strong { color: var(--ink); }
+  .tldr em { color: var(--ink-soft); font-style: italic; }
+
+  /* ---------- Sections (spine) ---------- */
+
+  section {
+    position: relative;
+    padding-left: 1.9rem;
+    margin-bottom: 3.4rem;
+    border-left: 1px solid var(--rule);
+  }
+
+  .sec-label {
+    position: absolute;
+    left: -0.05rem;
+    top: 0.35rem;
+    transform: translateX(-100%);
+    padding-right: 0.9rem;
+    font-family: "Space Mono", ui-monospace, monospace;
+    font-size: 0.68rem;
+    letter-spacing: 0.1em;
+    color: var(--brass);
+    white-space: nowrap;
+    text-align: right;
+    width: 3.4rem;
+  }
+
+  h2 {
+    font-family: "Spectral", Georgia, serif;
+    font-size: 1.55rem;
+    font-weight: 600;
+    letter-spacing: -0.005em;
+    margin: 0 0 1.1rem;
+    text-wrap: balance;
+    color: var(--ink);
+  }
+
+  h3 {
+    font-family: "Space Mono", ui-monospace, monospace;
+    font-size: 0.92rem;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    color: var(--accent);
+    margin: 1.8rem 0 0.8rem;
+  }
+
+  p { margin: 0 0 1.1rem; max-width: 66ch; }
+  section > p:last-child { margin-bottom: 0; }
+
+  strong { font-weight: 700; }
+  em { font-style: italic; color: var(--ink-soft); }
+
+  code {
+    font-family: "Space Mono", ui-monospace, "SF Mono", monospace;
+    font-size: 0.85em;
+    background: var(--code-bg);
+    padding: 0.1em 0.35em;
+    border-radius: 3px;
+    color: var(--accent);
+  }
+
+  /* ---------- Fit table ---------- */
+
+  .fit-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1.4rem 0 1.6rem;
+    font-family: "Space Mono", ui-monospace, monospace;
+    font-size: 0.85rem;
+  }
+  .fit-table th, .fit-table td {
+    text-align: left;
+    padding: 0.6rem 1rem 0.6rem 0;
+    border-bottom: 1px solid var(--rule);
+  }
+  .fit-table th {
+    color: var(--brass);
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    font-size: 0.68rem;
+  }
+  .fit-table td:first-child, .fit-table th:first-child {
+    color: var(--ink-soft);
+    font-weight: 600;
+    width: 8rem;
+  }
+  .fit-table tr:last-child td { border-bottom: none; }
+
+  /* ---------- Callouts ---------- */
+
+  .callout {
+    border: 1px solid var(--brass-line);
+    background: var(--accent-dim);
+    padding: 1.3rem 1.5rem;
+    margin: 1.5rem 0;
+    border-radius: 2px;
+    max-width: 66ch;
+  }
+  .callout-label {
+    display: block;
+    font-family: "Space Mono", ui-monospace, monospace;
+    font-size: 0.68rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 0.6rem;
+    font-weight: 700;
+  }
+  .callout p { margin-bottom: 0.7rem; font-size: 0.94rem; color: var(--ink-soft); }
+  .callout p:last-child { margin-bottom: 0; }
+  .callout code { background: rgba(0,0,0,0.15); }
+
+  .callout.warn {
+    border-color: var(--warn);
+    background: var(--warn-bg);
+  }
+  .callout.warn .callout-label { color: var(--warn); }
+  .callout.warn code { color: var(--warn); background: rgba(0,0,0,0.15); }
+
+  /* ---------- Flow diagram ---------- */
+
+  .flow {
+    font-family: "Space Mono", ui-monospace, monospace;
+    font-size: 0.85rem;
+    background: var(--surface-raised);
+    border: 1px solid var(--rule);
+    border-radius: 3px;
+    padding: 1.1rem 1.3rem;
+    margin: 1.4rem 0 1.6rem;
+    overflow-x: auto;
+    color: var(--ink-soft);
+    line-height: 1.7;
+    white-space: pre;
+  }
+  .flow .fn { color: var(--accent); font-weight: 600; }
+
+  /* ---------- Sub-angle blocks ---------- */
+
+  .subhead {
+    display: inline-block;
+    font-family: "Space Mono", ui-monospace, monospace;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    color: var(--void);
+    background: var(--accent);
+    padding: 0.15em 0.55em;
+    border-radius: 2px;
+    margin-right: 0.5em;
+    vertical-align: 1px;
+  }
+  :root[data-theme="light"] .subhead { color: var(--bone); }
+  @media (prefers-color-scheme: light) {
+    :root:not([data-theme="dark"]) .subhead { color: var(--bone); }
+  }
+
+  /* ---------- Phase list ---------- */
+
+  .phases { margin: 1.4rem 0 0; }
+  .phase {
+    display: grid;
+    grid-template-columns: 6.5rem 1fr;
+    gap: 1.2rem;
+    padding: 1rem 0;
+    border-top: 1px solid var(--rule);
+  }
+  .phase:first-child { border-top: none; }
+  .phase-tag {
+    font-family: "Space Mono", ui-monospace, monospace;
+    font-size: 0.72rem;
+    color: var(--brass);
+    letter-spacing: 0.04em;
+    padding-top: 0.15rem;
+  }
+  .phase-body p { margin: 0; font-size: 0.95rem; }
+  .phase-body strong { color: var(--ink); }
+
+  /* ---------- Ask list ---------- */
+
+  .ask-group { margin-bottom: 1.6rem; }
+  .ask-group:last-child { margin-bottom: 0; }
+  .ask-title {
+    font-family: "Space Mono", ui-monospace, monospace;
+    font-size: 0.78rem;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--brass);
+    margin-bottom: 0.7rem;
+    font-weight: 700;
+  }
+  .ask-group ul { margin: 0; padding-left: 1.2rem; }
+  .ask-group li { margin-bottom: 0.7rem; max-width: 64ch; }
+  .ask-group li:last-child { margin-bottom: 0; }
+
+  /* ---------- Closing ---------- */
+
+  .closing {
+    margin-top: 4rem;
+    padding-top: 2.4rem;
+    border-top: 2px solid var(--ink);
+  }
+  .closing blockquote {
+    margin: 0;
+    font-family: "Spectral", Georgia, serif;
+    font-size: 1.2rem;
+    line-height: 1.55;
+    font-style: italic;
+    color: var(--ink);
+    text-wrap: balance;
+    max-width: 60ch;
+  }
+  .closing .attrib {
+    margin-top: 1.2rem;
+    font-family: "Space Mono", ui-monospace, monospace;
+    font-size: 0.72rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--brass);
+    font-style: normal;
+  }
+
+  @media (max-width: 640px) {
+    .page { padding: 3rem 1.3rem 6rem; }
+    section { padding-left: 1.2rem; }
+    .sec-label {
+      position: static;
+      display: block;
+      transform: none;
+      width: auto;
+      text-align: left;
+      margin-bottom: 0.6rem;
+      padding-right: 0;
+    }
+    .phase { grid-template-columns: 1fr; gap: 0.3rem; }
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    section, .tldr { animation: rise 0.5s ease backwards; }
+    section:nth-of-type(1) { animation-delay: 0.02s; }
+  }
+  @keyframes rise {
+    from { opacity: 0; transform: translateY(6px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+</style>
+
+<div class="page">
+
+  <div class="masthead">
+    <div class="masthead-mark">FIANZA<span class="x">×</span>TAEL</div>
+    <div class="masthead-tag">Partnership Brief</div>
+  </div>
+  <h1 class="title">Tael is the cash register.<br><em>Fianza is the bank that reads it.</em></h1>
+  <div class="status-line">DRAFT — 2026-07-14 · PRE-OUTREACH · GROUNDED IN CODEBASE SCAN</div>
+
+  <div class="tldr">
+    <p class="thesis">Tael answers "how does an autonomous agent get paid." It has no answer for what comes next.</p>
+    <ol>
+      <li><em>"What if the paying agent's wallet is empty?"</em> — today, the payment just fails and the request dies.</li>
+      <li><em>"What can an earning agent do with the revenue Tael settles for it?"</em> — today, nothing; it's just USDC sitting in a wallet.</li>
+    </ol>
+    <p>Fianza is both answers. We give buyer-side agents a <strong>credit line</strong> so they can always afford Tael's tolls, and we give seller-side agents <strong>revenue-based underwriting</strong> that turns the income Tael settles for them into borrowing power. Both run on the exact rails Tael already uses — x402 payments in Stellar USDC, testnet and mainnet. No bridge, no new chain, no new asset.</p>
+  </div>
+
+  <section>
+    <span class="sec-label">FIT</span>
+    <h2>Why this is a clean fit, not a forced one</h2>
+    <p>Tael and Fianza already speak the identical primitive.</p>
+
+    <table class="fit-table">
+      <tr><th></th><th>Tael</th><th>Fianza</th></tr>
+      <tr><td>Protocol</td><td>x402 / HTTP-402</td><td>x402 / HTTP-402 (<code>@x402/stellar</code>, <code>@x402/fetch</code>)</td></tr>
+      <tr><td>Chain</td><td>Stellar (testnet + mainnet)</td><td>Stellar (testnet + mainnet)</td></tr>
+      <tr><td>Asset</td><td>USDC</td><td>USDC</td></tr>
+      <tr><td>Scheme</td><td>exact</td><td>exact</td></tr>
+      <tr><td>Auth model</td><td>payment-as-auth, no keys</td><td>agent holds its own key, signs every write</td></tr>
+    </table>
+
+    <p>There is no integration seam to bridge. Tael emits exactly the on-chain payment events Fianza already indexes and underwrites against.</p>
+
+    <h3>What each side is missing that the other has</h3>
+    <p>Tael has a rich, verifiable <strong>revenue signal</strong> — every <code>receipt.payer</code> and tx hash it settles — but <strong>no credit product</strong> to do anything with it. Fianza has a <strong>credit product</strong> built precisely to score on-chain agent revenue, but needs a <strong>revenue source</strong> worth underwriting. Tael is a revenue-manufacturing machine. Neither can build the loop alone. Together it closes on one chain, one asset.</p>
+
+    <div class="callout">
+      <span class="callout-label">Grounded in their code</span>
+      <p>These claims are reconciled against a read-only architecture scan of the Tael repo (<code>rahulsainlll/tael-protocol</code>), not just its public docs. Where the code contradicts the pitch, we say so and turn it into an ask rather than paper over it.</p>
+      <p>Key facts the scan established: settled payments are <strong>bare <code>Operation.payment</code> USDC transfers with no memo or tag</strong>; <code>SettlementReceipt</code> carries <code>{ txHash, payer, network, settledAt }</code> but <strong>not amount or asset</strong>; <code>PaymentVerifier</code> is a <strong>clean swappable interface</strong> (<code>packages/payments/src/verify.ts:24-26</code>); there is <strong>no client-side agent SDK</strong>; and it is <strong>testnet-only</strong> on a self-issued test USDC, with no app-level replay protection.</p>
+    </div>
+  </section>
+
+  <section>
+    <span class="sec-label">A</span>
+    <h2>Credit as a drop-in verifier</h2>
+    <p>Tael's payment flow has a silent assumption: the paying agent <strong>already holds USDC</strong>. The x402 step "agent signs a USDC transfer" simply fails against an empty wallet. Tael has no fallback — and, confirmed by the scan, <strong>no buyer-side client SDK at all</strong>; payment construction is left entirely to the caller, demonstrated only by an internal ops script.</p>
+    <p>There are two ways Fianza closes this, and the scan makes clear which is cleaner.</p>
+
+    <h3><span class="subhead">A1</span>The drop-in verifier — headline</h3>
+    <p><code>PaymentVerifier</code> is a swappable interface at <code>packages/payments/src/verify.ts:24-26</code>. A Tael service operator can drop in a <strong>Fianza-backed verifier</strong> that accepts a payment drawn from an agent's credit line — no fork, no core change, one config line. This is the strongest integration surface Tael exposes: credit becomes a settlement backend the seller opts into, exactly the way they already choose mock vs. Stellar verifier.</p>
+
+    <h3><span class="subhead">A2</span>The buyer-side client — payWithCredit</h3>
+    <p>Fianza's SDK ships the missing client Tael doesn't have. Its flagship <code>payWithCredit(url, price)</code> does draw-on-402:</p>
+
+    <div class="flow">payWithCredit(url, price)
+  balance ≥ price ?  → <span class="fn">pay</span> over x402
+  balance &lt; price ?  → <span class="fn">borrow</span> the shortfall against the agent's line, THEN pay</div>
+
+    <p>The agent never "decides to borrow" — it just transacts, and the credit line silently covers what its cash can't. Fianza's demo agent already does exactly this against a generic x402 endpoint (<code>agents/demo/plain.mjs</code>), so pointing it at a Tael-wrapped route is close to zero new code.</p>
+    <p>A1 and A2 compose: A2 is what the agent runs, A1 is what the service trusts.</p>
+
+    <div class="callout">
+      <span class="callout-label">Pitch line</span>
+      <p>Tael turns any API into a paid API. Fianza makes sure the agent can always afford it.</p>
+    </div>
+  </section>
+
+  <section>
+    <span class="sec-label">B</span>
+    <h2>Revenue-based underwriting for sellers</h2>
+    <p>Think about what an agent that wraps its service in Tael <em>is</em>: a machine with a <strong>verifiable, on-chain, growing USDC revenue stream</strong>. Every payment Tael settles lands at that agent's Stellar <code>payTo</code> address, stamped on-chain with a tx hash.</p>
+    <p>That stream is exactly and only what Fianza's underwriter scores. Fianza's thesis is credit for agents based on real, verifiable, on-chain revenue. Tael is the machine that manufactures that revenue and writes it to the ledger Fianza already reads.</p>
+
+    <div class="callout warn">
+      <span class="callout-label">The one real blocker — and it's fixable</span>
+      <p>The scan found that Tael settles payments as bare <code>Operation.payment</code> USDC transfers with no memo or tag, and <code>SettlementReceipt</code> omits amount/asset. So from on-chain data alone, Fianza <strong>cannot distinguish Tael revenue from any other USDC hitting the same address</strong>, nor attribute a transfer to a specific invocation. Angle B is not free today.</p>
+      <p>The fix is small and lives entirely on Tael's side: attach a memo/tag convention to settlement payments, and add amount/asset to the receipt. That single change makes every Tael payment self-attributing and turns Fianza's underwriter into a drop-in reader. This is the central technical ask below.</p>
+    </div>
+
+    <h3>The flywheel — once payments are attributable</h3>
+    <p>Agent wraps its API with Tael and starts earning USDC from other agents. That revenue history is its creditworthiness — Fianza indexes the <code>payTo</code> address, sees consistent income, and underwrites a credit line against it. The agent borrows against future Tael earnings to cover its own upstream costs — compute, other paid APIs, Tael-wrapped tools it consumes — or to scale capacity. It repays out of ongoing Tael revenue; on-time repayment ramps the limit up, more capacity serves more, earns more Tael revenue, and the line grows.</p>
+    <p>This is <strong>revenue-based financing for AI agents</strong>, where Tael is the point-of-sale and Fianza is the lender reading the till.</p>
+    <p>The lending side falls out for free: a Tael operator with surplus revenue is a natural <strong>lender</strong> into Fianza vaults — earning yield on the very USDC Tael just settled for them, redeployed as credit to other agents in the same economy. The money never leaves the Tael/Fianza loop.</p>
+  </section>
+
+  <section>
+    <span class="sec-label">BUILD</span>
+    <h2>What we'd build</h2>
+    <div class="phases">
+      <div class="phase">
+        <div class="phase-tag">PHASE 0<br>days</div>
+        <div class="phase-body"><p><strong>Proof demo.</strong> A runnable end-to-end: a Tael-wrapped toy API, a Fianza agent that draws credit via <code>payWithCredit</code> (A2) to pay it, showing the Stellar transfer and Fianza ledger update in one loop. Uses Tael's existing Stellar verifier as-is — no changes needed on their side.</p></div>
+      </div>
+      <div class="phase">
+        <div class="phase-tag">PHASE 1<br>weeks</div>
+        <div class="phase-body"><p><strong>The drop-in credit verifier.</strong> Ship a <code>PaymentVerifier</code> implementation against <code>packages/payments/src/verify.ts:24-26</code> that gates settlement on a Fianza credit line. A Tael operator adopts credit-backed payment with a one-line config swap. Zero fork.</p></div>
+      </div>
+      <div class="phase">
+        <div class="phase-tag">PHASE 2<br>needs Tael</div>
+        <div class="phase-body"><p><strong>Attribution + revenue underwriting.</strong> Once Tael tags settlement payments, Fianza's underwriter indexes a <code>payTo</code> address's Tael revenue as a first-class, self-attributing source — proving Angle B with no extra work on the agent's part.</p></div>
+      </div>
+      <div class="phase">
+        <div class="phase-tag">PHASE 3<br>ongoing</div>
+        <div class="phase-body"><p><strong>Co-marketed SDK surface.</strong> Document Fianza as the recommended buyer-side client for consuming Tael services on credit, and Fianza underwriting as the recommended financing layer for Tael sellers.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <span class="sec-label">ASK</span>
+    <h2>The ask to Tael</h2>
+
+    <div class="ask-group">
+      <div class="ask-title">Technical — unblocks Angle B</div>
+      <ul>
+        <li>Add a <strong>memo/tag convention</strong> to settlement payments so a transfer is attributable to Tael, and ideally to a resource/invocation, from on-chain data alone — today they're bare <code>Operation.payment</code> transfers with no marker.</li>
+        <li>Add <strong>amount and asset</strong> to <code>SettlementReceipt</code> — currently only <code>txHash</code>, <code>payer</code>, <code>network</code>, <code>settledAt</code>.</li>
+        <li><em>Hardening, not a blocker for us:</em> a <code>txHash</code> uniqueness constraint — there's no app-level replay or double-spend protection today.</li>
+      </ul>
+    </div>
+
+    <div class="ask-group">
+      <div class="ask-title">Collaboration</div>
+      <ul>
+        <li>A testnet Tael-wrapped endpoint we can point the demo agent at.</li>
+        <li>Willingness to accept a Fianza <code>PaymentVerifier</code> as a documented, first-class verifier option alongside mock and Stellar.</li>
+        <li>Mainnet coordination when Tael wires it up — it's testnet-only today, on a self-issued test USDC rather than Circle's canonical asset.</li>
+        <li>Willingness to co-document: Tael docs reference Fianza as the buyer-side credit client and seller-side financing layer; Fianza docs reference Tael as a first-class revenue source and paid-service ecosystem.</li>
+      </ul>
+    </div>
+  </section>
+
+  <div class="closing">
+    <blockquote>
+      "Tael answers how an agent gets paid. It has no answer for what if the agent can't pay, or what the agent can do with what it earns. Fianza is both answers — a credit line so agents can always afford your tolls, and revenue-based underwriting that turns the income you settle into borrowing power. You're the cash register; we're the bank that reads it."
+    </blockquote>
+    <div class="attrib">Fianza — Partnership Brief, 2026</div>
+  </div>
+
+</div>
+                                  

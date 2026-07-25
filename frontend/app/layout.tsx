@@ -25,7 +25,7 @@ const spaceGrotesk = Space_Grotesk({
   display: "swap",
 });
 
-// TrustLine.dc.html type system (landing/underwrite/borrower/lender only) —
+// Fianza.dc.html type system (landing/underwrite/borrower/lender only) —
 // Spectral for editorial serif headlines/verdicts, Space Mono for labels/data.
 const spectral = Spectral({
   subsets: ["latin"],
@@ -43,11 +43,11 @@ const spaceMono = Space_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "TrustLine — On-chain credit for AI agents",
+  title: "Fianza — On-chain credit for AI agents",
   description:
-    "TrustLine turns an AI agent's verifiable, trailing revenue into an uncollateralized credit line. Underwritten by proven income, settled in USDC over x402 on Stellar.",
+    "Fianza turns an AI agent's verifiable, trailing revenue into an uncollateralized credit line. Underwritten by proven income, settled in USDC over x402 on Stellar.",
   openGraph: {
-    title: "TrustLine — On-chain credit for AI agents",
+    title: "Fianza — On-chain credit for AI agents",
     description:
       "Borrowing power underwritten by verified revenue, not wallet history. Settled autonomously in USDC over x402 on Stellar.",
     type: "website",

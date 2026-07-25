@@ -1,15 +1,22 @@
-# TrustLine — Reality & Handoff (READ THIS FIRST)
+# Fianza (formerly TrustLine) — Reality & Handoff (READ THIS FIRST)
 
-_Last updated: 2026-07-24. If you're a new session, read this whole file before
+_Last updated: 2026-07-25. If you're a new session, read this whole file before
 touching anything. It is deliberately blunt. `PROJECT_LOG.md` has the granular
 history; this file is the truth + the plan._
 
-_Newest work: **Part 11 — autonomous agent demo, live credit-book dashboard,
-site polish (mobile nav / status / footer / brand), SDK 0.2.1 (Tael borrow
-fix), a full 3-part product audit, and Tier-1 hardening — all SHIPPED on `main`.**
-A prioritized **Tier-2 plan** is at the end of Part 11 — a new session should
-start there. Backend is `https://trustline-rpxt.onrender.com` (NOT
-`trustline.onrender.com`, which is SUSPENDED). Read Part 11 first, then Part 10._
+_Newest work: **Part 12 — mainnet deploy (all 3 contracts LIVE on Stellar
+mainnet, verified) + rename TrustLine → "Fianza"** (name collision with a
+different, already-SCF-44-funded "Trustline" project). The rename is FULLY
+DONE, including publish: `@fianza/agent-sdk` + `@fianza/skill` are live on
+npm, `fianza-agent-sdk` is live on PyPI (note the scope is `@fianza`, not
+`@fianza-agents` — the npm org is named `fianza`). Read Part 12 FIRST — it has
+the exact rename state and the hard rule not to touch backend routes/URLs or
+break Tael's integration. What's left is only explicitly user-deferred infra
+(domain, GitHub repo rename, Render renames). Then
+Part 11 (autonomous agent demo, credit-book dashboard, Tier-2 hardening) for
+product context. Backend is `https://trustline-rpxt.onrender.com` (NOT
+`trustline.onrender.com`, which is SUSPENDED). Rename work lives on branch
+`rename/fianza`, not merged/pushed._
 
 ---
 
@@ -1122,3 +1129,60 @@ Full findings are in the audit; these are the confirmed high-value items. NONE a
 - **The deadbeat default agent is one-shot** — stage a fresh one to re-demo default.
 - **LLM quotas (Groq/Gemini free) exhaust** — plan around it for pitch day.
 - Local wallet key files are gitignored (`*.local`): `agents/.demo-holding-wallet.local`, `agents/.deadbeat-wallet.local`. Don't commit them; don't lose them.
+
+## Part 12 — MAINNET DEPLOY + PRODUCT RENAME TO "FIANZA" (2026-07-25)
+
+**READ THIS FIRST if you're picking up mid-rename.** Two big things happened this session: (1) all 3 contracts deployed to Stellar MAINNET for real, (2) the product is being renamed **TrustLine → Fianza** because a different, already-SCF-44-funded project is *also* called "Trustline" (institutional security/insurance tooling, `communityfund.stellar.org/project/trustline-23z`, $133.6K awarded) — same category, same program, too close a collision to submit under the same name.
+
+### Mainnet deploy — DONE, verified live
+Real Soroban resource fees on mainnet are **~20x testnet's subsidized fees** — don't reuse testnet cost estimates for mainnet ever again. Real measured costs: Score Registry 26.44 XLM, Credit Line 20.15 XLM, Lending Vault 55.72 XLM (~102 XLM total, not the ~6 XLM testnet estimate).
+
+Deployed contracts (mainnet, verified with real on-chain reads/writes):
+- `score_registry`: `CAHWYFLMQI6BBOL6ZLZRRINCK6KVBX73ACH7LCPB24WDED4LSMCI7YZC`
+- `credit_line`: `CDK7S4UWY227FHFKDSV37DGT7AIJ5Z2QEYO5AY456M7RBGJN25WYJVGC`
+- `lending_vault`: `CAE5C5UJYVED5DAVY4YKYT6E2C4NBZCIUBAK2MXGKGLKZESBBXKFPZ4U`
+
+Config: mainnet USDC SAC `CCW67TSZV3SSS2HXMBQ5JFGCKJNXKZM7UQUWUZPUTHXSTZLEO7SJMI75` (derived via `stellar contract id asset` from Circle's real issuer `GA5ZSEJYB37JRC5AVCIA5MOP4RHTM335X2KGX3IHOJAPP5RE34K4KZVN` — never trust a contract address off a random webpage, derive it). 30-day loan term, $100/vault deposit cap. Admin = deployer wallet `GADUJHCLCDXVCBQZYQMLB66WO7AL3PNAO65JSKF3FKO4ER6XUE2IJDNW`. Dedicated mainnet signer (separate from deployer, funded with 5 XLM): `GDVJ3W2SMINZ7MDPJ2VUKPD4F2AJXRXJPUPARFUD7RRCWL2ND6FCO32P` — its secret lives ONLY in the user's local `~/.config/stellar/identity/mainnet-signer.toml`, not in this repo.
+
+**Verified live end-to-end on mainnet** (read-only test, no real revenue needed): registered the deployer wallet as an agent, published a test score (560/tier C) signed by the dedicated signer, confirmed `credit_line.terms()` correctly derives `apr_bps:1200, limit:0.15 USDC` (15% cold-start ramp) cross-contract from the registry, confirmed the vault's `available_credit()` matches. **Contract wiring is proven correct on mainnet.** No real borrow/repay/default tested yet (needs a lender to deposit real USDC first — deliberately not done, real money).
+
+**Traps hit deploying to mainnet:**
+- The default `mainnet` network alias in the Stellar CLI is a placeholder ("Bring Your Own RPC") — you MUST `stellar network add mainnet --rpc-url <real-provider> --network-passphrase "Public Global Stellar Network ; September 2015"` first. Testnet's free public RPC has no mainnet equivalent from SDF.
+- Tried 3 free public mainnet RPCs: `mainnet.sorobanrpc.com` worked for the first deploy then started timing out; `rpc.ankr.com/stellar_soroban` and `soroban-rpc.mainnet.stellar.gateway.fm` also flaked intermittently (`transaction submission timeout` / `TxInsufficientFee`) — these are free-tier and NOT reliable for a string of deploys. Retrying (sometimes with `--inclusion-fee 1000000` to beat a stale fee estimate) got everything through eventually. Always re-check balance+sequence via Horizon before retrying to confirm nothing double-spent.
+- On-chain contract state stores NO product name/branding string anywhere (checked) — the rename does not require touching or redeploying any contract.
+- Swapped 5 XLM → USDC via `stellar tx new path-payment-strict-send` (real DEX trade, ~$0.177/XLM, confirmed via Horizon order book first). Real trustline via `stellar tx new change-trust --line "USDC:GA5ZSEJY..."` first.
+
+The user's remaining mainnet balance after all of this: ~15-25 XLM + ~0.88 USDC on `GADUJHCL...` (check live, don't trust this number as current).
+
+### The rename — IN PROGRESS, here's the exact state
+
+**Ground rule from the user, followed strictly:** do NOT change backend HTTP routes/URLs, do NOT touch `TRUSTLINE_API`-style env var names or the `trustline-rpxt.onrender.com` hostname anywhere — Tael and possibly other integrations depend on the CURRENT backend as-is. Domain/GitHub-repo-rename/Render-service-renames are explicitly DEFERRED to the user, doing them later. Only rename what's safe without touching live infra or breaking an existing integration.
+
+**Critical fact about the SDKs:** `@trustline-agents/agent-sdk` (npm) and `trustline-agent-sdk` (PyPI) are PUBLISHED and Tael's `run-capability.ts` imports the npm one directly. npm/PyPI packages are immutable/can't be renamed or deleted. Decision made (confirmed with user): **the old packages stay published and untouched forever** (Tael's import never breaks, zero action needed from them) — new work goes into freshly-created `@fianza/*` (npm) and `fianza-agent-sdk` (PyPI) packages, published ALONGSIDE the old ones, not replacing them.
+
+**Full audit of every "trustline" occurrence in the repo was run** (a subagent, read-only) — the key finding: a lot of "trustline" hits are the GENERIC STELLAR SEP TERM (an account's asset trustline), NOT the brand — these live in `backend/src/faucet.ts`, various `_seed_*.mjs`/`_make_lender.mjs` scripts, `frontend/lib/stellar.ts`, both SDKs' own docs (things like "Opening a USDC trustline..."), and the entire vendored `tael-protocol/` tree. **DO NOT rename these** — doing so breaks correct Stellar terminology, not the brand. Every rename step in this session double-checked this distinction before touching a file; a new session must too.
+
+**DONE (this session, all verified working — typechecked/tested/built, nothing broken):**
+1. `packages/agent-sdk-fianza/` — NEW directory, copy of `agent-sdk` with `TrustLineAgent→FianzaAgent`, `TrustLineError→FianzaError`, `TrustLineContracts→FianzaContracts`, `TrustLineOptions→FianzaOptions` renamed throughout src/test/examples/README. `package.json` name `@fianza/agent-sdk`, version reset to `0.1.0` (fresh lineage, not continuing 0.2.1). 17/17 tests pass, typecheck clean, `npm run build` clean. **NOT published yet** — needs `npm publish` with the user's OTP (same flow as the original 0.2.1 publish earlier this session).
+2. `packages/skill-installer-fianza/` — NEW directory, copy of `skill-installer`. `package.json` name `@fianza/skill`, bin renamed `fianza-skill`, `SKILL_NAME` constant in `bin/install.mjs` changed to `fianza-agent-sdk`. Verified end-to-end with a fake `$HOME` — installs to `~/.claude/skills/fianza-agent-sdk/` correctly, prints the right messages. **NOT published yet.**
+3. `.claude/skills/fianza-agent-sdk/` — NEW directory (copy of `.claude/skills/trustline-agent-sdk/`), `SKILL.md` frontmatter `name: fianza-agent-sdk`, all code-identifier/package-name references renamed, but the `trustline-rpxt.onrender.com` URL and generic "USDC trustline" prose LEFT UNCHANGED on purpose (see ground rule above). This copy is synced byte-identical into `packages/skill-installer-fianza/skill/SKILL.md` — if you edit one, `cp` it into the other (see that package's README "Maintainers" section).
+4. `packages/agent-sdk-py-fianza/` — NEW directory, copy of `agent-sdk-py`. **Import package directory itself renamed** `src/trustline/` → `src/fianza/` (this is the Python import name, i.e. `from fianza import FianzaAgent`, not just a string). `pyproject.toml`: name `fianza-agent-sdk`, version reset to `0.1.0`, **`packages = ["src/fianza"]`** (this line MUST match the renamed dir or the published wheel is broken — caught and fixed this exact bug once already, double-check it if you touch this file again). `TrustLineAgent→FianzaAgent`, `TrustLineError→FianzaError` throughout. Verified: installed `stellar-sdk`+`requests`+`pytest` into an isolated `pip install --target=<scratch-dir>` (this sandbox has no venv/`python3-venv`, is an "externally-managed-environment" — do NOT use `--break-system-packages` without asking the user first; the `--target` scratch-dir trick avoids needing it), then `PYTHONPATH=<scratch>:src python3 -m pytest tests/` → **20/20 pass**. Real backend URL (`trustline-rpxt.onrender.com`) and `TRUSTLINE_API` env var name both deliberately left unchanged in `examples/quickstart.py` and `README.md`.
+
+**Phase 2 — DONE (this session, second pass).** User-facing copy rename completed across:
+- `docs/*.md` (all 9 files) and `mintlify-docs/*.mdx` + `docs.json` + both `logo/*.svg` wordmarks (text only, shape/viewBox untouched — user said not to touch the logo art).
+- root `README.md`, `LICENSE` (copyright line), `PROJECT_LOG.md`.
+- All of `frontend/`: every `app/**/page.tsx`, `app/layout.tsx` (page title/meta), `components/Navbar.tsx`/`SiteFooter.tsx`/`SiteHeader.tsx`/`tailwind.config.ts`/`lib/api.ts`/`lib/stellar.ts`, `components/tl/TLNav.tsx`/`TLFooter.tsx`/`TLWalletButton.tsx`. `components/TrustLineMark.tsx` → renamed to `components/FianzaMark.tsx` (git mv), import fixed in `BrandMark.tsx` — the logo PNG (`/public/logo6.png`) and the SVG shape/path data inside `FianzaMark.tsx` were deliberately left untouched, only text/identifiers changed. `app/brand/page.tsx` copy updated (name/description text only, no new palette/visual identity invented). **Verified: `npx tsc --noEmit` clean, `npm run build` succeeds, all 16 routes compile.**
+- `.claude-plugin/marketplace.json` + `plugin.json` — these are LIVE plugin-install config (not just domain references), so handled like the npm/PyPI packages: `marketplace.json` now lists BOTH a new `fianza-agent-sdk` plugin entry and the old `trustline-agent-sdk` entry (kept for existing installs, marked legacy in its description), both pointing at `source: "."`. The marketplace's own `name` field stayed `trustline` (renaming it would break anyone who already ran `/plugin marketplace add .../TrustLine` — same "don't break existing integrations" rule as the npm packages). `plugin.json`'s single-manifest `name`/`displayName` updated to `fianza-agent-sdk`/"Fianza Agent SDK" since its `skills` field exposes the whole `.claude/skills/` dir (both the fianza and trustline skill copies), so one manifest serves both. Fixed a stray invented `@fianza`-suffix install command in `packages/skill-installer-fianza/README.md` back to the real `@trustline` marketplace suffix.
+- `tael.md`, `teal.md` (Tael-codebase analysis notes — only OUR brand mentions renamed, Tael's own naming/code untouched), `trustline-partnership.html` + `tael_partnernship.html` (two standalone partnership-brief mockups, full brand-text rename, "Tael" and all CSS/colors untouched).
+- Re-verified `packages/agent-sdk-fianza` tests: still 17/17 pass after all the above.
+
+**Explicitly NOT renamed, per direct user instruction mid-session ("no need to change such mds now")** — left exactly as they were before this rename effort touched them: `TAEL_GOLIVE_CHECKLIST.md`, `TAEL_PARTNERSHIP.md`, `TAEL_REPAY_SKETCH.md`, `TAEL_SPEC_VS_REALITY.md` (all reverted via `git checkout` back to their committed state after a couple were briefly edited — confirm with `git diff` before assuming otherwise). These are heavy prose/spec docs about the Tael integration, low priority vs. shipped product surfaces.
+
+**Already renamed before that instruction landed (left as-is, not reverted):** `PITCH_DECK_PROMPT.md`, `ROADMAP_DIAGRAM_PROMPT.md`, `MAINNET_POST_DESIGN_PROMPT.md`, `TAEL_CODEBASE_SCAN_PROMPT.md`, `TAEL_LOAN_SPEC_ASSESSMENT.md`, `LENDER_POOL_DESIGN.md` — these are one-off generation prompts, prose-only brand swaps, no code identifiers at risk.
+
+**Phase 4 — DONE.** All 3 packages published and verified live on their registries:
+- npm `@fianza/agent-sdk@0.1.0` and `@fianza/skill@1.0.0`. Note the scope is `@fianza`, NOT `@fianza-agents` — the user created the npm org as `fianza` (not `fianza-agents`), so every reference across the repo (both packages' `package.json` name/bin fields, `package-lock.json`, README.md, HANDOFF.md, docs/*.md, mintlify-docs/*.mdx) was corrected from `@fianza-agents/*` to `@fianza/*` before publish — grep for `@fianza-agents` if you ever see it again, that scope doesn't exist.
+- PyPI `fianza-agent-sdk@0.1.0`. Built via `python3 -m build` (works fine despite this sandbox's PEP-668 "externally-managed-environment" restriction, since `build` creates its own isolated venv internally — no `--break-system-packages` needed). Verified the wheel contains the `fianza/` import package (not the old broken `trustline/` path). Uploaded via `twine` installed into an isolated `pip install --target=<scratch dir>` (same trick as the earlier test-install, avoids touching system Python).
+- **Deferred, explicitly NOT this session's job:** domain purchase/DNS, GitHub repo rename (`TechnicallyKiller/TrustLine` — GitHub rename auto-redirects, is genuinely low-risk whenever the user wants to do it, but wait for their go-ahead), Render service renames (would change `*.onrender.com` hostnames that are hardcoded as defaults in ~15 files — do NOT touch until the user says so, this is exactly the kind of thing that silently breaks Tael).
+- `trustline-ui/` — a brand-new, untracked Claude-Design HTML/CSS/JS handoff bundle (design mockups, not yet reviewed/implemented) — deliberately left alone, it's raw design source the user hasn't acted on yet, not a rename target.
+- The rename work is on a git branch, `rename/fianza` — not merged to `main`, not pushed. Check `git status`/`git log` to see exactly what's committed vs. still working-tree-only before continuing.

@@ -1,10 +1,10 @@
 # SDK reference
 
-`@trustline-agents/agent-sdk` is the interface an AI agent uses to take and repay
-revenue-underwritten credit on TrustLine. The agent holds its own Stellar
-key — every on-chain write is signed by that key, never by TrustLine. Reads
+`@fianza/agent-sdk` is the interface an AI agent uses to take and repay
+revenue-underwritten credit on Fianza. The agent holds its own Stellar
+key — every on-chain write is signed by that key, never by Fianza. Reads
 are simulate-only (free, no transaction submitted). Scoring/underwriting
-itself is delegated to the TrustLine backend (the trusted underwriter in v1).
+itself is delegated to the Fianza backend (the trusted underwriter in v1).
 
 New to this? Read the [onboarding kit](onboarding-kit.md) first — it walks
 through getting a testnet account funded before any of this will work.
@@ -12,15 +12,15 @@ through getting a testnet account funded before any of this will work.
 ## Install
 
 ```bash
-npm install @trustline-agents/agent-sdk
+npm install @fianza/agent-sdk
 ```
 
 ## Construct an agent
 
 ```ts
-import { TrustLineAgent } from "@trustline-agents/agent-sdk";
+import { FianzaAgent } from "@fianza/agent-sdk";
 
-const tl = new TrustLineAgent(secret, {
+const tl = new FianzaAgent(secret, {
   apiBaseUrl: "https://trustline-rpxt.onrender.com", // the underwriting engine
   rpcUrl: "https://soroban-testnet.stellar.org", // default: testnet
   networkPassphrase: "Test SDF Network ; September 2015", // default: testnet
@@ -35,7 +35,7 @@ const tl = new TrustLineAgent(secret, {
 | Option | Required? | What it does |
 |---|---|---|
 | `secret` (constructor arg) | yes | Your agent's Stellar secret key. The SDK derives its keypair and public address from this. |
-| `apiBaseUrl` | recommended | The TrustLine underwriting API. Defaults to `http://localhost:8787` (local dev) — set this explicitly for testnet/production. |
+| `apiBaseUrl` | recommended | The Fianza underwriting API. Defaults to `http://localhost:8787` (local dev) — set this explicitly for testnet/production. |
 | `rpcUrl` | no | Soroban RPC endpoint. Defaults to public testnet RPC. |
 | `networkPassphrase` | no | Stellar network passphrase. Defaults to testnet. |
 | `contracts` | no | Explicit contract IDs. If omitted, the SDK fetches them once from the backend's `/config` and caches them. |
@@ -269,25 +269,25 @@ checking what the underwriter will see *before* actually running a full
 
 | Type | Shape |
 |---|---|
-| `TrustLineContracts` | `{ registry, creditLine, vault }` — all Stellar contract IDs |
+| `FianzaContracts` | `{ registry, creditLine, vault }` — all Stellar contract IDs |
 | `CreditTerms` | `{ tier, limitUsdc, aprBps }` |
 | `VaultState` | see `vaultState()` above |
 | `TxResult` | `{ txHash, returnValue, explorerUrl }` |
 
 ## Error handling
 
-The SDK throws **typed errors** (all extending `TrustLineError`), so you can
+The SDK throws **typed errors** (all extending `FianzaError`), so you can
 catch specific failures instead of string-matching messages:
 
 | Error | Thrown when |
 |---|---|
 | `ValidationError` | Bad input — a non-positive/`NaN` amount, or a malformed Stellar address. Thrown **locally, before any network call**, so bad input never wastes an RPC round-trip or a failed on-chain tx. |
-| `ApiError` | A call to the TrustLine backend returned a non-2xx status (carries `.status`, `.method`, `.path`, `.body`). |
+| `ApiError` | A call to the Fianza backend returned a non-2xx status (carries `.status`, `.method`, `.path`, `.body`). |
 | `TxError` | An on-chain write failed to submit or confirm (carries `.contractMethod`, `.detail`). Includes the case where the vault rejects a `borrow` above your limit. |
 | `MaxDrawExceededError` | `payWithCredit`'s shortfall would exceed the `maxDraw` cap you set (carries `.need`, `.maxDraw`). |
 
 ```ts
-import { TrustLineAgent, ValidationError, TxError } from "@trustline-agents/agent-sdk";
+import { FianzaAgent, ValidationError, TxError } from "@fianza/agent-sdk";
 
 try {
   await tl.borrow(amount);

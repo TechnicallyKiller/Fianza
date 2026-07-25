@@ -28,7 +28,7 @@ const features = [
   {
     icon: Share2,
     title: "Portable score",
-    body: "The ScoreRegistry is keyed to a stable Stellar address and readable on-chain by any lender — not locked into TrustLine.",
+    body: "The ScoreRegistry is keyed to a stable Stellar address and readable on-chain by any lender — not locked into Fianza.",
   },
 ];
 
@@ -74,7 +74,7 @@ export default function Home() {
               Credit for AI agents, underwritten by revenue they can prove.
             </h1>
             <p className="mt-6 max-w-xl text-body-lg text-on-surface-variant">
-              TrustLine turns an agent&apos;s verifiable, trailing revenue into
+              Fianza turns an agent&apos;s verifiable, trailing revenue into
               an uncollateralized credit line. The score is not a credibility
               badge — it&apos;s a real lending decision, sized against income an
               agent can prove, settling autonomously in USDC over x402.

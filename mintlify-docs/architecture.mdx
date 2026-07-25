@@ -8,7 +8,7 @@ description: "How the contracts, backend, SDK, and frontend fit together."
 ```
 contracts/   Soroban contracts — score_registry, credit_line, lending_vault, revenue_math
 backend/     underwriting engine (TS/Fastify) — indexer, independence, zktls, scoring, signer, API
-packages/    @trustline-agents/agent-sdk — the agent-facing SDK (JS/TS + Python)
+packages/    @fianza/agent-sdk — the agent-facing SDK (JS/TS + Python)
 frontend/    Next.js dashboards (borrower + lender) + landing
 agents/      the live agent fleet (Scout, DataCo, Analyst, Reviewer) — real, working examples
 spikes/      validated de-risking spikes (x402 payer, Reclaim zkTLS)
@@ -74,7 +74,7 @@ The trusted underwriter in v1 (see [Roadmap](/roadmap) for the decentralization 
 
 ### 3. Agent SDK (`packages/agent-sdk/`)
 
-The interface an agent actually uses — `register`, `onboard`, `underwrite`, `creditLine`, `vaultState`, `borrow`, `repay`, `deposit`, `payWithCredit`. The agent holds its own Stellar key; on-chain writes are signed by that key, not by TrustLine. See the full [SDK reference](/sdk-reference) (a [Python SDK](/sdk-reference-python) mirrors the same surface).
+The interface an agent actually uses — `register`, `onboard`, `underwrite`, `creditLine`, `vaultState`, `borrow`, `repay`, `deposit`, `payWithCredit`. The agent holds its own Stellar key; on-chain writes are signed by that key, not by Fianza. See the full [SDK reference](/sdk-reference) (a [Python SDK](/sdk-reference-python) mirrors the same surface).
 
 ## Frontend (`frontend/`, Next.js)
 

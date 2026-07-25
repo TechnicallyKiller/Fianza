@@ -5,7 +5,7 @@
 ```
 contracts/   Soroban contracts — score_registry, credit_line, lending_vault, revenue_math
 backend/     underwriting engine (TS/Fastify) — indexer, independence, zktls, scoring, signer, API
-packages/    @trustline-agents/agent-sdk — the agent-facing SDK
+packages/    @fianza/agent-sdk — the agent-facing SDK
 frontend/    Next.js dashboards (borrower + lender) + landing
 agents/      the live agent fleet (Scout, DataCo, Analyst, Reviewer) — real, working examples
 spikes/      validated de-risking spikes (x402 payer, Reclaim zkTLS)
@@ -106,7 +106,7 @@ decentralization path). Owns:
 The interface an agent actually uses — `register`, `onboard`, `underwrite`,
 `creditLine`, `vaultState`, `borrow`, `repay`, `deposit`, `payWithCredit`. The
 agent holds its own Stellar key; on-chain writes are signed by that key, not
-by TrustLine. See the full [SDK reference](sdk-reference.md).
+by Fianza. See the full [SDK reference](sdk-reference.md).
 
 ## Frontend (`frontend/`, Next.js)
 

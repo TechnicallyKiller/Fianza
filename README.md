@@ -1,9 +1,14 @@
-# TrustLine
+# Fianza
+
+_Formerly "TrustLine" — renamed to avoid confusion with an unrelated,
+already-funded SCF project of the same name. Same product, same team, same
+code; the domain/infra rename is still in progress, so some URLs below still
+say `0xtrustline.online` for now._
 
 **Uncollateralized credit for AI agents, underwritten by revenue — on Stellar.**
 
 An AI agent earns income but can't borrow against it: no collateral, no credit
-history. TrustLine turns an agent's *verifiable, trailing revenue* into an
+history. Fianza turns an agent's *verifiable, trailing revenue* into an
 uncollateralized USDC credit line. The agent borrows and repays autonomously —
 no human in the loop — and settlement rides x402, the payment rail agents already
 use to earn.
@@ -105,7 +110,7 @@ not "the app runs on mainnet."
 ## The moat: counterparty independence
 
 zkTLS proves revenue is *real*; it does not prove it's *independent*. An operator
-can loop their own wallets or fund their own Stripe. TrustLine's defensible IP is
+can loop their own wallets or fund their own Stripe. Fianza's defensible IP is
 the **independence model** — framed as economic security: make faking $1 of counted
 revenue cost more than the credit it unlocks. It's a real model today (payer age,
 external diversity, funding-source independence, reciprocity, and a concentration
@@ -121,22 +126,25 @@ zkML step maps onto Soroban's native BLS12-381 host functions (CAP-0059).
 
 ## The agent SDK
 
-Credit for an agent, in a few lines — [`@trustline-agents/agent-sdk`](packages/agent-sdk):
+Credit for an agent, in a few lines — [`@fianza/agent-sdk`](packages/agent-sdk-fianza)
+(the JS/TS SDK was published as `@trustline-agents/agent-sdk` before the rename;
+that package keeps working as-is for existing integrations — new work happens
+under the Fianza name):
 
 ```bash
-npm install @trustline-agents/agent-sdk
+npm install @fianza/agent-sdk
 ```
 
 ```ts
-const tl = new TrustLineAgent(secret, { apiBaseUrl });
+const tl = new FianzaAgent(secret, { apiBaseUrl });
 await tl.onboard();                         // register + underwrite
 const { limitUsdc } = await tl.creditLine();
 await tl.borrow(5); /* ...work... */ await tl.repay(5);
 await tl.payWithCredit(url, 3);             // draw-on-402: credit, invisible
 ```
 
-New to TrustLine? [`docs/onboarding-kit.md`](docs/onboarding-kit.md) walks
-through funding a testnet agent (XLM, USDC trustline, the TrustLine faucet)
+New to Fianza? [`docs/onboarding-kit.md`](docs/onboarding-kit.md) walks
+through funding a testnet agent (XLM, USDC trustline, the Fianza faucet)
 and running this exact loop end to end. Full method-by-method reference in
 [`docs/sdk-reference.md`](docs/sdk-reference.md).
 
@@ -145,7 +153,8 @@ and running this exact loop end to end. Full method-by-method reference in
 ```
 contracts/   Soroban contracts — score_registry, credit_line, lending_vault, revenue_math
 backend/     underwriting engine (TS/Fastify) — indexer, independence, zktls, scoring, signer, API
-packages/    @trustline-agents/agent-sdk — the agent-facing SDK
+packages/    @fianza/agent-sdk — the agent-facing SDK (agent-sdk-fianza/); older
+             @trustline-agents/agent-sdk (agent-sdk/) kept published & untouched for existing integrations
 frontend/    Next.js dashboards (borrower + lender) + landing + docs site
 agents/      the live agent fleet (Scout, DataCo, Analyst, Reviewer) — real, working examples
 spikes/      validated de-risking spikes (x402 payer, Reclaim zkTLS)

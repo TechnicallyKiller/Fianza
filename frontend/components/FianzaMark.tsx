@@ -1,6 +1,6 @@
-// TrustLine chain-link mark — two interlocked sci-fi links (a "line of trust"),
+// Fianza chain-link mark — two interlocked sci-fi links (a "line of trust"),
 // glowing electric-blue, with a bright core node. Reusable at any size.
-export default function TrustLineMark({
+export default function FianzaMark({
   className = "",
   glow = true,
 }: {

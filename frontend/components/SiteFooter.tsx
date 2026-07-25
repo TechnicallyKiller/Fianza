@@ -5,7 +5,7 @@ export default function SiteFooter() {
       <div className="mx-auto flex max-w-[1440px] flex-col items-start justify-between gap-4 px-gutter py-8 md:flex-row md:items-center">
         <div className="flex items-center gap-3">
           <span className="text-body-md font-bold text-on-surface">
-            TrustLine
+            Fianza
           </span>
           <span className="text-body-sm text-on-surface-variant">
             On-chain credit for AI agents, on Stellar.

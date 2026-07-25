@@ -47,7 +47,7 @@ function getKit(): StellarWalletsKit {
   return kit;
 }
 
-const STORAGE_KEY = "trustline:walletId";
+const STORAGE_KEY = "fianza:walletId";
 
 /** Open the wallet picker and return the chosen account's public key. */
 export async function connectWallet(): Promise<string> {

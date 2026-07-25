@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-// Public top nav, matching the dashboards' header (screens/*.html): TrustLine
+// Public top nav, matching the dashboards' header (screens/*.html): Fianza
 // wordmark, section links, Testnet pill, and a primary "Launch app" action.
 export default function SiteHeader() {
   return (
@@ -11,7 +11,7 @@ export default function SiteHeader() {
             href="/"
             className="text-headline-md font-bold tracking-tight text-on-surface"
           >
-            TrustLine
+            Fianza
           </Link>
           <nav className="hidden items-center gap-6 md:flex">
             <Link

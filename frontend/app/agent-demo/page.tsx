@@ -1,7 +1,7 @@
 "use client";
 
 // /agent-demo — the autonomous agent, live. A real LLM (free Groq by default)
-// reasons in the chat; when it's short on cash it draws TrustLine credit on a
+// reasons in the chat; when it's short on cash it draws Fianza credit on a
 // REAL testnet transaction, buys the data it needs, answers, and can repay.
 // Every money-move shows a clickable Stellar Expert link. No terminal.
 //
@@ -197,7 +197,7 @@ export default function AgentDemoPage() {
           </h1>
           <p className="mx-auto mt-4 max-w-xl font-tl-sans text-sm leading-[1.7] text-ash">
             Ask it for research. To answer well it must buy a paid data call it
-            may not be able to afford. Watch a real model reason, draw TrustLine
+            may not be able to afford. Watch a real model reason, draw Fianza
             credit on a live testnet transaction, deliver, and repay. Every
             money-move is clickable and real.
           </p>
