@@ -109,9 +109,9 @@ export default function TLFooter() {
             BUILD ON IT
           </div>
           <ul className="flex flex-col gap-2 font-tl-mono text-[11px] text-ash">
-            <li className="text-bone/80">npx @trustline-agents/skill</li>
-            <li>npm i @trustline-agents/agent-sdk</li>
-            <li>pip install trustline-agent-sdk</li>
+            <li className="text-bone/80">npx @fianza/skill</li>
+            <li>npm i @fianza/agent-sdk</li>
+            <li>pip install fianza-agent-sdk</li>
           </ul>
           <Link
             href="/brand"
