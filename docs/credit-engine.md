@@ -1,4 +1,4 @@
-# TrustLine — How the Credit Engine Actually Works
+# Fianza — How the Credit Engine Actually Works
 
 _A ground-truth technical walkthrough of the whole underwriting pipeline: how
 revenue is discovered, how the Sybil/independence tracker judges it, how the
@@ -10,7 +10,7 @@ testnet-calibrated values._
 
 ## 0. The one-sentence version
 
-An AI agent's stable Stellar address earns USDC → TrustLine reads that revenue
+An AI agent's stable Stellar address earns USDC → Fianza reads that revenue
 off-chain, **discounts anything that looks self-dealt or fake** (the moat) →
 turns the surviving "real, independent" revenue into a score and a credit tier
 → an on-chain vault lets the agent borrow against that tier, with defaults,
@@ -53,7 +53,7 @@ consequences:
   fee-payer, but they are never the genuine payer. The real payer is the
   `from` field of the USDC transfer itself (the customer's own wallet). The
   exclude list currently holds: the facilitator submitter, the fee sponsor, a
-  testnet seeder wallet, and TrustLine's own vault contract addresses.
+  testnet seeder wallet, and Fianza's own vault contract addresses.
 
 **Critical gotcha:** a *classic* Stellar USDC payment emits the **same SAC
 transfer event** as a Soroban SAC contract transfer. So both forms are counted

@@ -22,7 +22,7 @@
 - **A real autonomous artifact** — an agent (Scout) has run the entire
   lifecycle — earn, get underwritten, borrow, repay — completely
   autonomously, starting from zero capital.
-- **The agent SDK and onboarding kit** — `@trustline-agents/agent-sdk`, a testnet
+- **The agent SDK and onboarding kit** — `@fianza/agent-sdk`, a testnet
   USDC faucet, and a runnable quickstart, so an outside builder can actually
   plug an agent in.
 

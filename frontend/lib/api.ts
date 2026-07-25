@@ -1,4 +1,4 @@
-// Typed client for the TrustLine backend (Phase 2 REST API).
+// Typed client for the Fianza backend (Phase 2 REST API).
 //
 // Types mirror the backend's response shapes exactly (backend/src/*): change one,
 // change the other. All calls go to API_BASE_URL (the running Fastify server).

@@ -1,6 +1,6 @@
 "use client";
 
-// Connect/connected wallet pill, restyled for the TrustLine.dc.html palette.
+// Connect/connected wallet pill, restyled for the Fianza.dc.html palette.
 // Same real useWallet() plumbing as the existing WalletButton — this is a
 // visual variant, not a new integration.
 

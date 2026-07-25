@@ -9,7 +9,7 @@ A ground-truth technical walkthrough of the whole underwriting pipeline: how rev
 
 ## 0. The one-sentence version
 
-An AI agent's stable Stellar address earns USDC → TrustLine reads that revenue off-chain, **discounts anything that looks self-dealt or fake** (the moat) → turns the surviving "real, independent" revenue into a score and a credit tier → an on-chain vault lets the agent borrow against that tier, with defaults, reserves and rate mechanics enforced by the contract.
+An AI agent's stable Stellar address earns USDC → Fianza reads that revenue off-chain, **discounts anything that looks self-dealt or fake** (the moat) → turns the surviving "real, independent" revenue into a score and a credit tier → an on-chain vault lets the agent borrow against that tier, with defaults, reserves and rate mechanics enforced by the contract.
 
 Four layers, in order of how data flows:
 
@@ -29,7 +29,7 @@ x402 is a *payment protocol*: a client requests a resource, gets an HTTP `402 Pa
 So the engine doesn't look for one. It treats **any USDC received by the agent, from a distinct non-excluded counterparty, as revenue.** Two direct consequences:
 
 - **The system is x402-agnostic.** It would score revenue from any USDC inflow, whether it came through x402 or a plain wallet-to-wallet payment. "x402 revenue" in the pitch really means "USDC the agent earned from independent payers."
-- **To avoid counting x402 *infrastructure* as a customer,** the engine keeps an exclude list (`X402_EXCLUDE_ADDRESSES`). x402 settlement transactions involve a **facilitator** (OZ Channels — the submitter) and a **fee sponsor**; those addresses show up in the transaction as the source / fee-payer, but they are never the genuine payer. The real payer is the `from` field of the USDC transfer itself (the customer's own wallet). The exclude list currently holds: the facilitator submitter, the fee sponsor, a testnet seeder wallet, and TrustLine's own vault contract addresses.
+- **To avoid counting x402 *infrastructure* as a customer,** the engine keeps an exclude list (`X402_EXCLUDE_ADDRESSES`). x402 settlement transactions involve a **facilitator** (OZ Channels — the submitter) and a **fee sponsor**; those addresses show up in the transaction as the source / fee-payer, but they are never the genuine payer. The real payer is the `from` field of the USDC transfer itself (the customer's own wallet). The exclude list currently holds: the facilitator submitter, the fee sponsor, a testnet seeder wallet, and Fianza's own vault contract addresses.
 
 <Warning>
 **Critical gotcha:** a *classic* Stellar USDC payment emits the **same SAC transfer event** as a Soroban SAC contract transfer. So both forms are counted identically — you cannot disguise or hide funding by choosing a classic payment over a contract call. (This also matters for Sybil detection in §2.)

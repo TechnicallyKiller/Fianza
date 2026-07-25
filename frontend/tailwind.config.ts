@@ -14,7 +14,7 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        // ---- TrustLine.dc.html design system (landing/underwrite/borrower/
+        // ---- Fianza.dc.html design system (landing/underwrite/borrower/
         // lender) — literal hex, kept separate from the tokens below so the
         // docs/demo pages (still on the old blue theme) are unaffected. ----
         obsidian: "#0B0F0E",
@@ -93,7 +93,7 @@ const config: Config = {
         sans: ["var(--font-inter)", "Inter", "system-ui", "sans-serif"],
         mono: ["var(--font-mono)", "ui-monospace", "monospace"],
         display: ["var(--font-display)", "var(--font-inter)", "sans-serif"],
-        // TrustLine.dc.html type system: Spectral (serif, headlines/verdicts),
+        // Fianza.dc.html type system: Spectral (serif, headlines/verdicts),
         // Space Grotesk (grotesk sans — reuses --font-display, already loaded),
         // Space Mono (mono, labels/data).
         "tl-serif": ["var(--font-spectral)", "Georgia", "serif"],

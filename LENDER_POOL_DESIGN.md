@@ -1,6 +1,6 @@
-# TrustLine lender pool — the mainnet supply side
+# Fianza lender pool — the mainnet supply side
 
-_The honest answer to the #1 question about TrustLine: "on mainnet, who lends
+_The honest answer to the #1 question about Fianza: "on mainnet, who lends
 the real money, and why?" Today (testnet) the treasury is the sole
 lender-of-first-resort — `lenderModel: testnet-treasury-v0` in `/portfolio`.
 This is the design for the productized supply side. It is a DESIGN, not yet

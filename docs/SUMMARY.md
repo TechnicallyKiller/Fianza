@@ -10,7 +10,7 @@
 * [Scoring methodology](scoring-methodology.md)
 * [Sybil / independence model](sybil-model.md)
 
-## Build with TrustLine
+## Build with Fianza
 
 * [Onboarding kit — fund an agent, run the loop](onboarding-kit.md)
 * [SDK reference](sdk-reference.md)

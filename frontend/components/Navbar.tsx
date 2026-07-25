@@ -8,9 +8,9 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import BrandMark from "@/components/BrandMark";
 
-// The docs live on a separately-hosted Mintlify site (docs.0xtrustline.online),
+// The docs live on a separately-hosted Mintlify site (docs.fianza.space),
 // not the internal Next.js /docs route — so the Docs link is external.
-const DOCS_URL = "https://docs.0xtrustline.online";
+const DOCS_URL = "https://docs.fianza.space";
 
 const LINKS: { href: string; label: string; external?: boolean }[] = [
   { href: "/underwrite", label: "Underwrite" },
@@ -27,12 +27,12 @@ export default function Navbar({ action }: { action?: React.ReactNode }) {
       <div className="mx-auto flex h-20 max-w-[1440px] items-center justify-between px-6 md:px-12">
         <Link
           href="/"
-          aria-label="TrustLine home"
+          aria-label="Fianza home"
           className="flex shrink-0 items-center gap-2"
         >
           <BrandMark className="h-8 w-auto" />
           <span className="font-display text-xl font-semibold tracking-tight text-on-surface">
-            TrustLine
+            Fianza
           </span>
           <span
             aria-label="Live on testnet"

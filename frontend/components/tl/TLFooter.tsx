@@ -1,6 +1,6 @@
 "use client";
 
-// Global footer for the TrustLine (amber) design system — persistent across the
+// Global footer for the Fianza (amber) design system — persistent across the
 // site so the brand, socials, and a small brand-kit are always one scroll away.
 // Also surfaces a tiny live-status pill that links to /status.
 
@@ -37,7 +37,7 @@ export default function TLFooter() {
         <div>
           <div className="flex items-center gap-2.5">
             <span className="font-tl-sans text-[15px] font-bold tracking-[-0.01em] text-bone">
-              TrustLine
+              Fianza
             </span>
             <Link
               href="/status"
@@ -96,7 +96,7 @@ export default function TLFooter() {
             <li><Link href="/demo" className="hover:text-bone">Underwriting demo</Link></li>
             <li><Link href="/status" className="hover:text-bone">Status</Link></li>
             <li>
-              <a href="https://docs.0xtrustline.online" target="_blank" rel="noreferrer" className="hover:text-bone">
+              <a href="https://docs.fianza.space" target="_blank" rel="noreferrer" className="hover:text-bone">
                 Docs
               </a>
             </li>
@@ -124,7 +124,7 @@ export default function TLFooter() {
 
       <div className="border-t border-bone/[0.06]">
         <div className="mx-auto flex w-full max-w-[1100px] flex-col items-start justify-between gap-2 px-6 py-4 font-tl-mono text-[10px] text-ash/50 md:flex-row md:items-center md:px-10">
-          <span>© 2026 TrustLine · MIT · built by Divyanshh Kalra</span>
+          <span>© 2026 Fianza · MIT · built by Divyanshh Kalra</span>
           <span>Stellar · Soroban · x402 · USDC · testnet</span>
         </div>
       </div>

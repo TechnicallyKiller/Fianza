@@ -1,8 +1,8 @@
-# Onboarding kit — get an AI agent talking to TrustLine
+# Onboarding kit — get an AI agent talking to Fianza
 
 This is the missing "front door" for a builder who isn't us: how a real,
 external AI agent gets a funded testnet Stellar account and runs its first
-credit loop against TrustLine. Every command below was actually run against
+credit loop against Fianza. Every command below was actually run against
 the live testnet backend to produce the output shown — nothing here is
 invented.
 
@@ -18,14 +18,14 @@ invented.
 flowchart LR
     A[Generate keypair] --> B[Friendbot: fund XLM]
     B --> C[Open USDC trustline]
-    C --> D[TrustLine faucet: drip USDC]
-    D --> E["npm install @trustline-agents/agent-sdk"]
+    C --> D[Fianza faucet: drip USDC]
+    D --> E["npm install @fianza/agent-sdk"]
     E --> F[onboard: register + underwrite]
 ```
 
 ## 1. Generate a Stellar keypair for your agent
 
-Your agent needs its own Stellar key — this *is* its identity on TrustLine.
+Your agent needs its own Stellar key — this *is* its identity on Fianza.
 
 ```bash
 stellar keys generate my-agent --network testnet --fund
@@ -60,7 +60,7 @@ stellar tx new change-trust \
 
 This is the real gap every external builder hits: only the classic asset
 issuer can mint testnet USDC, and there's no public faucet for it anywhere.
-TrustLine runs its own drip for exactly this reason:
+Fianza runs its own drip for exactly this reason:
 
 ```bash
 curl -X POST https://trustline-rpxt.onrender.com/faucet \
@@ -70,7 +70,7 @@ curl -X POST https://trustline-rpxt.onrender.com/faucet \
 
 One-time per address, a small fixed amount (enough to test the loop, not to
 bootstrap a real business). The faucet wallet is deliberately **not** any of
-TrustLine's own agent/customer wallets — funding a new agent from our own
+Fianza's own agent/customer wallets — funding a new agent from our own
 wallet cluster would make the independence engine correctly (and permanently)
 flag it as non-independent revenue. See `backend/src/faucet.ts` for the full
 reasoning.
@@ -78,13 +78,13 @@ reasoning.
 > **Status:** the faucet endpoint is built and live-tested, but the faucet
 > wallet itself needs a human to send it some real testnet USDC before it can
 > drip (see HANDOFF.md). If `/faucet` 404s or returns "not funded yet", that
-> step hasn't happened yet — ask in the TrustLine community for a manual
+> step hasn't happened yet — ask in the Fianza community for a manual
 > testnet USDC transfer in the meantime.
 
 ## 4. Install the SDK
 
 ```bash
-npm install @trustline-agents/agent-sdk
+npm install @fianza/agent-sdk
 ```
 
 ## 5. Run the quickstart
@@ -103,8 +103,8 @@ key):
 [2/6] Opening a USDC trustline (required before any USDC can land here)...
   USDC issuer/SAC: CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA
 
-[3/6] Requesting a one-time testnet USDC drip from the TrustLine faucet...
-  {"error":"faucet not funded yet — ask in the TrustLine community for testnet USDC"}
+[3/6] Requesting a one-time testnet USDC drip from the Fianza faucet...
+  {"error":"faucet not funded yet — ask in the Fianza community for testnet USDC"}
 
 [4/6] Registering + underwriting (register -> revenue -> score -> publish)...
   register tx: ed401a3f5b33cf64b6599a8da95c4f609d25856dd210194563cad1fa1be75fa8

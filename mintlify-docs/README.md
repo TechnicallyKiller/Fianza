@@ -1,12 +1,16 @@
-# TrustLine docs (Mintlify)
+# Fianza docs (Mintlify)
 
-The TrustLine documentation site, built with [Mintlify](https://mintlify.com).
+_Formerly "TrustLine" — renamed to Fianza to avoid confusion with an
+unrelated, already-funded SCF project of the same name. Domain/infra rename
+still in progress; some links below still point at 0xtrustline.online._
+
+The Fianza documentation site, built with [Mintlify](https://mintlify.com).
 Content lives in `*.mdx` files; navigation, theme, and the built-in **Ask AI**
 assistant are configured in [`docs.json`](./docs.json).
 
 Mintlify is a *separately hosted* docs service — it does **not** run inside the
 Next.js app on Vercel. The app stays where it is; these docs get their own site
-(target: `docs.0xtrustline.online`).
+(target: `docs.fianza.space`).
 
 ---
 
@@ -38,18 +42,18 @@ If the CLI is out of date: `mint update`. To validate links: `mint broken-links`
 
 **Ask AI** is included and needs no code or API key — it indexes these `.mdx`
 pages automatically once deployed. It appears as a search/chat control in the
-top bar. Ask it something grounded in the docs (e.g. *"How does TrustLine size a
+top bar. Ask it something grounded in the docs (e.g. *"How does Fianza size a
 credit line?"*) to confirm.
 
 ---
 
-## 3. Custom domain — `docs.0xtrustline.online`
+## 3. Custom domain — `docs.fianza.space`
 
 You own `0xtrustline.online` (registrar: **Hostinger**). To serve docs from a
 subdomain:
 
 1. In the Mintlify dashboard → **Settings → Custom Domain** → enter
-   `docs.0xtrustline.online`. Mintlify shows you a **CNAME target**.
+   `docs.fianza.space`. Mintlify shows you a **CNAME target**.
 2. In Hostinger → **hPanel → Domains → 0xtrustline.online → DNS / Nameservers →
    DNS Records**, add:
 
@@ -58,7 +62,7 @@ subdomain:
    | CNAME | `docs`      | *(the target Mintlify gave you)* | 3600 |
 
 3. Wait for DNS propagation (minutes to ~1 hour). Mintlify issues SSL
-   automatically. Docs are then live at `https://docs.0xtrustline.online`.
+   automatically. Docs are then live at `https://docs.fianza.space`.
 
 ### App domain (Vercel), for reference
 

@@ -1,6 +1,6 @@
 "use client";
 
-// Shared nav for the TrustLine.dc.html design system (landing/underwrite/
+// Shared nav for the Fianza.dc.html design system (landing/underwrite/
 // borrower/lender). Deliberately separate from the site-wide Navbar (still
 // used by docs/demo/coming-soon/waitlist on the old blue theme) so this
 // redesign can't regress those pages.
@@ -11,9 +11,9 @@ import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { Menu, X } from "lucide-react";
 
-// The docs live on a separately-hosted Mintlify site (docs.0xtrustline.online),
+// The docs live on a separately-hosted Mintlify site (docs.fianza.space),
 // not the internal Next.js /docs route — so the docs link is external.
-const DOCS_URL = "https://docs.0xtrustline.online";
+const DOCS_URL = "https://docs.fianza.space";
 
 // Trimmed to the core surfaces + mainnet/docs (explicit product call —
 // keep the nav from reading as cluttered). /demo and /status are still real,
@@ -50,7 +50,7 @@ export default function TLNav({
           <span className="relative block h-9 w-9 overflow-hidden rounded-lg border border-ion/25 shadow-[0_0_14px_rgba(88,240,200,0.15)]">
             <Image
               src="/logo6.png"
-              alt="TrustLine"
+              alt="Fianza"
               fill
               sizes="36px"
               priority
@@ -58,7 +58,7 @@ export default function TLNav({
             />
           </span>
           <span className="font-tl-sans text-[15px] font-bold tracking-[-0.01em] text-bone">
-            TrustLine
+            Fianza
           </span>
         </Link>
 

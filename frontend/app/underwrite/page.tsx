@@ -1,6 +1,6 @@
 "use client";
 
-// Underwrite — TrustLine.dc.html "LIVE INSTRUMENT". Paste a Stellar address,
+// Underwrite — Fianza.dc.html "LIVE INSTRUMENT". Paste a Stellar address,
 // watch the real backend score it: an animated verdict, a waterfall showing
 // declared revenue collapsing to effective revenue (computed from the real
 // independence engine's per-payer weights — not decorative), and the

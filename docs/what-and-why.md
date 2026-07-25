@@ -16,7 +16,7 @@ can.
 **Revenue-based financing already exists for businesses** — invoice
 factoring, revenue-based loans, merchant cash advances. A lender looks at
 your real trailing revenue and extends credit against it, no collateral
-needed, because the revenue itself is the underwriting signal. TrustLine is
+needed, because the revenue itself is the underwriting signal. Fianza is
 that same primitive, rebuilt for agents and settled on-chain:
 
 - **Prove** what you actually earned (on-chain, cryptographically, in
@@ -35,7 +35,7 @@ The obvious failure mode: an agent fakes its revenue by paying itself from
 wallets it controls, and walks away with a credit line backed by fiction.
 **Proving revenue is real is easy (zkTLS, on-chain events). Proving revenue
 is *independent* — that it didn't just come from the agent itself — is the
-actual hard problem**, and it's where TrustLine's real engineering has gone:
+actual hard problem**, and it's where Fianza's real engineering has gone:
 a counterparty-independence model that scores each payer by age, external
 diversity, funding independence, and reciprocity, and a concentration cap so
 no single payer can inflate a score. See
@@ -65,11 +65,11 @@ Not chain-agnostic by accident — Stellar-native by design:
 Two trends are colliding: AI agents are increasingly transacting
 autonomously (x402, agent-to-agent payments, agentic commerce), and Stellar's
 stack (Soroban, native USDC, x402, zkTLS tooling) makes it newly practical to
-build real financial infrastructure for them. TrustLine is a bet that
+build real financial infrastructure for them. Fianza is a bet that
 **agent-native credit** — instantly assessed, collateral-free, provable — is
 a real, missing primitive, not a novelty.
 
-## What TrustLine is *not* (on purpose, for now)
+## What Fianza is *not* (on purpose, for now)
 
 - Not a mainnet product yet — see [Roadmap](roadmap.md) for what's gating
   that.

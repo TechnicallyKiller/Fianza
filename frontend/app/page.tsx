@@ -1,6 +1,6 @@
 "use client";
 
-// Landing — TrustLine.dc.html "THE MEMBRANE" split hero + a scroll-driven
+// Landing — Fianza.dc.html "THE MEMBRANE" split hero + a scroll-driven
 // story (earn → get read → draw the line → build a name) + manifesto + loop.
 // Scroll system: components/tl/Reveal (IntersectionObserver adds .tl-in,
 // gating the .tl-*-g child animations defined in globals.css).
@@ -101,7 +101,7 @@ export default function Home() {
           <div className="relative h-[220px] w-full sm:h-[280px] lg:h-[320px]">
             <Image
               src="/logo6.png"
-              alt="TrustLine emblem — a proven revenue signal resolving into a live line of credit"
+              alt="Fianza emblem — a proven revenue signal resolving into a live line of credit"
               fill
               priority
               sizes="100vw"
@@ -113,7 +113,7 @@ export default function Home() {
             <div className="absolute bottom-6 left-[6vw] max-w-[24ch]">
               <Reveal variant="left">
                 <div className="mb-2 font-tl-mono text-[11px] tracking-[0.2em] text-ion">
-                  THE TRUSTLINE
+                  THE FIANZA
                 </div>
                 <div className="font-tl-serif text-xl leading-[1.15] text-bone sm:text-2xl">
                   One proven signal in — a live line of credit out.
@@ -148,7 +148,7 @@ export default function Home() {
             <p className="mt-[30px] max-w-[56ch] font-tl-sans text-base leading-[1.7] text-ash">
               An autonomous agent earns real revenue. Today that revenue is
               stranded — no bank underwrites a bot, and collateralized DeFi
-              asks it to already be rich. TrustLine reads the agent&apos;s
+              asks it to already be rich. Fianza reads the agent&apos;s
               provable, on-chain income, discounts everything it can&apos;t
               verify, and extends an{" "}
               <span className="text-bone">uncollateralized</span> USDC credit
@@ -533,7 +533,7 @@ export default function Home() {
         </div>
 
         <footer className="border-t border-bone/[0.08] py-8 text-center font-tl-mono text-xs text-[#4d564f]">
-          © TrustLine — Stellar testnet
+          © Fianza — Stellar testnet
         </footer>
       </div>
     </div>

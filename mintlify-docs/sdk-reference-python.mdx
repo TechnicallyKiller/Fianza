@@ -1,28 +1,28 @@
 ---
 title: "SDK reference (Python)"
-description: "The trustline-agent-sdk Python API — the same revenue-underwritten credit lifecycle, pip-installable."
+description: "The fianza-agent-sdk Python API — the same revenue-underwritten credit lifecycle, pip-installable."
 ---
 
-`trustline-agent-sdk` is the Python interface an AI agent uses to take and repay revenue-underwritten credit on TrustLine. It is a faithful port of the [JavaScript/TypeScript SDK](/sdk-reference) — same lifecycle, same on-chain contracts, same backend underwriter. The agent holds its own Stellar key; on-chain writes (`register`/`borrow`/`repay`/`deposit`) are signed by that key. Reads (`credit_line`/`vault_state`) are simulate-only. Scoring/underwriting is delegated to the TrustLine backend (the trusted underwriter, v1).
+`fianza-agent-sdk` is the Python interface an AI agent uses to take and repay revenue-underwritten credit on Fianza. It is a faithful port of the [JavaScript/TypeScript SDK](/sdk-reference) — same lifecycle, same on-chain contracts, same backend underwriter. The agent holds its own Stellar key; on-chain writes (`register`/`borrow`/`repay`/`deposit`) are signed by that key. Reads (`credit_line`/`vault_state`) are simulate-only. Scoring/underwriting is delegated to the Fianza backend (the trusted underwriter, v1).
 
 <Tip>
-New to TrustLine? Read the [onboarding kit](/onboarding-kit) first — it walks through funding a testnet account (the same prerequisites apply regardless of SDK language).
+New to Fianza? Read the [onboarding kit](/onboarding-kit) first — it walks through funding a testnet account (the same prerequisites apply regardless of SDK language).
 </Tip>
 
 ## Install
 
 ```bash
-pip install trustline-agent-sdk
+pip install fianza-agent-sdk
 ```
 
-The package installs as the `trustline` module and depends on `stellar-sdk` and `requests`.
+The package installs as the `fianza` module and depends on `stellar-sdk` and `requests`.
 
 ## Construct an agent
 
 ```python
-from trustline import TrustLineAgent
+from fianza import FianzaAgent
 
-tl = TrustLineAgent(
+tl = FianzaAgent(
     secret,                                              # your agent's Stellar secret key
     api_base_url="https://trustline-rpxt.onrender.com",  # the underwriting engine
     rpc_url="https://soroban-testnet.stellar.org",       # default: testnet
@@ -38,7 +38,7 @@ tl = TrustLineAgent(
 | Argument | Required? | What it does |
 |---|---|---|
 | `secret` (positional) | yes | Your agent's Stellar secret key. The keypair and public address are derived from it. |
-| `api_base_url` | recommended | The TrustLine underwriting API. Defaults to `http://localhost:8787` (local dev) — set this explicitly for testnet. |
+| `api_base_url` | recommended | The Fianza underwriting API. Defaults to `http://localhost:8787` (local dev) — set this explicitly for testnet. |
 | `rpc_url` | no | Soroban RPC endpoint. Defaults to public testnet RPC (`TESTNET_RPC`). |
 | `network_passphrase` | no | Stellar network passphrase. Defaults to testnet (`TESTNET_PASSPHRASE`). |
 | `contracts` | no | Explicit contract IDs (`registry`, `creditLine`, `vault`). If omitted, resolved once from the backend's `/config` and cached. |
@@ -47,9 +47,9 @@ tl = TrustLineAgent(
 ## The full loop at a glance
 
 ```python
-from trustline import TrustLineAgent
+from fianza import FianzaAgent
 
-tl = TrustLineAgent(secret, api_base_url="https://trustline-rpxt.onrender.com")
+tl = FianzaAgent(secret, api_base_url="https://trustline-rpxt.onrender.com")
 tl.register()                       # one-time on-chain registration
 tl.underwrite()                     # backend scores + publishes on-chain
 terms = tl.credit_line()            # read live tier / limit / APR
@@ -246,7 +246,7 @@ data = res.json()
 
 ## Errors
 
-All SDK errors extend `TrustLineError`, so you can catch specific failures instead of string-matching:
+All SDK errors extend `FianzaError`, so you can catch specific failures instead of string-matching:
 
 | Error | Raised when |
 |---|---|
@@ -256,7 +256,7 @@ All SDK errors extend `TrustLineError`, so you can catch specific failures inste
 | `MaxDrawExceededError` | `pay_with_credit`'s shortfall would exceed the `max_draw` cap. |
 
 ```python
-from trustline import TrustLineAgent, ValidationError, TxError
+from fianza import FianzaAgent, ValidationError, TxError
 
 try:
     tl.borrow(amount)
@@ -274,26 +274,26 @@ The pure helpers `to_stroops`, `from_stroops`, `is_valid_stellar_address`, and `
 
 See `packages/agent-sdk-py/examples/quickstart.py` for a full script that funds a fresh testnet agent and runs the register → underwrite → borrow → repay loop end to end.
 
-## Build with Claude — the TrustLine skill
+## Build with Claude — the Fianza skill
 
-If you use [Claude Code](https://claude.com/claude-code), there's an official **`trustline-agent-sdk` skill** that teaches Claude to drive this SDK (both Python and JS/TS): the full lifecycle, draw-on-402, error handling, and the common pitfalls. Install it any of these ways:
+If you use [Claude Code](https://claude.com/claude-code), there's an official **`fianza-agent-sdk` skill** that teaches Claude to drive this SDK (both Python and JS/TS): the full lifecycle, draw-on-402, error handling, and the common pitfalls. Install it any of these ways:
 
 <CodeGroup>
 ```bash npx (one command)
-npx @trustline-agents/skill
+npx @fianza/skill
 ```
 
 ```bash curl (no npm)
-mkdir -p ~/.claude/skills/trustline-agent-sdk && \
-  curl -fsSL https://raw.githubusercontent.com/TechnicallyKiller/TrustLine/main/.claude/skills/trustline-agent-sdk/SKILL.md \
-  -o ~/.claude/skills/trustline-agent-sdk/SKILL.md
+mkdir -p ~/.claude/skills/fianza-agent-sdk && \
+  curl -fsSL https://raw.githubusercontent.com/TechnicallyKiller/TrustLine/main/.claude/skills/fianza-agent-sdk/SKILL.md \
+  -o ~/.claude/skills/fianza-agent-sdk/SKILL.md
 ```
 
 ```bash plugin
 # in Claude Code:
 /plugin marketplace add TechnicallyKiller/TrustLine
-/plugin install trustline-agent-sdk@trustline
+/plugin install fianza-agent-sdk@fianza
 ```
 </CodeGroup>
 
-Then restart Claude Code (or run `/reload`) and invoke it with `/trustline-agent-sdk`. If you clone the TrustLine repo, the skill is already present (it lives in `.claude/skills/`) — no install needed.
+Then restart Claude Code (or run `/reload`) and invoke it with `/fianza-agent-sdk`. If you clone the repo, the skill is already present (it lives in `.claude/skills/`) — no install needed.

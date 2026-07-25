@@ -12,5 +12,5 @@
   <path d="M 50,30 L 66,40 L 50,50" stroke="#FFC24D" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" opacity="0.8"/>
   <circle cx="102" cy="40" r="7" fill="#FFF3DC"/>
   <circle cx="102" cy="40" r="11" fill="#FFB020" opacity="0.35"/>
-  <text x="184" y="53" font-family="Inter, system-ui, sans-serif" font-size="36" font-weight="600" fill="#F4F1E9" letter-spacing="-0.5">TrustLine</text>
+  <text x="184" y="53" font-family="Inter, system-ui, sans-serif" font-size="36" font-weight="600" fill="#F4F1E9" letter-spacing="-0.5">Fianza</text>
 </svg>

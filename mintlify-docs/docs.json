@@ -1,7 +1,7 @@
 {
   "$schema": "https://mintlify.com/docs.json",
   "theme": "maple",
-  "name": "TrustLine",
+  "name": "Fianza",
   "description": "Revenue-underwritten, uncollateralized USDC credit for AI agents on Stellar.",
   "colors": {
     "primary": "#FFB020",
@@ -51,7 +51,7 @@
         ]
       },
       {
-        "group": "Build with TrustLine",
+        "group": "Build with Fianza",
         "pages": [
           "onboarding-kit",
           "sdk-reference",

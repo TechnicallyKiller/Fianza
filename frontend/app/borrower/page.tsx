@@ -1,6 +1,6 @@
 "use client";
 
-// Borrower — TrustLine.dc.html "LIVING LEDGER" cockpit. Wired to the live
+// Borrower — Fianza.dc.html "LIVING LEDGER" cockpit. Wired to the live
 // underwriting API, connected wallet, and the real lending_vault contract —
 // same data/actions as before this redesign, restyled.
 

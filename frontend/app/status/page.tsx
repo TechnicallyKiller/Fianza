@@ -89,7 +89,7 @@ export default function StatusPage() {
             </button>
           </div>
           <p className="mt-3 font-tl-mono text-[11px] text-ash">
-            Live health of every TrustLine service on Stellar testnet, checked
+            Live health of every Fianza service on Stellar testnet, checked
             server-side.{lastChecked ? ` Last checked ${lastChecked}.` : ""}
           </p>
         </div>

@@ -1,6 +1,6 @@
 "use client";
 
-// Self-serve demo, restyled to the TrustLine.dc.html palette — the duel:
+// Self-serve demo, restyled to the Fianza.dc.html palette — the duel:
 // an honest agent gets APPROVED (nectar/ion), a Sybil agent gets DENIED
 // (flare), same engine, opposite outcomes, live. No wallet, no CLI.
 

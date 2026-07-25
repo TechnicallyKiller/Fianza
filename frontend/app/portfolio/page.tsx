@@ -1,6 +1,6 @@
 "use client";
 
-// /portfolio — TrustLine's credit book. The protocol-wide risk view a real
+// /portfolio — Fianza's credit book. The protocol-wide risk view a real
 // lending business reports: total lent, utilization, default rate, realized
 // loss, reserve coverage, lender yield — all read live from on-chain vault
 // state. This is what turns "a demo" into "a credit business."
@@ -52,7 +52,7 @@ export default function PortfolioPage() {
             Every number below is read straight from the lending vaults on Stellar
             testnet — total credit outstanding, utilization, default rate,
             realized loss, and the reserve buffer that absorbs it. This is
-            TrustLine as a credit business, not a demo.
+            Fianza as a credit business, not a demo.
           </p>
         </div>
 

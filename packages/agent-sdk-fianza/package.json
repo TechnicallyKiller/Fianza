@@ -1,0 +1,54 @@
+{
+  "name": "@fianza/agent-sdk",
+  "version": "0.1.0",
+  "description": "TypeScript SDK for AI agents to take and repay revenue-underwritten credit on Fianza (Stellar). Settles in USDC.",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "test": "node --import tsx --test test/*.test.ts",
+    "prepublishOnly": "npm run test && npm run build"
+  },
+  "keywords": [
+    "stellar",
+    "soroban",
+    "x402",
+    "ai-agents",
+    "credit",
+    "usdc",
+    "defi"
+  ],
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/TechnicallyKiller/TrustLine.git",
+    "directory": "packages/agent-sdk-fianza"
+  },
+  "homepage": "https://0xtrustline.online",
+  "bugs": "https://github.com/TechnicallyKiller/TrustLine/issues",
+  "dependencies": {
+    "@stellar/stellar-sdk": "^16.0.1",
+    "@x402/fetch": "^2.17.0",
+    "@x402/stellar": "^2.17.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.0"
+  }
+}

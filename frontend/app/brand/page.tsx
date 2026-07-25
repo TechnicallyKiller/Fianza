@@ -1,7 +1,7 @@
 "use client";
 
 // /brand — a small brand kit: logo, palette, type, one-liners, socials. Makes
-// TrustLine look like a real product and gives anyone writing about it the
+// Fianza look like a real product and gives anyone writing about it the
 // assets to do it right.
 
 import TLNav from "@/components/tl/TLNav";
@@ -26,11 +26,11 @@ export default function BrandPage() {
             / BRAND KIT
           </div>
           <h1 className="font-tl-serif text-[min(6.5vw,44px)] font-normal leading-[1.07] tracking-[-0.02em]">
-            TrustLine <span className="italic text-nectar">brand kit</span>.
+            Fianza <span className="italic text-nectar">brand kit</span>.
           </h1>
           <p className="mt-3 max-w-xl font-tl-sans text-sm leading-[1.7] text-ash">
             The name, logo, colors, and words. Use these if you&apos;re writing
-            about or building on TrustLine.
+            about or building on Fianza.
           </p>
         </div>
 
@@ -39,13 +39,13 @@ export default function BrandPage() {
           <div className="flex flex-wrap items-center gap-6">
             <div className="flex items-center gap-3 rounded-xl border border-white/10 bg-void/60 px-5 py-4">
               <span className="relative block h-10 w-10 overflow-hidden rounded-lg border border-ion/25">
-                <Image src="/logo6.png" alt="TrustLine" fill sizes="40px" className="scale-[1.35] object-cover" />
+                <Image src="/logo6.png" alt="Fianza" fill sizes="40px" className="scale-[1.35] object-cover" />
               </span>
-              <span className="font-tl-sans text-lg font-bold tracking-[-0.01em]">TrustLine</span>
+              <span className="font-tl-sans text-lg font-bold tracking-[-0.01em]">Fianza</span>
             </div>
             <p className="max-w-xs font-tl-mono text-[11px] leading-[1.6] text-ash">
-              Always one word, capital T and L: <span className="text-bone">TrustLine</span>.
-              Not &quot;Trust Line&quot; or &quot;Trustline.&quot;
+              Always one word, capital F: <span className="text-bone">Fianza</span>.
+              Not &quot;Fian Za&quot; or &quot;fianza.&quot;
             </p>
           </div>
         </Section>
@@ -88,7 +88,7 @@ export default function BrandPage() {
           <div className="flex flex-wrap gap-4 font-tl-mono text-[12px]">
             <a href="https://x.com/0xtrustline" target="_blank" rel="noreferrer" className="text-ion hover:text-nectar">𝕏 @0xtrustline</a>
             <a href="https://github.com/TechnicallyKiller/TrustLine" target="_blank" rel="noreferrer" className="text-ion hover:text-nectar">GitHub</a>
-            <a href="https://docs.0xtrustline.online" target="_blank" rel="noreferrer" className="text-ion hover:text-nectar">Docs</a>
+            <a href="https://docs.fianza.space" target="_blank" rel="noreferrer" className="text-ion hover:text-nectar">Docs</a>
             <a href="https://0xtrustline.online" target="_blank" rel="noreferrer" className="text-ion hover:text-nectar">0xtrustline.online</a>
             <a href="mailto:divyanshhkalra1234@gmail.com" className="text-ion hover:text-nectar">Contact</a>
           </div>
