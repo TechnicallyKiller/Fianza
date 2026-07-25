@@ -59,7 +59,7 @@ export default function TLFooter() {
             Uncollateralized USDC credit for AI agents, underwritten by revenue —
             on Stellar. Live on testnet.
           </p>
-          <div className="mt-4 flex items-center gap-3 font-tl-mono text-[11px]">
+          <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-1.5 font-tl-mono text-[11px]">
             <a
               href={`https://x.com/${X_HANDLE}`}
               target="_blank"
@@ -68,6 +68,7 @@ export default function TLFooter() {
             >
               𝕏 @{X_HANDLE}
             </a>
+            <span className="hidden text-ash/30 sm:inline">·</span>
             <a
               href="https://github.com/TechnicallyKiller/TrustLine"
               target="_blank"
@@ -76,6 +77,7 @@ export default function TLFooter() {
             >
               GitHub
             </a>
+            <span className="hidden text-ash/30 sm:inline">·</span>
             <a
               href={`mailto:${CONTACT_EMAIL}`}
               className="text-ash transition-colors hover:text-nectar"
