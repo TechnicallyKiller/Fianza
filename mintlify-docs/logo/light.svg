@@ -1,16 +1,6 @@
-<svg viewBox="0 0 420 80" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <!-- Shown on the LIGHT background: amber mark + dark wordmark -->
-  <defs>
-    <linearGradient id="sl" x1="0" y1="0" x2="1" y2="0">
-      <stop offset="0%" stop-color="#E5951A"/>
-      <stop offset="100%" stop-color="#C97D0A"/>
-    </linearGradient>
-  </defs>
-  <path d="M 104,2 L 148,2 L 164,20 L 164,60 L 148,78 L 104,78 L 88,60 L 88,20 Z" stroke="url(#sl)" stroke-width="4" opacity="0.85"/>
-  <path d="M 16,2 L 60,2 L 76,20 L 76,60 L 60,78 L 16,78 L 2,60 L 2,20 Z" stroke="url(#sl)" stroke-width="5"/>
-  <path d="M 34,26 L 58,40 L 34,54" stroke="#C97D0A" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
-  <path d="M 50,30 L 66,40 L 50,50" stroke="#E5951A" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" opacity="0.8"/>
-  <circle cx="102" cy="40" r="7" fill="#C97D0A"/>
-  <circle cx="102" cy="40" r="11" fill="#FFB020" opacity="0.35"/>
-  <text x="184" y="53" font-family="Inter, system-ui, sans-serif" font-size="36" font-weight="600" fill="#0B0F0E" letter-spacing="-0.5">Fianza</text>
+<svg viewBox="0 0 340 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Shown on the LIGHT background: folded-F mark (amber + mint) + dark wordmark -->
+  <path d="M28 76 L28 27 Q28 8 46 8 L74 8" stroke="#C97D0A" stroke-width="11" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M42 44 L64 44" stroke="#2FAE8E" stroke-width="9.5" stroke-linecap="round"/>
+  <text x="104" y="53" font-family="'Space Grotesk', system-ui, sans-serif" font-size="36" font-weight="600" fill="#0B0F0E" letter-spacing="-0.5">Fianza</text>
 </svg>
