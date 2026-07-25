@@ -48,6 +48,30 @@ export {
 const TESTNET_PASSPHRASE = "Test SDF Network ; September 2015";
 const TESTNET_RPC = "https://soroban-testnet.stellar.org";
 
+const MAINNET_PASSPHRASE = "Public Global Stellar Network ; September 2015";
+// Free public mainnet Soroban RPCs are individually flaky (confirmed in
+// production: writes intermittently fail to confirm on one endpoint while
+// succeeding immediately on another). read()/invoke() try each of these in
+// turn — rpcUrl, if set, is tried first.
+const MAINNET_RPC_URLS = [
+  "https://mainnet.sorobanrpc.com",
+  "https://rpc.ankr.com/stellar_soroban",
+  "https://soroban-rpc.mainnet.stellar.gateway.fm",
+];
+
+// The 3 contracts deployed and verified live on mainnet (see docs/contracts.md
+// "Mainnet deployment"). Used as defaults when network:"mainnet" is set and no
+// explicit opts.contracts is given — same shape as the testnet default of
+// resolving from the backend's `/config`, just hardcoded since these never
+// change without a fresh mainnet deploy.
+const MAINNET_CONTRACTS = {
+  registry: "CAHWYFLMQI6BBOL6ZLZRRINCK6KVBX73ACH7LCPB24WDED4LSMCI7YZC",
+  creditLine: "CDK7S4UWY227FHFKDSV37DGT7AIJ5Z2QEYO5AY456M7RBGJN25WYJVGC",
+  vault: "CAE5C5UJYVED5DAVY4YKYT6E2C4NBZCIUBAK2MXGKGLKZESBBXKFPZ4U",
+};
+
+const MAINNET_USDC_SAC = "CCW67TSZV3SSS2HXMBQ5JFGCKJNXKZM7UQUWUZPUTHXSTZLEO7SJMI75";
+
 export interface FianzaContracts {
   registry: string;
   creditLine: string;
@@ -55,13 +79,29 @@ export interface FianzaContracts {
 }
 
 export interface FianzaOptions {
-  /** Soroban RPC url (default: testnet). */
+  /**
+   * Which network to operate on. Sets sensible RPC/passphrase/contract/API
+   * defaults for that network; any of rpcUrl/networkPassphrase/contracts/
+   * apiBaseUrl passed explicitly still overrides the default for that field.
+   * Default: "testnet" (this SDK's original behavior, unchanged).
+   */
+  network?: "testnet" | "mainnet";
+  /** Soroban RPC url (default: testnet's, or mainnet's if network:"mainnet"). */
   rpcUrl?: string;
-  /** Network passphrase (default: testnet). */
+  /** Network passphrase (default: testnet's, or mainnet's if network:"mainnet"). */
   networkPassphrase?: string;
-  /** Fianza underwriting API base url (default: http://localhost:8787). */
+  /**
+   * Fianza underwriting API base url (default: http://localhost:8787).
+   * On network:"mainnet", previewCredit()/underwrite()/revenue() call the
+   * backend's isolated /mainnet/* routes instead of the testnet-shaped
+   * /agent/* ones — see backend/src/mainnet.ts. Those routes read the
+   * already-deployed mainnet contracts directly (no live indexer/scorer:
+   * there is no real mainnet agent revenue yet to underwrite against), so
+   * underwrite()/revenue() are NOT meaningful calls on mainnet today and
+   * will throw — use previewCredit()/creditLine()/vaultState() instead.
+   */
   apiBaseUrl?: string;
-  /** Contract ids. If omitted, resolved from the backend `/config`. */
+  /** Contract ids. If omitted, resolved from the backend `/config` (testnet) or the known mainnet deploy (mainnet). */
   contracts?: Partial<FianzaContracts>;
 }
 
@@ -87,6 +127,14 @@ export interface VaultState {
 
 /** Which tier band an agent's score falls into. Mirrors the backend/contracts. */
 export type Tier = "A" | "B" | "C" | "Unrated";
+
+// Mirrors revenue_math::Tier in the Rust contracts (Unrated=0, C=1, B=2, A=3).
+const TIER_LABELS: Tier[] = ["Unrated", "C", "B", "A"];
+function tierNumberToLabel(tier: string | number): Tier {
+  if (typeof tier === "string" && (TIER_LABELS as string[]).includes(tier)) return tier as Tier;
+  const n = Number(tier);
+  return TIER_LABELS[n] ?? "Unrated";
+}
 
 /**
  * The composite score/limit/APR result the underwriting engine computes.
@@ -161,7 +209,9 @@ export interface TxResult {
 
 export class FianzaAgent {
   readonly keypair: Keypair;
+  readonly network: "testnet" | "mainnet";
   private server: rpc.Server;
+  private rpcUrls: string[];
   private passphrase: string;
   private apiBaseUrl: string;
   private contracts: FianzaContracts | null = null;
@@ -170,14 +220,24 @@ export class FianzaAgent {
 
   constructor(secret: string, opts: FianzaOptions = {}) {
     this.keypair = Keypair.fromSecret(secret);
-    this.passphrase = opts.networkPassphrase ?? TESTNET_PASSPHRASE;
-    this.server = new rpc.Server(opts.rpcUrl ?? TESTNET_RPC);
+    this.network = opts.network ?? "testnet";
+    const isMainnet = this.network === "mainnet";
+
+    this.passphrase = opts.networkPassphrase ?? (isMainnet ? MAINNET_PASSPHRASE : TESTNET_PASSPHRASE);
+    this.rpcUrls = opts.rpcUrl
+      ? [opts.rpcUrl, ...(isMainnet ? MAINNET_RPC_URLS : [])]
+      : isMainnet
+        ? MAINNET_RPC_URLS
+        : [TESTNET_RPC];
+    this.server = new rpc.Server(this.rpcUrls[0]);
     this.apiBaseUrl = opts.apiBaseUrl ?? "http://localhost:8787";
-    this.optContracts = opts.contracts ?? {};
+
+    this.optContracts = opts.contracts ?? (isMainnet ? MAINNET_CONTRACTS : {});
     const c = this.optContracts;
     if (c.registry && c.creditLine && c.vault) {
       this.contracts = c as FianzaContracts;
     }
+    if (isMainnet) this.usdcSacId = opts.contracts ? this.usdcSacId : MAINNET_USDC_SAC;
   }
 
   /** This agent's Stellar public key. */
@@ -185,14 +245,19 @@ export class FianzaAgent {
     return this.keypair.publicKey();
   }
 
-  /** Resolve contract ids (from opts or the backend `/config`), cached. */
+  /** The mainnet-routed underwriting path prefix, or "" on testnet. */
+  private get apiNetworkPrefix(): string {
+    return this.network === "mainnet" ? "/mainnet" : "";
+  }
+
+  /** Resolve contract ids (from opts, the known mainnet deploy, or the backend `/config`), cached. */
   async ensureContracts(): Promise<FianzaContracts> {
     if (this.contracts) return this.contracts;
     const cfg = await this.apiGet<{
       scoreRegistryContractId?: string;
       creditLineContractId?: string;
       lendingVaultContractId?: string;
-    }>("/config");
+    }>(`${this.apiNetworkPrefix}/config`);
     const c: Partial<FianzaContracts> = {
       registry: this.optContracts.registry ?? cfg.scoreRegistryContractId,
       creditLine: this.optContracts.creditLine ?? cfg.creditLineContractId,
@@ -200,34 +265,56 @@ export class FianzaAgent {
     };
     if (!c.registry || !c.creditLine || !c.vault) {
       throw new Error(
-        "Fianza contract ids unavailable from /config — pass them via opts.contracts.",
+        `Fianza contract ids unavailable from ${this.apiNetworkPrefix}/config — pass them via opts.contracts.`,
       );
     }
     this.contracts = c as FianzaContracts;
     return this.contracts;
   }
 
-  /** USDC Stellar Asset Contract id (from the backend `/config`), cached. */
+  /** USDC Stellar Asset Contract id (from opts, the known mainnet SAC, or the backend `/config`), cached. */
   private async usdcSac(): Promise<string> {
     if (this.usdcSacId) return this.usdcSacId;
-    const cfg = await this.apiGet<{ usdcSac: string }>("/config");
-    if (!cfg.usdcSac) throw new Error("usdcSac unavailable from /config");
+    const cfg = await this.apiGet<{ usdcSac: string }>(`${this.apiNetworkPrefix}/config`);
+    if (!cfg.usdcSac) throw new Error(`usdcSac unavailable from ${this.apiNetworkPrefix}/config`);
     this.usdcSacId = cfg.usdcSac;
     return this.usdcSacId;
   }
 
   // ---- Underwriting (delegated to the backend) ----
 
-  /** Live x402 revenue index for this agent. */
+  /**
+   * Live x402 revenue index for this agent. TESTNET ONLY — there is no live
+   * mainnet revenue indexer (no real mainnet agent revenue exists yet to
+   * index), so this throws immediately on network:"mainnet" rather than
+   * hitting a 404. Use {@link creditLine} / {@link vaultState} for the
+   * already-published mainnet terms instead.
+   */
   async revenue(fromLedger?: number): Promise<unknown> {
+    if (this.network === "mainnet") {
+      throw new Error(
+        "revenue() has no mainnet equivalent yet — there is no live mainnet " +
+          "revenue indexer. Use creditLine()/vaultState() to read already-published terms.",
+      );
+    }
     const q = fromLedger ? `?fromLedger=${fromLedger}` : "";
     return this.apiGet(`/agent/${this.publicKey()}/revenue${q}`);
   }
 
-  /** Run the full underwriting pass (revenue → proof → score → publish). */
+  /**
+   * Run the full underwriting pass (revenue → proof → score → publish).
+   * TESTNET ONLY — see {@link revenue}; throws immediately on mainnet.
+   */
   async underwrite(
     opts: { skipProof?: boolean; fromLedger?: number } = {},
   ): Promise<UnderwritingResult> {
+    if (this.network === "mainnet") {
+      throw new Error(
+        "underwrite() has no mainnet equivalent yet — there is no live mainnet " +
+          "scorer to re-underwrite against. The agent's mainnet terms were " +
+          "published manually; read them with creditLine()/vaultState().",
+      );
+    }
     const q = new URLSearchParams();
     if (opts.skipProof) q.set("skipProof", "true");
     if (opts.fromLedger) q.set("fromLedger", String(opts.fromLedger));
@@ -237,7 +324,11 @@ export class FianzaAgent {
     );
   }
 
-  /** Convenience: register on-chain, then run an underwriting pass. */
+  /**
+   * Convenience: register on-chain, then run an underwriting pass. TESTNET
+   * ONLY — see {@link underwrite}. On mainnet, call {@link register} directly
+   * (its on-chain terms come from whatever score was already published).
+   */
   async onboard(opts: { skipProof?: boolean; fromLedger?: number } = {}): Promise<{
     register: TxResult;
     underwrite: UnderwritingResult;
@@ -248,12 +339,34 @@ export class FianzaAgent {
   }
 
   /**
-   * Read-only live credit preview (`GET /agent/:address/available-credit`) —
-   * this agent's CURRENT score/limit/tier from its real on-chain revenue right
-   * now, no zkTLS proof, no on-chain write, nothing persisted. Cheap enough to
-   * call before every draw to check headroom without a full {@link underwrite}.
+   * Read-only live credit preview. On testnet, `GET /agent/:address/available-credit`
+   * — this agent's CURRENT score/limit/tier from its real on-chain revenue
+   * right now, no zkTLS proof, no on-chain write, nothing persisted. On
+   * mainnet, `GET /mainnet/agent/:address/credit` — the agent's already-
+   * published terms + live vault state (no fresh scoring pass, since none
+   * exists yet); `rampedLimitUsdc`/`revenueUsdc`/`distinctPayers` are testnet-
+   * scoring concepts with no mainnet equivalent and read 0 there — read
+   * `limitUsdc`/`tier`/`aprBps` instead, or call {@link vaultState} directly.
    */
   async previewCredit(): Promise<CreditPreview> {
+    if (this.network === "mainnet") {
+      const info = await this.apiGet<{
+        agent: string;
+        tier: string | number;
+        limitUsdc: number;
+        aprBps: number;
+        vault: { availableCreditUsdc: number } | null;
+      }>(`/mainnet/agent/${this.publicKey()}/credit`);
+      return {
+        agent: info.agent,
+        rampedLimitUsdc: info.vault?.availableCreditUsdc ?? 0,
+        limitUsdc: info.limitUsdc,
+        tier: tierNumberToLabel(info.tier),
+        aprBps: info.aprBps,
+        revenueUsdc: 0,
+        distinctPayers: 0,
+      };
+    }
     return this.apiGet(`/agent/${this.publicKey()}/available-credit`);
   }
 
@@ -450,25 +563,45 @@ export class FianzaAgent {
     return nativeToScVal(n, { type: "i128" });
   }
 
+  /**
+   * Run `fn` against each RPC in {@link rpcUrls} in turn, returning the first
+   * success. Only meant for idempotent/read-style calls — see {@link invoke}
+   * for why writes don't retry this way across the whole submit+confirm flow.
+   */
+  private async withRpcFallback<T>(fn: (server: rpc.Server) => Promise<T>): Promise<T> {
+    let lastErr: unknown;
+    for (const url of this.rpcUrls) {
+      const server = url === this.rpcUrls[0] ? this.server : new rpc.Server(url);
+      try {
+        return await fn(server);
+      } catch (err) {
+        lastErr = err;
+      }
+    }
+    throw lastErr;
+  }
+
   private async read(
     contractId: string,
     method: string,
     args: xdr.ScVal[],
   ): Promise<unknown> {
-    const acct = await this.server.getAccount(this.publicKey());
-    const tx = new TransactionBuilder(acct, {
-      fee: BASE_FEE,
-      networkPassphrase: this.passphrase,
-    })
-      .addOperation(new Contract(contractId).call(method, ...args))
-      .setTimeout(30)
-      .build();
-    const sim = await this.server.simulateTransaction(tx);
-    if (rpc.Api.isSimulationError(sim)) {
-      throw new Error(`${method} simulation failed: ${sim.error}`);
-    }
-    const retval = sim.result?.retval;
-    return retval ? scValToNative(retval) : null;
+    return this.withRpcFallback(async (server) => {
+      const acct = await server.getAccount(this.publicKey());
+      const tx = new TransactionBuilder(acct, {
+        fee: BASE_FEE,
+        networkPassphrase: this.passphrase,
+      })
+        .addOperation(new Contract(contractId).call(method, ...args))
+        .setTimeout(30)
+        .build();
+      const sim = await server.simulateTransaction(tx);
+      if (rpc.Api.isSimulationError(sim)) {
+        throw new Error(`${method} simulation failed: ${sim.error}`);
+      }
+      const retval = sim.result?.retval;
+      return retval ? scValToNative(retval) : null;
+    });
   }
 
   private async invoke(
@@ -476,24 +609,31 @@ export class FianzaAgent {
     method: string,
     args: xdr.ScVal[],
   ): Promise<TxResult> {
-    const acct = await this.server.getAccount(this.publicKey());
-    const tx = new TransactionBuilder(acct, {
-      fee: BASE_FEE,
-      networkPassphrase: this.passphrase,
-    })
-      .addOperation(new Contract(contractId).call(method, ...args))
-      .setTimeout(TimeoutInfinite)
-      .build();
-    const prepared = await this.server.prepareTransaction(tx);
+    // Only the build+prepare steps (read-only against the RPC) fall back
+    // across rpcUrls. Once sendTransaction() actually submits, we stick to
+    // that same server for confirmation polling — retrying submission itself
+    // on a different RPC after an ambiguous failure risks double-submitting.
+    const { prepared, server } = await this.withRpcFallback(async (server) => {
+      const acct = await server.getAccount(this.publicKey());
+      const tx = new TransactionBuilder(acct, {
+        fee: BASE_FEE,
+        networkPassphrase: this.passphrase,
+      })
+        .addOperation(new Contract(contractId).call(method, ...args))
+        .setTimeout(TimeoutInfinite)
+        .build();
+      const prepared = await server.prepareTransaction(tx);
+      return { prepared, server };
+    });
     prepared.sign(this.keypair);
-    const sent = await this.server.sendTransaction(prepared);
+    const sent = await server.sendTransaction(prepared);
     if (sent.status === "ERROR") {
       throw new TxError(`${method} submit failed`, method, sent.errorResult);
     }
-    let got = await this.server.getTransaction(sent.hash);
+    let got = await server.getTransaction(sent.hash);
     for (let i = 0; i < 40 && got.status === "NOT_FOUND"; i++) {
       await new Promise((r) => setTimeout(r, 1000));
-      got = await this.server.getTransaction(sent.hash);
+      got = await server.getTransaction(sent.hash);
     }
     if (got.status !== "SUCCESS") {
       throw new TxError(`${method} did not succeed: ${got.status}`, method, got);
@@ -501,7 +641,7 @@ export class FianzaAgent {
     return {
       txHash: sent.hash,
       returnValue: got.returnValue ? scValToNative(got.returnValue) : null,
-      explorerUrl: `https://stellar.expert/explorer/testnet/tx/${sent.hash}`,
+      explorerUrl: `https://stellar.expert/explorer/${this.network === "mainnet" ? "public" : "testnet"}/tx/${sent.hash}`,
     };
   }
 

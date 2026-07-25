@@ -11,6 +11,8 @@ import { Loader2, RefreshCw, AlertTriangle, Info, Layers } from "lucide-react";
 import TLShell from "@/components/tl/TLShell";
 import { useWallet } from "@/components/WalletProvider";
 import { invokeContract, readContract, sc, STELLAR_EXPERT_TX } from "@/lib/stellar";
+import { friendlyErrorMessage } from "@/lib/errors";
+import ErrorToast from "@/components/tl/ErrorToast";
 import {
   api,
   aprPct,
@@ -55,11 +57,11 @@ export default function LenderDashboard() {
       setAgents(list);
       setSelected((cur) => cur ?? (list[0]?.agent ?? null));
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      setError(friendlyErrorMessage(e, config));
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [config]);
 
   useEffect(() => {
     refresh();
@@ -101,11 +103,11 @@ export default function LenderDashboard() {
       );
       setPositions(results.filter((p): p is LenderPosition => p !== null));
     } catch (e) {
-      setPositionsError(e instanceof Error ? e.message : String(e));
+      setPositionsError(friendlyErrorMessage(e, config));
     } finally {
       setPositionsLoading(false);
     }
-  }, [address, config?.lendingVaultContractId, agents]);
+  }, [address, config, agents]);
 
   useEffect(() => {
     fetchPositions();
@@ -124,6 +126,7 @@ export default function LenderDashboard() {
 
   return (
     <TLShell>
+      <ErrorToast message={error} onDismiss={() => setError(null)} />
       <main className="mx-auto w-full max-w-[1240px] px-[30px] pb-20 pt-10">
         <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
           <div>
@@ -149,13 +152,6 @@ export default function LenderDashboard() {
             </button>
           </div>
         </div>
-
-        {error ? (
-          <div className="mb-6 flex items-start gap-2 rounded-lg border border-flare/30 bg-flare/10 p-3 font-tl-mono text-xs text-flare">
-            <AlertTriangle size={15} className="mt-0.5 shrink-0" />
-            <span>{error}</span>
-          </div>
-        ) : null}
 
         {/* stats */}
         <div className="mb-8 grid grid-cols-2 gap-3.5 lg:grid-cols-4">
@@ -492,7 +488,7 @@ function DepositBox({ agentAddress, hasLine }: { agentAddress: string; hasLine: 
       });
       setTx(r.txHash);
     } catch (e) {
-      setErr(e instanceof Error ? e.message : String(e));
+      setErr(friendlyErrorMessage(e, config));
     } finally {
       setBusy(false);
     }

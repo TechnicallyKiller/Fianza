@@ -28,6 +28,8 @@ import {
   type UnderwritingResult,
 } from "@/lib/api";
 import { STELLAR_EXPERT_TX, invokeContract, readContract, sc } from "@/lib/stellar";
+import { friendlyErrorMessage } from "@/lib/errors";
+import ErrorToast from "@/components/tl/ErrorToast";
 
 // Mirrors lending_vault::VaultState (contracts/lending_vault/src/lib.rs).
 interface VaultState {
@@ -182,12 +184,12 @@ export default function BorrowerDashboard() {
           );
         }
       } catch (e) {
-        setError(e instanceof Error ? e.message : String(e));
+        setError(friendlyErrorMessage(e, walletConfig));
       } finally {
         setUnderwriting(false);
       }
     },
-    [target, fromLedgerNum],
+    [target, fromLedgerNum, walletConfig],
   );
 
   const score = result?.score;
@@ -208,8 +210,8 @@ export default function BorrowerDashboard() {
 
   return (
     <TLShell>
+      <ErrorToast message={error} onDismiss={() => setError(null)} />
       <main className="mx-auto w-full max-w-[1160px] px-[30px] pb-20 pt-11">
-        {error ? <Banner kind="error" text={error} /> : null}
         {notice ? <Banner kind="warn" text={notice} /> : null}
 
         {/* inspect bar */}
@@ -319,6 +321,7 @@ export default function BorrowerDashboard() {
               aprBps={score?.aprBps}
               isRegistered={isRegistered}
               hasRevenueSignal={!!score && score.revenueUsdc > 0}
+              vaultLiquidityUsdc={vaultState ? Number(vaultState.liquidity) / 1e7 : 0}
               onAction={() => target && load(target, fromLedgerNum)}
             />
           </div>
@@ -472,6 +475,7 @@ function VaultActions({
   aprBps,
   isRegistered,
   hasRevenueSignal,
+  vaultLiquidityUsdc,
   onAction,
 }: {
   hasLimit: boolean;
@@ -483,6 +487,8 @@ function VaultActions({
   isRegistered: boolean | null;
   /** Has the underwriter found ANY effective revenue for this agent yet. */
   hasRevenueSignal: boolean;
+  /** Current borrowable USDC sitting in this agent's vault. */
+  vaultLiquidityUsdc: number;
   onAction: () => void;
 }) {
   const { address, config } = useWallet();
@@ -526,7 +532,7 @@ function VaultActions({
       setTx(r.txHash);
       onAction();
     } catch (e) {
-      setErr(e instanceof Error ? e.message : String(e));
+      setErr(friendlyErrorMessage(e, config));
     } finally {
       setBusy(null);
     }
@@ -542,14 +548,27 @@ function VaultActions({
       }),
     );
   const borrow = () =>
-    run("borrow", () =>
-      invokeContract({
+    run("borrow", async () => {
+      // The vault only holds what lenders (or the testnet treasury) have
+      // deposited into it — a real credit limit doesn't mean the vault can
+      // actually pay it out. Top up from the treasury first if short, so a
+      // freshly-underwritten agent doesn't hit a bare InsufficientLiquidity
+      // contract error on its first draw. Inert (deposited:false) if the
+      // backend has no treasury configured — borrow() then fails normally.
+      if (num > vaultLiquidityUsdc) {
+        try {
+          await api.ensureLiquidity(address, num);
+        } catch {
+          /* best-effort — fall through to borrow() and surface its own error */
+        }
+      }
+      return invokeContract({
         contractId: config!.lendingVaultContractId!,
         method: "borrow",
         args: [sc.address(address), sc.i128(stroops())],
         publicKey: address,
-      }),
-    );
+      });
+    });
   const repay = () =>
     run("repay", () =>
       invokeContract({

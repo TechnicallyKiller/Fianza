@@ -151,6 +151,14 @@ export interface AgentSummary {
   underwroteAt: number;
 }
 
+// Testnet treasury top-up result (mirrors backend/src/treasury.ts's TopUpResult).
+export interface EnsureLiquidityResult {
+  deposited: boolean;
+  amountUsdc: number;
+  txHash?: string;
+  reason?: string;
+}
+
 // ---- HTTP helper ----
 
 export class ApiError extends Error {
@@ -255,6 +263,19 @@ export const api = {
 
   /** All underwritten agents (lender dashboard). */
   agents: () => request<AgentSummary[]>("/agents"),
+
+  /**
+   * Testnet treasury top-up: ensure an agent's vault holds enough borrowable
+   * liquidity, seeding it from the treasury if short. Inert (deposited:false)
+   * if the backend's TREASURY_SECRET is unset. Call before borrow() so a
+   * freshly-underwritten agent with an empty vault doesn't hit a bare
+   * InsufficientLiquidity contract error.
+   */
+  ensureLiquidity: (address: string, neededUsdc: number) =>
+    request<EnsureLiquidityResult>(`/agent/${address}/ensure-liquidity`, {
+      method: "POST",
+      body: JSON.stringify({ neededUsdc }),
+    }),
 
   /** Protocol-wide risk/portfolio view (the credit book). */
   portfolio: () => request<Portfolio>("/portfolio"),
