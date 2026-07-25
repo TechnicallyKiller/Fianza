@@ -1,8 +1,7 @@
 # Fianza docs (Mintlify)
 
 _Formerly "TrustLine" — renamed to Fianza to avoid confusion with an
-unrelated, already-funded SCF project of the same name. Domain/infra rename
-still in progress; some links below still point at 0xtrustline.online._
+unrelated, already-funded SCF project of the same name._
 
 The Fianza documentation site, built with [Mintlify](https://mintlify.com).
 Content lives in `*.mdx` files; navigation, theme, and the built-in **Ask AI**
@@ -49,26 +48,24 @@ credit line?"*) to confirm.
 
 ## 3. Custom domain — `docs.fianza.space`
 
-You own `0xtrustline.online` (registrar: **Hostinger**). To serve docs from a
-subdomain:
+**Already done.** For reference, here's how it was set up — you own
+`fianza.space` (registrar: **Hostinger**):
 
 1. In the Mintlify dashboard → **Settings → Custom Domain** → enter
-   `docs.fianza.space`. Mintlify shows you a **CNAME target**.
-2. In Hostinger → **hPanel → Domains → 0xtrustline.online → DNS / Nameservers →
-   DNS Records**, add:
-
-   | Type  | Name / Host | Value                          | TTL  |
-   |-------|-------------|--------------------------------|------|
-   | CNAME | `docs`      | *(the target Mintlify gave you)* | 3600 |
-
+   `docs.fianza.space`. Mintlify shows you a **CNAME target** plus two
+   verification **TXT records** (`_acme-challenge.docs`,
+   `_cf-custom-hostname.docs`).
+2. In Hostinger → **hPanel → Domains → fianza.space → DNS / Nameservers →
+   DNS Records**, add all three records Mintlify gave you (the CNAME on
+   `docs`, and both TXT records).
 3. Wait for DNS propagation (minutes to ~1 hour). Mintlify issues SSL
-   automatically. Docs are then live at `https://docs.fianza.space`.
+   automatically once the TXT records verify. Docs are live at
+   `https://docs.fianza.space`.
 
 ### App domain (Vercel), for reference
 
-The main app moves to the apex domain in the Vercel dashboard
-(**Settings → Domains → Add `0xtrustline.online`**), with these Hostinger
-records:
+The main app is on the apex domain in the Vercel dashboard
+(**Settings → Domains → `fianza.space`**), with these Hostinger records:
 
 | Type  | Name / Host | Value                   | TTL  |
 |-------|-------------|-------------------------|------|

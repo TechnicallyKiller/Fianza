@@ -77,13 +77,13 @@
     "primary": {
       "type": "button",
       "label": "Live app",
-      "href": "https://0xtrustline.online"
+      "href": "https://fianza.space"
     }
   },
   "footer": {
     "socials": {
       "github": "https://github.com/TechnicallyKiller/TrustLine",
-      "website": "https://0xtrustline.online"
+      "website": "https://fianza.space"
     }
   },
   "contextual": {

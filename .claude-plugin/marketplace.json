@@ -2,7 +2,7 @@
   "name": "trustline",
   "owner": {
     "name": "Fianza",
-    "url": "https://0xtrustline.online"
+    "url": "https://fianza.space"
   },
   "description": "Fianza (formerly TrustLine) — revenue-underwritten, uncollateralized USDC credit for AI agents on Stellar.",
   "plugins": [

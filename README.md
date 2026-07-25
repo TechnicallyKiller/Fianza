@@ -2,8 +2,7 @@
 
 _Formerly "TrustLine" — renamed to avoid confusion with an unrelated,
 already-funded SCF project of the same name. Same product, same team, same
-code; the domain/infra rename is still in progress, so some URLs below still
-say `0xtrustline.online` for now._
+code; the backend API host and GitHub repo path are unchanged for now._
 
 **Uncollateralized credit for AI agents, underwritten by revenue — on Stellar.**
 
@@ -20,7 +19,7 @@ use to earn.
 **Contracts are now also deployed on Stellar mainnet** (see below) — the
 product/backend still runs on testnet while the mainnet lender/liquidity side
 is built out; the mainnet contracts are live and real, not yet wired to the
-live app. 🔗 **Live demo:** https://0xtrustline.online
+live app. 🔗 **Live demo:** https://fianza.space
 
 📖 **[Full documentation](https://docs.fianza.space)** — architecture,
 the credit engine, the Sybil model, the SDK reference, contract addresses, and

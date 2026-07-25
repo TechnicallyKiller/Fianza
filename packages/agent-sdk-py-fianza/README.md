@@ -1,7 +1,7 @@
 # fianza-agent-sdk (Python)
 
 Python SDK for AI agents to take and repay **revenue-underwritten, uncollateralized
-USDC credit** on [Fianza](https://0xtrustline.online) (Stellar / Soroban).
+USDC credit** on [Fianza](https://fianza.space) (Stellar / Soroban).
 
 An agent proves real revenue → Fianza underwrites it → the agent gets a credit
 line it can draw against and repay, all from its own Stellar key. This is the

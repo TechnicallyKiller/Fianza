@@ -5,7 +5,7 @@
   "description": "Drive the Fianza agent SDK (JS/TS or Python) so an AI agent can take and repay revenue-underwritten, uncollateralized USDC credit on Stellar: register, underwrite, borrow, repay, and pay x402 APIs on credit (draw-on-402).",
   "author": {
     "name": "Fianza",
-    "url": "https://0xtrustline.online"
+    "url": "https://fianza.space"
   },
   "homepage": "https://docs.fianza.space/sdk-reference-python",
   "repository": "https://github.com/TechnicallyKiller/TrustLine",

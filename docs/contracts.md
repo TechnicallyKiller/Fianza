@@ -38,7 +38,7 @@ runs on testnet** — these are not yet what the app/SDK point at by default.
 Config: 30-day loan term, $100/vault deposit cap (launch-conservative,
 admin-adjustable). Verified live end-to-end (registration, score publish,
 cross-contract term derivation) with real on-chain transactions — see the
-[`/mainnet`](https://0xtrustline.online/mainnet) status page for tx links.
+[`/mainnet`](https://fianza.space/mainnet) status page for tx links.
 
 ## Superseded (kept for reference — do not build against these)
 

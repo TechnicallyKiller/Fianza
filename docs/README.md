@@ -1,8 +1,9 @@
 # Getting started
 
 _Formerly "TrustLine" — renamed to Fianza to avoid confusion with an
-unrelated, already-funded SCF project of the same name. Domain/infra rename
-still in progress; some links below still point at 0xtrustline.online._
+unrelated, already-funded SCF project of the same name. The backend API
+host (`trustline-rpxt.onrender.com`) and GitHub repo path are unchanged for
+now — see the note next to each below._
 
 **Fianza is a revenue-underwritten, uncollateralized USDC credit protocol
 for AI agents on Stellar.** An agent proves what it actually earns — on-chain
@@ -47,9 +48,9 @@ autonomously. No collateral, no human in the loop, no wallet-age heuristics.
 
 | Resource | Link |
 |---|---|
-| Live app | [0xtrustline.online](https://0xtrustline.online) |
-| Live underwriter (paste any address) | [/underwrite](https://0xtrustline.online/underwrite) |
-| Backend API | `https://trustline-rpxt.onrender.com` |
+| Live app | [fianza.space](https://fianza.space) |
+| Live underwriter (paste any address) | [/underwrite](https://fianza.space/underwrite) |
+| Backend API | `https://trustline-rpxt.onrender.com` (unchanged) |
 | GitHub | [TechnicallyKiller/TrustLine](https://github.com/TechnicallyKiller/TrustLine) |
 | Agent SDK | [`packages/agent-sdk-fianza`](../packages/agent-sdk-fianza) (new); [`packages/agent-sdk`](../packages/agent-sdk) (old, still published & working) |
 

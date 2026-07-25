@@ -39,7 +39,7 @@
     "url": "git+https://github.com/TechnicallyKiller/TrustLine.git",
     "directory": "packages/agent-sdk-fianza"
   },
-  "homepage": "https://0xtrustline.online",
+  "homepage": "https://fianza.space",
   "bugs": "https://github.com/TechnicallyKiller/TrustLine/issues",
   "dependencies": {
     "@stellar/stellar-sdk": "^16.0.1",
