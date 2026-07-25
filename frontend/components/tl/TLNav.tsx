@@ -15,16 +15,18 @@ import { Menu, X } from "lucide-react";
 // not the internal Next.js /docs route — so the docs link is external.
 const DOCS_URL = "https://docs.0xtrustline.online";
 
+// Trimmed to the core surfaces + mainnet/docs (explicit product call —
+// keep the nav from reading as cluttered). /demo and /status are still real,
+// linked pages — just reached via the footer or in-page links now, not the
+// primary nav.
 const LINKS: { href: string; label: string; external?: boolean; badge?: string }[] = [
   { href: "/", label: "manifesto" },
   { href: "/underwrite", label: "underwrite" },
-  { href: "/demo", label: "demo" },
   { href: "/agent-demo", label: "live agent", badge: "new" },
   { href: "/borrower", label: "borrower" },
   { href: "/lender", label: "lender" },
   { href: "/portfolio", label: "credit book" },
   { href: "/mainnet", label: "mainnet" },
-  { href: "/status", label: "status" },
   { href: DOCS_URL, label: "docs", external: true },
 ];
 
