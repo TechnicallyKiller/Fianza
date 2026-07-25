@@ -100,7 +100,7 @@ export default function Home() {
         <div className="tl-sweep relative z-[1] overflow-hidden border-y border-bone/[0.08] bg-obsidian">
           <div className="relative h-[220px] w-full sm:h-[280px] lg:h-[320px]">
             <Image
-              src="/logo6.png"
+              src="/brand-band.png"
               alt="Fianza emblem — a proven revenue signal resolving into a live line of credit"
               fill
               priority
