@@ -30,6 +30,7 @@ import {
 import { STELLAR_EXPERT_TX, invokeContract, readContract, sc } from "@/lib/stellar";
 import { friendlyErrorMessage } from "@/lib/errors";
 import ErrorToast from "@/components/tl/ErrorToast";
+import { logTx, readTxLog, type TxKind } from "@/lib/txlog";
 
 // Mirrors lending_vault::VaultState (contracts/lending_vault/src/lib.rs).
 interface VaultState {
@@ -195,8 +196,14 @@ export default function BorrowerDashboard() {
   const score = result?.score;
   const readOnly = !!target && target !== address;
   const limit = score?.limitUsdc ?? 0;
+  // The vault's OWN limit — the ramped, currently-enforced borrowing ceiling
+  // (grows with on-time repayment history). This is what actually gates
+  // borrow() on-chain, and is usually well below the full tier `limit` above
+  // for an agent with no repayment history yet.
+  const rampedLimit = vaultState ? Number(vaultState.limit) / 1e7 : 0;
   const owed = vaultState ? Number(vaultState.amount_owed) / 1e7 : 0;
-  const utilPct = limit > 0 ? Math.min(100, Math.round((owed / limit) * 100)) : 0;
+  const headroom = Math.max(0, rampedLimit - owed);
+  const utilPct = rampedLimit > 0 ? Math.min(100, Math.round((owed / rampedLimit) * 100)) : 0;
 
   if (!address) {
     return (
@@ -308,14 +315,20 @@ export default function BorrowerDashboard() {
               <Figure label="DRAWN" value={vaultState ? usdc(owed) : "—"} color="#F4F1E9" />
               <Figure
                 label="HEADROOM"
-                value={score ? usdc(Math.max(0, limit - owed)) : "—"}
+                value={vaultState ? usdc(headroom) : "—"}
                 color="#58F0C8"
+              />
+              <Figure
+                label="LEFT TO REPAY"
+                value={vaultState ? usdc(owed) : "—"}
+                color={vaultState?.defaulted ? "#FF5C4D" : "#FFB020"}
               />
             </div>
 
             <VaultActions
               hasLimit={!!score && limit > 0}
-              limit={limit}
+              limit={rampedLimit}
+              owed={owed}
               readOnly={readOnly}
               defaulted={!!vaultState?.defaulted}
               aprBps={score?.aprBps}
@@ -373,7 +386,7 @@ export default function BorrowerDashboard() {
           <div className="mb-4 font-tl-mono text-[10px] tracking-[0.16em] text-ash">
             ACTIVITY
           </div>
-          <ActivityFeed result={result} />
+          <ActivityFeed result={result} agent={target || address} />
         </div>
       </main>
     </TLShell>
@@ -470,6 +483,7 @@ function Figure({ label, value, color }: { label: string; value: string; color: 
 function VaultActions({
   hasLimit,
   limit,
+  owed,
   readOnly,
   defaulted,
   aprBps,
@@ -479,7 +493,10 @@ function VaultActions({
   onAction,
 }: {
   hasLimit: boolean;
+  /** The vault's ramped (currently-enforced) credit limit, in USDC. */
   limit: number;
+  /** Currently outstanding principal, in USDC. */
+  owed: number;
   readOnly: boolean;
   defaulted: boolean;
   aprBps?: number;
@@ -494,7 +511,7 @@ function VaultActions({
   const { address, config } = useWallet();
   const deployed = !!config?.lendingVaultContractId;
   const [amount, setAmount] = useState("5");
-  const [busy, setBusy] = useState<string | null>(null);
+  const [busy, setBusy] = useState<TxKind | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [tx, setTx] = useState<string | null>(null);
 
@@ -520,16 +537,22 @@ function VaultActions({
   }
 
   const num = Math.max(0, Number(amount || "0"));
+  const headroom = Math.max(0, limit - owed);
   const stroops = () => BigInt(Math.round(num * 1e7));
   const apr = aprBps ? aprPct(aprBps) : "—";
 
-  const run = async (label: string, fn: () => Promise<{ txHash: string }>) => {
+  const run = async (
+    label: TxKind,
+    fn: () => Promise<{ txHash: string }>,
+    amountUsdc?: number,
+  ) => {
     setBusy(label);
     setErr(null);
     setTx(null);
     try {
       const r = await fn();
       setTx(r.txHash);
+      logTx(address, { kind: label, txHash: r.txHash, amountUsdc });
       onAction();
     } catch (e) {
       setErr(friendlyErrorMessage(e, config));
@@ -548,35 +571,42 @@ function VaultActions({
       }),
     );
   const borrow = () =>
-    run("borrow", async () => {
-      // The vault only holds what lenders (or the testnet treasury) have
-      // deposited into it — a real credit limit doesn't mean the vault can
-      // actually pay it out. Top up from the treasury first if short, so a
-      // freshly-underwritten agent doesn't hit a bare InsufficientLiquidity
-      // contract error on its first draw. Inert (deposited:false) if the
-      // backend has no treasury configured — borrow() then fails normally.
-      if (num > vaultLiquidityUsdc) {
-        try {
-          await api.ensureLiquidity(address, num);
-        } catch {
-          /* best-effort — fall through to borrow() and surface its own error */
+    run(
+      "borrow",
+      async () => {
+        // The vault only holds what lenders (or the testnet treasury) have
+        // deposited into it — a real credit limit doesn't mean the vault can
+        // actually pay it out. Top up from the treasury first if short, so a
+        // freshly-underwritten agent doesn't hit a bare InsufficientLiquidity
+        // contract error on its first draw. Inert (deposited:false) if the
+        // backend has no treasury configured — borrow() then fails normally.
+        if (num > vaultLiquidityUsdc) {
+          try {
+            await api.ensureLiquidity(address, num);
+          } catch {
+            /* best-effort — fall through to borrow() and surface its own error */
+          }
         }
-      }
-      return invokeContract({
-        contractId: config!.lendingVaultContractId!,
-        method: "borrow",
-        args: [sc.address(address), sc.i128(stroops())],
-        publicKey: address,
-      });
-    });
+        return invokeContract({
+          contractId: config!.lendingVaultContractId!,
+          method: "borrow",
+          args: [sc.address(address), sc.i128(stroops())],
+          publicKey: address,
+        });
+      },
+      num,
+    );
   const repay = () =>
-    run("repay", () =>
-      invokeContract({
-        contractId: config!.lendingVaultContractId!,
-        method: "repay",
-        args: [sc.address(address), sc.i128(stroops())],
-        publicKey: address,
-      }),
+    run(
+      "repay",
+      () =>
+        invokeContract({
+          contractId: config!.lendingVaultContractId!,
+          method: "repay",
+          args: [sc.address(address), sc.i128(stroops())],
+          publicKey: address,
+        }),
+      num,
     );
 
   // Onboarding sequence: register → get underwritten (a real revenue signal
@@ -637,9 +667,9 @@ function VaultActions({
       <input
         type="range"
         min={0}
-        max={Math.max(1, Math.round(limit))}
-        step={Math.max(0.1, Math.round(limit) / 100 || 1)}
-        value={Math.min(num, Math.max(1, limit))}
+        max={headroom > 0 ? headroom : 1}
+        step={headroom > 0 ? headroom / 100 : 1}
+        value={Math.min(num, headroom > 0 ? headroom : 1)}
         onChange={(e) => setAmount(e.target.value)}
         className="tl-range mb-4 w-full"
       />
@@ -821,27 +851,66 @@ function IndependenceVerdict({ ind }: { ind: IndependenceResult }) {
   );
 }
 
-function ActivityFeed({ result }: { result: UnderwritingResult | null }) {
-  if (!result) {
+const TX_KIND_LABEL: Record<TxKind, string> = {
+  register: "Registered on-chain",
+  borrow: "Drew",
+  repay: "Repaid",
+};
+
+function ActivityFeed({ result, agent }: { result: UnderwritingResult | null; agent?: string | null }) {
+  const items: { title: string; meta: string; hash?: string; active?: boolean; at: number }[] = [];
+
+  if (result) {
+    const when = result.underwroteAt * 1000;
+    const whenStr = new Date(when).toLocaleString();
+    if (result.submission.submitted && result.submission.txHash) {
+      items.push({
+        title: "Score published on-chain",
+        meta: whenStr,
+        hash: result.submission.txHash,
+        active: true,
+        at: when,
+      });
+    }
+    items.push({
+      title: `Underwritten · score ${result.score.score} (${tierLabel(result.score.tier)})`,
+      meta: whenStr,
+      active: !result.submission.submitted,
+      at: when,
+    });
+    if (result.proof?.verified && result.proof.verifyTxHash) {
+      items.push({ title: "zkTLS revenue proof verified", meta: whenStr, hash: result.proof.verifyTxHash, at: when });
+    }
+    items.push({
+      title: `Revenue indexed · ${usdc(result.revenue.totalRevenueUsdc)} USDC, ${result.revenue.distinctPayers} payer(s)`,
+      meta: whenStr,
+      at: when,
+    });
+  }
+
+  // Register/borrow/repay never get persisted by the backend (only the
+  // underwriting pass is) — this browser's own log of those txs, so Draw/
+  // Repay/Register actually show up here instead of only in the toast.
+  if (agent) {
+    for (const tx of readTxLog(agent)) {
+      items.push({
+        title:
+          tx.kind === "register"
+            ? TX_KIND_LABEL[tx.kind]
+            : `${TX_KIND_LABEL[tx.kind]} ${usdc(tx.amountUsdc ?? 0)} USDC`,
+        meta: new Date(tx.at).toLocaleString(),
+        hash: tx.txHash,
+        active: true,
+        at: tx.at,
+      });
+    }
+  }
+
+  items.sort((a, b) => b.at - a.at);
+
+  if (items.length === 0) {
     return <p className="font-tl-mono text-sm text-ash">No activity yet. Submit a revenue proof to get underwritten.</p>;
   }
-  const when = new Date(result.underwroteAt * 1000).toLocaleString();
-  const items: { title: string; meta: string; hash?: string; active?: boolean }[] = [];
-  if (result.submission.submitted && result.submission.txHash) {
-    items.push({ title: "Score published on-chain", meta: when, hash: result.submission.txHash, active: true });
-  }
-  items.push({
-    title: `Underwritten · score ${result.score.score} (${tierLabel(result.score.tier)})`,
-    meta: when,
-    active: !result.submission.submitted,
-  });
-  if (result.proof?.verified && result.proof.verifyTxHash) {
-    items.push({ title: "zkTLS revenue proof verified", meta: when, hash: result.proof.verifyTxHash });
-  }
-  items.push({
-    title: `Revenue indexed · ${usdc(result.revenue.totalRevenueUsdc)} USDC, ${result.revenue.distinctPayers} payer(s)`,
-    meta: when,
-  });
 
   return (
     <div className="relative flex flex-col gap-4">
