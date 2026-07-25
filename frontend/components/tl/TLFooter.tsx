@@ -31,7 +31,7 @@ export default function TLFooter() {
   }, []);
 
   return (
-    <footer className="relative mt-24 border-t border-bone/[0.08] bg-void/40">
+    <footer className="relative mt-24 border-t border-bone/[0.08] bg-obsidian">
       <div className="mx-auto grid w-full max-w-[1100px] grid-cols-1 gap-8 px-6 py-12 md:grid-cols-[1.4fr_1fr_1fr] md:px-10">
         {/* brand + one-liner + status */}
         <div>
