@@ -21,6 +21,14 @@ import { defindexStatus } from "../integrations/defindex.js";
 import { taelRevenueReport } from "../integrations/tael.js";
 import { ensureLiquidity, treasuryConfigured, treasuryPublicKey } from "../treasury.js";
 import { getPortfolio } from "../portfolio.js";
+import {
+  mainnetConfig,
+  mainnetAgentConfigured,
+  mainnetAgentPublicKey,
+  mainnetCreditInfo,
+  mainnetBorrow,
+  mainnetRepay,
+} from "../mainnet.js";
 
 // Max age of a Tael partner signature we'll accept (replay window). Tael stamps
 // x-tael-timestamp as Date.now() ms; anything older than this is rejected.
@@ -318,6 +326,66 @@ export async function buildServer() {
       // Never 500 a marketplace read — a scoring/RPC hiccup returns zeros, same
       // shape as an agent with no revenue.
       return reply.code(200).send({ agent: req.params.address, rampedLimitUsdc: 0, limitUsdc: 0, tier: 0, aprBps: 0, revenueUsdc: 0, distinctPayers: 0 });
+    }
+  });
+
+  // ── Mainnet (isolated, read + real signed borrow/repay) ──
+  //
+  // Deliberately NOT the full underwriting engine on mainnet — reads the
+  // already-deployed, already-verified mainnet contracts directly (no live
+  // indexer/scorer, since there's no real mainnet agent revenue yet to score
+  // against). borrow/repay sign a real transaction with a dedicated mainnet
+  // agent key (MAINNET_AGENT_SECRET) and move real USDC. See src/mainnet.ts.
+  app.get("/mainnet/config", async () => ({
+    network: mainnetConfig.network,
+    scoreRegistryContractId: mainnetConfig.scoreRegistryContractId,
+    creditLineContractId: mainnetConfig.creditLineContractId,
+    lendingVaultContractId: mainnetConfig.lendingVaultContractId,
+    usdcSac: mainnetConfig.usdcSac,
+    agentConfigured: mainnetAgentConfigured(),
+    agent: mainnetAgentPublicKey(),
+  }));
+
+  app.get<{ Params: { address: string } }>("/mainnet/agent/:address/credit", async (req, reply) => {
+    try {
+      return await mainnetCreditInfo(req.params.address);
+    } catch (e) {
+      req.log.error(e, "mainnetCreditInfo failed");
+      return reply.code(502).send({ error: e instanceof Error ? e.message : String(e) });
+    }
+  });
+
+  app.post<{ Body: { amountUsdc?: number } }>("/mainnet/agent/borrow", async (req, reply) => {
+    if (!mainnetAgentConfigured()) {
+      return reply.code(503).send({ error: "mainnet agent not configured (MAINNET_AGENT_SECRET unset)" });
+    }
+    const amount = Number(req.body?.amountUsdc);
+    if (!(amount > 0)) {
+      return reply.code(400).send({ error: "amountUsdc must be a positive number" });
+    }
+    try {
+      const txHash = await mainnetBorrow(amount);
+      return { txHash, amountUsdc: amount };
+    } catch (e) {
+      req.log.error(e, "mainnetBorrow failed");
+      return reply.code(502).send({ error: e instanceof Error ? e.message : String(e) });
+    }
+  });
+
+  app.post<{ Body: { amountUsdc?: number } }>("/mainnet/agent/repay", async (req, reply) => {
+    if (!mainnetAgentConfigured()) {
+      return reply.code(503).send({ error: "mainnet agent not configured (MAINNET_AGENT_SECRET unset)" });
+    }
+    const amount = Number(req.body?.amountUsdc);
+    if (!(amount > 0)) {
+      return reply.code(400).send({ error: "amountUsdc must be a positive number" });
+    }
+    try {
+      const txHash = await mainnetRepay(amount);
+      return { txHash, amountUsdc: amount };
+    } catch (e) {
+      req.log.error(e, "mainnetRepay failed");
+      return reply.code(502).send({ error: e instanceof Error ? e.message : String(e) });
     }
   });
 
