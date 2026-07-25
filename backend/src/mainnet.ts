@@ -28,6 +28,28 @@ function opt(name: string, fallback = ""): string {
   return v && v.trim() !== "" ? v : fallback;
 }
 
+// Free public mainnet Soroban RPCs are individually flaky (seen firsthand
+// during the original contract deploy this session — timeouts and
+// TxInsufficientFee on all three of these at different points). Reads
+// (simulateTransaction) tend to succeed on the first RPC that responds; writes
+// (sendTransaction + poll-to-confirmation) are where flakiness actually bites,
+// so borrow/repay try each RPC in this list in turn rather than trusting one.
+// MAINNET_RPC_URL, if set, is tried first. For anything beyond occasional demo
+// use, get a dedicated RPC key (e.g. an Ankr or QuickNode free-tier endpoint)
+// and set MAINNET_RPC_URL — free public endpoints are shared/rate-limited and
+// were never meant to carry production write traffic.
+const FALLBACK_RPC_URLS = [
+  "https://mainnet.sorobanrpc.com",
+  "https://rpc.ankr.com/stellar_soroban",
+  "https://soroban-rpc.mainnet.stellar.gateway.fm",
+];
+
+function rpcUrls(): string[] {
+  const configured = opt("MAINNET_RPC_URL");
+  const urls = configured ? [configured, ...FALLBACK_RPC_URLS] : FALLBACK_RPC_URLS;
+  return Array.from(new Set(urls));
+}
+
 export const mainnetConfig = {
   network: "mainnet",
   sorobanRpcUrl: opt("MAINNET_RPC_URL", "https://mainnet.sorobanrpc.com"),
@@ -162,33 +184,71 @@ export async function mainnetCreditInfo(agent: string): Promise<MainnetCreditInf
   };
 }
 
-async function signAndSubmit(op: ReturnType<Contract["call"]>): Promise<string> {
-  const srv = server();
-  const kp = agentKeypair();
-  const acct = await srv.getAccount(kp.publicKey());
-  const tx = new TransactionBuilder(acct, {
-    fee: BASE_FEE,
-    networkPassphrase: mainnetConfig.networkPassphrase,
-  })
-    .addOperation(op)
-    .setTimeout(TimeoutInfinite)
-    .build();
+/**
+ * Poll every candidate RPC (not just the one that submitted) for a hash's
+ * confirmation. A submitting RPC that goes silent doesn't mean the tx didn't
+ * land — Stellar's mempool is shared, so a different public RPC often sees it
+ * when the first one is the flaky one.
+ */
+async function pollAnyRpc(hash: string, urls: string[], attempts = 20): Promise<boolean> {
+  for (let i = 0; i < attempts; i++) {
+    for (const url of urls) {
+      try {
+        const got = await new rpc.Server(url).getTransaction(hash);
+        if (got.status === "SUCCESS") return true;
+        if (got.status === "FAILED") {
+          throw new Error(`tx failed on-chain: ${JSON.stringify((got as { resultXdr?: unknown }).resultXdr ?? got)}`);
+        }
+      } catch (e) {
+        if (e instanceof Error && e.message.startsWith("tx failed on-chain")) throw e;
+        // RPC-level error (this endpoint down/erroring) — try the next one.
+      }
+    }
+    await new Promise((r) => setTimeout(r, 1500));
+  }
+  return false;
+}
 
-  const prepared = await srv.prepareTransaction(tx);
-  prepared.sign(kp);
-  const sent = await srv.sendTransaction(prepared);
-  if (sent.status === "ERROR") {
-    throw new Error(`submit failed: ${JSON.stringify(sent.errorResult)}`);
+/**
+ * Sign and submit against each candidate RPC in turn until one accepts the
+ * submission, then poll ALL of them for confirmation (see pollAnyRpc). Each
+ * RPC attempt rebuilds the transaction against ITS OWN account/sequence read,
+ * so a stale sequence from a previous failed attempt never causes a
+ * txBadSeq — only one submission is ever in flight at a time.
+ */
+async function signAndSubmit(buildOp: () => ReturnType<Contract["call"]>): Promise<string> {
+  const kp = agentKeypair();
+  const urls = rpcUrls();
+  let lastErr: Error | null = null;
+
+  for (const url of urls) {
+    const srv = new rpc.Server(url);
+    try {
+      const acct = await srv.getAccount(kp.publicKey());
+      const tx = new TransactionBuilder(acct, {
+        fee: BASE_FEE,
+        networkPassphrase: mainnetConfig.networkPassphrase,
+      })
+        .addOperation(buildOp())
+        .setTimeout(TimeoutInfinite)
+        .build();
+
+      const prepared = await srv.prepareTransaction(tx);
+      prepared.sign(kp);
+      const sent = await srv.sendTransaction(prepared);
+      if (sent.status === "ERROR") {
+        lastErr = new Error(`submit via ${url} failed: ${JSON.stringify(sent.errorResult)}`);
+        continue;
+      }
+
+      const confirmed = await pollAnyRpc(sent.hash, urls);
+      if (confirmed) return sent.hash;
+      lastErr = new Error(`submitted (${sent.hash}) via ${url} but no RPC confirmed it in time`);
+    } catch (e) {
+      lastErr = e instanceof Error ? e : new Error(String(e));
+    }
   }
-  let got = await srv.getTransaction(sent.hash);
-  for (let i = 0; i < 30 && got.status === "NOT_FOUND"; i++) {
-    await new Promise((r) => setTimeout(r, 1000));
-    got = await srv.getTransaction(sent.hash);
-  }
-  if (got.status !== "SUCCESS") {
-    throw new Error(`tx did not confirm: ${got.status}`);
-  }
-  return sent.hash;
+  throw lastErr ?? new Error("all mainnet RPC endpoints failed");
 }
 
 /** Real, signed mainnet borrow() — moves real USDC from the vault to the agent. */
@@ -196,7 +256,7 @@ export async function mainnetBorrow(amountUsdc: number): Promise<string> {
   if (!mainnetAgentConfigured()) throw new Error("MAINNET_AGENT_SECRET not set");
   const kp = agentKeypair();
   const amount = BigInt(Math.round(amountUsdc * STROOPS));
-  return signAndSubmit(
+  return signAndSubmit(() =>
     new Contract(mainnetConfig.lendingVaultContractId).call(
       "borrow",
       Address.fromString(kp.publicKey()).toScVal(),
@@ -210,7 +270,7 @@ export async function mainnetRepay(amountUsdc: number): Promise<string> {
   if (!mainnetAgentConfigured()) throw new Error("MAINNET_AGENT_SECRET not set");
   const kp = agentKeypair();
   const amount = BigInt(Math.round(amountUsdc * STROOPS));
-  return signAndSubmit(
+  return signAndSubmit(() =>
     new Contract(mainnetConfig.lendingVaultContractId).call(
       "repay",
       Address.fromString(kp.publicKey()).toScVal(),
