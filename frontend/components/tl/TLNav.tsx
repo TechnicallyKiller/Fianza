@@ -23,6 +23,7 @@ const LINKS: { href: string; label: string; external?: boolean; badge?: string }
   { href: "/borrower", label: "borrower" },
   { href: "/lender", label: "lender" },
   { href: "/portfolio", label: "credit book" },
+  { href: "/mainnet", label: "mainnet" },
   { href: "/status", label: "status" },
   { href: DOCS_URL, label: "docs", external: true },
 ];

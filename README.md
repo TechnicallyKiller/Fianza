@@ -10,11 +10,16 @@ use to earn.
 
 > Not a credibility badge. A real lending decision, sized against income an agent can prove.
 
-**Status:** working MVP, live on Stellar testnet. Contracts deployed, full
-loop settled on-chain. 🔗 **Live demo:** https://0xtrustline.vercel.app
+**Status:** working MVP, live on Stellar testnet — full loop (earn → underwrite
+→ borrow → repay → default) settled on-chain, SDK published, live demo up.
+**Contracts are now also deployed on Stellar mainnet** (see below) — the
+product/backend still runs on testnet while the mainnet lender/liquidity side
+is built out; the mainnet contracts are live and real, not yet wired to the
+live app. 🔗 **Live demo:** https://0xtrustline.online
 
-📖 **[Full documentation](docs/README.md)** — architecture, the credit engine,
-the Sybil model, the SDK reference, contract addresses, and the roadmap.
+📖 **[Full documentation](https://docs.0xtrustline.online)** — architecture,
+the credit engine, the Sybil model, the SDK reference, contract addresses, and
+the roadmap. (Source lives in [`docs/`](docs/README.md).)
 
 ---
 
@@ -75,6 +80,27 @@ Full list (including superseded IDs kept as standing evidence) in
 Off-chain revenue is proven via **Reclaim zkTLS** verified on a Soroban
 verifier (`CA3EMXR6…`). x402 payments settle through the **OpenZeppelin
 Channels** facilitator.
+
+## What's deployed (Stellar mainnet)
+
+Same three contracts, same code, deployed for real on mainnet — settling in
+Circle's actual mainnet USDC, not a testnet stand-in. **Not yet wired to the
+live product/backend** (that's still testnet-only while the mainnet lender
+side is built out), so treat this as "the primitive is real on mainnet,"
+not "the app runs on mainnet."
+
+| Contract | ID |
+|---|---|
+| `score_registry` | [`CAHWYFLMQI6BBOL6ZLZRRINCK6KVBX73ACH7LCPB24WDED4LSMCI7YZC`](https://stellar.expert/explorer/public/contract/CAHWYFLMQI6BBOL6ZLZRRINCK6KVBX73ACH7LCPB24WDED4LSMCI7YZC) |
+| `credit_line` | [`CDK7S4UWY227FHFKDSV37DGT7AIJ5Z2QEYO5AY456M7RBGJN25WYJVGC`](https://stellar.expert/explorer/public/contract/CDK7S4UWY227FHFKDSV37DGT7AIJ5Z2QEYO5AY456M7RBGJN25WYJVGC) |
+| `lending_vault` | [`CAE5C5UJYVED5DAVY4YKYT6E2C4NBZCIUBAK2MXGKGLKZESBBXKFPZ4U`](https://stellar.expert/explorer/public/contract/CAE5C5UJYVED5DAVY4YKYT6E2C4NBZCIUBAK2MXGKGLKZESBBXKFPZ4U) |
+
+- **Token:** mainnet USDC SAC `CCW67TSZV3SSS2HXMBQ5JFGCKJNXKZM7UQUWUZPUTHXSTZLEO7SJMI75`
+  (derived from Circle's official issuer `GA5ZSEJYB37JRC5AVCIA5MOP4RHTM335X2KGX3IHOJAPP5RE34K4KZVN`).
+- **Loan term:** 30 days. **Deposit cap:** $100 per agent vault (conservative
+  for a fresh mainnet launch; admin-adjustable via `set_deposit_cap`).
+- **Admin:** the deployer wallet. **Score signer:** a dedicated mainnet
+  keypair, separate from the deployer, funded and ready to sign attestations.
 
 ## The moat: counterparty independence
 
