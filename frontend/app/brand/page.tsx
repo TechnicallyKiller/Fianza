@@ -6,6 +6,7 @@
 
 import TLNav from "@/components/tl/TLNav";
 import Image from "next/image";
+import FianzaMark from "@/components/FianzaMark";
 
 const PALETTE = [
   { name: "Obsidian", hex: "#0A0A0B", note: "background" },
@@ -46,6 +47,26 @@ export default function BrandPage() {
             <p className="max-w-xs font-tl-mono text-[11px] leading-[1.6] text-ash">
               Always one word, capital F: <span className="text-bone">Fianza</span>.
               Not &quot;Fian Za&quot; or &quot;fianza.&quot;
+            </p>
+          </div>
+
+          <div className="mt-5 flex flex-wrap items-end gap-6 rounded-xl border border-white/10 bg-void/60 px-5 py-5">
+            <div className="flex flex-col items-center gap-2">
+              <FianzaMark className="h-16 w-16" />
+              <span className="font-tl-mono text-[10px] text-ash">64px</span>
+            </div>
+            <div className="flex flex-col items-center gap-2">
+              <FianzaMark className="h-8 w-8" glow={false} />
+              <span className="font-tl-mono text-[10px] text-ash">32px</span>
+            </div>
+            <div className="flex flex-col items-center gap-2">
+              <FianzaMark className="h-4 w-4" glow={false} />
+              <span className="font-tl-mono text-[10px] text-ash">16px</span>
+            </div>
+            <p className="max-w-xs font-tl-mono text-[11px] leading-[1.6] text-ash">
+              The mark: an F built from one folded amber ribbon, with a
+              detached mint mid-arm — construction, not a glyph stamped in a
+              container. Holds up down to favicon scale.
             </p>
           </div>
         </Section>
@@ -89,7 +110,7 @@ export default function BrandPage() {
             <a href="https://x.com/0xtrustline" target="_blank" rel="noreferrer" className="text-ion hover:text-nectar">𝕏 @0xtrustline</a>
             <a href="https://github.com/TechnicallyKiller/TrustLine" target="_blank" rel="noreferrer" className="text-ion hover:text-nectar">GitHub</a>
             <a href="https://docs.fianza.space" target="_blank" rel="noreferrer" className="text-ion hover:text-nectar">Docs</a>
-            <a href="https://0xtrustline.online" target="_blank" rel="noreferrer" className="text-ion hover:text-nectar">0xtrustline.online</a>
+            <a href="https://fianza.space" target="_blank" rel="noreferrer" className="text-ion hover:text-nectar">fianza.space</a>
             <a href="mailto:divyanshhkalra1234@gmail.com" className="text-ion hover:text-nectar">Contact</a>
           </div>
         </Section>
