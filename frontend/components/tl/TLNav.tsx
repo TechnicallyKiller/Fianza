@@ -11,9 +11,9 @@ import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { Menu, X } from "lucide-react";
 
-// The docs live on a separately-hosted Mintlify site (docs.0xtrustline.online),
+// The docs live on a separately-hosted Mintlify site (docs.fianza.space),
 // not the internal Next.js /docs route — so the docs link is external.
-const DOCS_URL = "https://docs.0xtrustline.online";
+const DOCS_URL = "https://docs.fianza.space";
 
 // Trimmed to the core surfaces + mainnet/docs (explicit product call —
 // keep the nav from reading as cluttered). /demo and /status are still real,

@@ -22,7 +22,7 @@ product/backend still runs on testnet while the mainnet lender/liquidity side
 is built out; the mainnet contracts are live and real, not yet wired to the
 live app. 🔗 **Live demo:** https://0xtrustline.online
 
-📖 **[Full documentation](https://docs.0xtrustline.online)** — architecture,
+📖 **[Full documentation](https://docs.fianza.space)** — architecture,
 the credit engine, the Sybil model, the SDK reference, contract addresses, and
 the roadmap. (Source lives in [`docs/`](docs/README.md).)
 

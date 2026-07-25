@@ -88,7 +88,7 @@ export default function BrandPage() {
           <div className="flex flex-wrap gap-4 font-tl-mono text-[12px]">
             <a href="https://x.com/0xtrustline" target="_blank" rel="noreferrer" className="text-ion hover:text-nectar">𝕏 @0xtrustline</a>
             <a href="https://github.com/TechnicallyKiller/TrustLine" target="_blank" rel="noreferrer" className="text-ion hover:text-nectar">GitHub</a>
-            <a href="https://docs.0xtrustline.online" target="_blank" rel="noreferrer" className="text-ion hover:text-nectar">Docs</a>
+            <a href="https://docs.fianza.space" target="_blank" rel="noreferrer" className="text-ion hover:text-nectar">Docs</a>
             <a href="https://0xtrustline.online" target="_blank" rel="noreferrer" className="text-ion hover:text-nectar">0xtrustline.online</a>
             <a href="mailto:divyanshhkalra1234@gmail.com" className="text-ion hover:text-nectar">Contact</a>
           </div>

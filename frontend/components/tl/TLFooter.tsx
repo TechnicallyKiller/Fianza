@@ -96,7 +96,7 @@ export default function TLFooter() {
             <li><Link href="/demo" className="hover:text-bone">Underwriting demo</Link></li>
             <li><Link href="/status" className="hover:text-bone">Status</Link></li>
             <li>
-              <a href="https://docs.0xtrustline.online" target="_blank" rel="noreferrer" className="hover:text-bone">
+              <a href="https://docs.fianza.space" target="_blank" rel="noreferrer" className="hover:text-bone">
                 Docs
               </a>
             </li>

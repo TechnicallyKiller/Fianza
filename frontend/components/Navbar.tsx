@@ -8,9 +8,9 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import BrandMark from "@/components/BrandMark";
 
-// The docs live on a separately-hosted Mintlify site (docs.0xtrustline.online),
+// The docs live on a separately-hosted Mintlify site (docs.fianza.space),
 // not the internal Next.js /docs route — so the Docs link is external.
-const DOCS_URL = "https://docs.0xtrustline.online";
+const DOCS_URL = "https://docs.fianza.space";
 
 const LINKS: { href: string; label: string; external?: boolean }[] = [
   { href: "/underwrite", label: "Underwrite" },

@@ -10,7 +10,7 @@ assistant are configured in [`docs.json`](./docs.json).
 
 Mintlify is a *separately hosted* docs service — it does **not** run inside the
 Next.js app on Vercel. The app stays where it is; these docs get their own site
-(target: `docs.0xtrustline.online`).
+(target: `docs.fianza.space`).
 
 ---
 
@@ -47,13 +47,13 @@ credit line?"*) to confirm.
 
 ---
 
-## 3. Custom domain — `docs.0xtrustline.online`
+## 3. Custom domain — `docs.fianza.space`
 
 You own `0xtrustline.online` (registrar: **Hostinger**). To serve docs from a
 subdomain:
 
 1. In the Mintlify dashboard → **Settings → Custom Domain** → enter
-   `docs.0xtrustline.online`. Mintlify shows you a **CNAME target**.
+   `docs.fianza.space`. Mintlify shows you a **CNAME target**.
 2. In Hostinger → **hPanel → Domains → 0xtrustline.online → DNS / Nameservers →
    DNS Records**, add:
 
@@ -62,7 +62,7 @@ subdomain:
    | CNAME | `docs`      | *(the target Mintlify gave you)* | 3600 |
 
 3. Wait for DNS propagation (minutes to ~1 hour). Mintlify issues SSL
-   automatically. Docs are then live at `https://docs.0xtrustline.online`.
+   automatically. Docs are then live at `https://docs.fianza.space`.
 
 ### App domain (Vercel), for reference
 

@@ -7,7 +7,7 @@
     "name": "Fianza",
     "url": "https://0xtrustline.online"
   },
-  "homepage": "https://docs.0xtrustline.online/sdk-reference-python",
+  "homepage": "https://docs.fianza.space/sdk-reference-python",
   "repository": "https://github.com/TechnicallyKiller/TrustLine",
   "license": "MIT",
   "keywords": ["stellar", "soroban", "usdc", "x402", "agent", "credit", "defi"],
