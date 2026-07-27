@@ -512,14 +512,32 @@ export class FianzaAgent {
     ]);
   }
 
-  /** Repay `usdc` (interest first → lender yield, then principal). */
+  /**
+   * Repay `usdc` (interest first → lender yield, then principal).
+   *
+   * On testnet, once this clears the balance it also settles the repayment into
+   * the agent's on-chain CREDIT HISTORY via the backend — the vault itself
+   * never writes to score_registry, so without this an agent could repay
+   * perfectly forever and its credit ramp would never grow. Best-effort: a
+   * settlement failure is swallowed, since the repayment itself already
+   * succeeded on-chain and must not be reported as failed. Skipped on mainnet
+   * (no underwriting backend there yet).
+   */
   async repay(usdc: number): Promise<TxResult> {
     assertPositiveAmount(usdc, "repay amount");
     const c = await this.ensureContracts();
-    return this.invoke(c.vault, "repay", [
+    const result = await this.invoke(c.vault, "repay", [
       this.addr(this.publicKey()),
       this.i128(toStroops(usdc)),
     ]);
+    if (this.network !== "mainnet") {
+      try {
+        await this.apiPost(`/agent/${this.publicKey()}/settle-repayment`);
+      } catch {
+        /* credit-history settlement is best-effort — the repay already landed */
+      }
+    }
+    return result;
   }
 
   /**

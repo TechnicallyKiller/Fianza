@@ -13,6 +13,7 @@ import { config } from "../config.js";
 import { indexRevenue } from "../indexer/index.js";
 import { underwrite, previewCredit, getResult, listResults } from "../underwrite.js";
 import { signerPublicKey, recordRepayment } from "../signer/index.js";
+import { readVaultState } from "../chain/vault.js";
 import { dbConfigured, migrate } from "../db/index.js";
 import { startContinuousIngest } from "../indexer/persistent.js";
 import { addToWaitlist, waitlistCount, isValidEmail } from "../waitlist.js";
@@ -280,6 +281,51 @@ export async function buildServer() {
       // Re-underwrite (revenue-only, fast) so the stored score reflects the outcome.
       const result = await underwrite(req.params.address, { skipProof: true });
       return { record, score: result.score.score, tier: result.score.tier, defaulted: result.score.defaulted };
+    },
+  );
+
+  // Settle a repayment into the agent's on-chain CREDIT HISTORY.
+  //
+  // Why this exists separately from POST /repayment above: lending_vault.repay()
+  // clears the debt and accrues lender yield, but it does NOT touch
+  // score_registry — so an agent could repay perfectly forever and its credit
+  // ramp would never grow, because the registry never learned. That made the
+  // ramp (the core "history lifts your limit" mechanic) inert. This is the
+  // callback the SDK fires after a successful repay to close that gap.
+  //
+  // Unlike /repayment, this takes NO caller-supplied `onTime` — the agent is the
+  // beneficiary of a favourable answer, so it must not be the one asserting it.
+  // On-time-ness is derived from the vault's own state: the debt must actually
+  // be cleared and the agent must not be flagged defaulted (mark_default is what
+  // stamps a miss). Idempotency is the caller's concern to avoid double-credit —
+  // it only settles when the balance reads as genuinely cleared.
+  app.post<{ Params: { address: string } }>(
+    "/agent/:address/settle-repayment",
+    { config: { rateLimit: { max: 20, timeWindow: "1 minute" } } },
+    async (req, reply) => {
+      const agent = req.params.address;
+      const vault = await readVaultState(agent);
+      if (!vault) {
+        return reply.code(503).send({ error: "vault state unreadable — not settled" });
+      }
+      // Still owing: a partial repayment isn't a completed credit event yet.
+      if (vault.amountOwedStroops > 0n) {
+        return { settled: false, reason: "balance not fully cleared", record: null };
+      }
+      // Cleared, but the agent carries a default flag — that's a miss, not a win.
+      const onTime = !vault.defaulted;
+      const record = await recordRepayment(agent, onTime);
+      // Re-underwrite (revenue-only, fast) so the stored score reflects the new
+      // history immediately, same as the /repayment path does.
+      const result = await underwrite(agent, { skipProof: true });
+      return {
+        settled: true,
+        onTime,
+        record,
+        score: result.score.score,
+        tier: result.score.tier,
+        defaulted: result.score.defaulted,
+      };
     },
   );
 
