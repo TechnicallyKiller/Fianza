@@ -532,7 +532,9 @@ export class FianzaAgent {
     ]);
     if (this.network !== "mainnet") {
       try {
-        await this.apiPost(`/agent/${this.publicKey()}/settle-repayment`);
+        await this.apiPost(`/agent/${this.publicKey()}/settle-repayment`, {
+          repayTx: result.txHash,
+        });
       } catch {
         /* credit-history settlement is best-effort — the repay already landed */
       }

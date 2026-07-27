@@ -1,6 +1,6 @@
 {
   "name": "@fianza/agent-sdk",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "TypeScript SDK for AI agents to take and repay revenue-underwritten credit on Fianza (Stellar). Settles in USDC.",
   "type": "module",
   "main": "dist/index.js",

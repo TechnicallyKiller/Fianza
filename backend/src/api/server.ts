@@ -14,7 +14,7 @@ import { indexRevenue } from "../indexer/index.js";
 import { underwrite, previewCredit, getResult, listResults } from "../underwrite.js";
 import { signerPublicKey, recordRepayment } from "../signer/index.js";
 import { readVaultState } from "../chain/vault.js";
-import { dbConfigured, migrate } from "../db/index.js";
+import { dbConfigured, migrate, query } from "../db/index.js";
 import { startContinuousIngest } from "../indexer/persistent.js";
 import { addToWaitlist, waitlistCount, isValidEmail } from "../waitlist.js";
 import { drip, faucetConfigured, hasClaimed } from "../faucet.js";
@@ -297,13 +297,26 @@ export async function buildServer() {
   // beneficiary of a favourable answer, so it must not be the one asserting it.
   // On-time-ness is derived from the vault's own state: the debt must actually
   // be cleared and the agent must not be flagged defaulted (mark_default is what
-  // stamps a miss). Idempotency is the caller's concern to avoid double-credit —
-  // it only settles when the balance reads as genuinely cleared.
-  app.post<{ Params: { address: string } }>(
+  // stamps a miss).
+  //
+  // Body: { repayTx: string } — the vault repay() tx that cleared the balance.
+  // It's the idempotency key: a cleared balance stays cleared indefinitely, so
+  // without pinning each credit record to a specific repayment this endpoint
+  // could be called in a loop to inflate an agent's history (and therefore its
+  // limit) for free. Requires a DB; without one there's nowhere to dedupe and
+  // we decline rather than risk double-crediting.
+  app.post<{ Params: { address: string }; Body: { repayTx?: string } }>(
     "/agent/:address/settle-repayment",
     { config: { rateLimit: { max: 20, timeWindow: "1 minute" } } },
     async (req, reply) => {
       const agent = req.params.address;
+      const repayTx = req.body?.repayTx;
+      if (typeof repayTx !== "string" || repayTx.length < 32) {
+        return reply.code(400).send({ error: "body must be { repayTx: <vault repay tx hash> }" });
+      }
+      if (!dbConfigured()) {
+        return reply.code(503).send({ error: "no database — cannot dedupe, not settled" });
+      }
       const vault = await readVaultState(agent);
       if (!vault) {
         return reply.code(503).send({ error: "vault state unreadable — not settled" });
@@ -314,6 +327,16 @@ export async function buildServer() {
       }
       // Cleared, but the agent carries a default flag — that's a miss, not a win.
       const onTime = !vault.defaulted;
+      // Claim this repayment first: ON CONFLICT DO NOTHING means a concurrent or
+      // repeated call for the same tx inserts nothing and settles nothing.
+      const claim = await query(
+        `INSERT INTO settled_repayments (repay_tx, agent, on_time)
+         VALUES ($1, $2, $3) ON CONFLICT (repay_tx) DO NOTHING RETURNING repay_tx`,
+        [repayTx, agent, onTime],
+      );
+      if (claim.length === 0) {
+        return { settled: false, reason: "already settled", record: null };
+      }
       const record = await recordRepayment(agent, onTime);
       // Re-underwrite (revenue-only, fast) so the stored score reflects the new
       // history immediately, same as the /repayment path does.

@@ -297,7 +297,10 @@ class FianzaAgent:
             [self._addr(self.public_key()), self._i128(to_stroops(usdc))],
         )
         try:
-            self._api_post(f"/agent/{self.public_key()}/settle-repayment")
+            self._api_post(
+                f"/agent/{self.public_key()}/settle-repayment",
+                {"repayTx": result["txHash"]},
+            )
         except Exception:
             # credit-history settlement is best-effort -- the repay already landed
             pass
@@ -403,8 +406,14 @@ class FianzaAgent:
             raise ApiError(res.status_code, "GET", path, _safe_text(res))
         return res.json()
 
-    def _api_post(self, path: str) -> Any:
-        res = self._session.post(f"{self.api_base_url}{path}")
+    def _api_post(self, path: str, body: Optional[dict] = None) -> Any:
+        # Only send a JSON body when there is one -- the API rejects a bodyless
+        # POST that still declares content-type: application/json.
+        res = (
+            self._session.post(f"{self.api_base_url}{path}", json=body)
+            if body is not None
+            else self._session.post(f"{self.api_base_url}{path}")
+        )
         if not res.ok:
             raise ApiError(res.status_code, "POST", path, _safe_text(res))
         return res.json()

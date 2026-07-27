@@ -86,6 +86,19 @@ CREATE TABLE IF NOT EXISTS underwriting_results (
 );
 CREATE INDEX IF NOT EXISTS idx_uw_updated ON underwriting_results(updated_at DESC);
 
+-- Repayments already settled into on-chain credit history, keyed by the vault
+-- repay() tx that caused them. Without this, /settle-repayment could be called
+-- repeatedly against an already-cleared balance and each call would append
+-- another on_time record — free credit-limit inflation, since the agent is the
+-- beneficiary of a favourable answer.
+CREATE TABLE IF NOT EXISTS settled_repayments (
+  repay_tx    TEXT PRIMARY KEY,
+  agent       TEXT NOT NULL,
+  on_time     BOOLEAN NOT NULL,
+  settled_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_settled_agent ON settled_repayments(agent);
+
 -- Early-access waitlist signups (public landing form).
 CREATE TABLE IF NOT EXISTS waitlist (
   email       TEXT PRIMARY KEY,
