@@ -280,14 +280,28 @@ class FianzaAgent:
         )
 
     def repay(self, usdc: float) -> TxResult:
-        """Repay ``usdc`` (interest first -> lender yield, then principal)."""
+        """Repay ``usdc`` (interest first -> lender yield, then principal).
+
+        Once this clears the balance it also settles the repayment into the
+        agent's on-chain CREDIT HISTORY via the backend -- the vault itself
+        never writes to score_registry, so without this an agent could repay
+        perfectly forever and its credit ramp would never grow. Best-effort:
+        a settlement failure is swallowed, since the repayment itself already
+        succeeded on-chain and must not be reported as failed.
+        """
         assert_positive_amount(usdc, "repay amount")
         c = self.ensure_contracts()
-        return self._invoke(
+        result = self._invoke(
             c["vault"],
             "repay",
             [self._addr(self.public_key()), self._i128(to_stroops(usdc))],
         )
+        try:
+            self._api_post(f"/agent/{self.public_key()}/settle-repayment")
+        except Exception:
+            # credit-history settlement is best-effort -- the repay already landed
+            pass
+        return result
 
     def deposit(self, agent_address: str, usdc: float) -> TxResult:
         """Supply ``usdc`` of liquidity into ``agent_address``'s isolated vault.
