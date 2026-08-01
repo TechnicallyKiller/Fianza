@@ -100,11 +100,19 @@ export default function TLNav({
         {/* right slot: desktop only */}
         <div className="hidden md:block">
           {right ?? (
-            <div className="flex items-center gap-2">
-              <span className="tl-anim-blink h-[7px] w-[7px] rounded-full bg-ion shadow-[0_0_8px_#58F0C8]" />
-              <span className="font-tl-mono text-[11px] text-[#5a635e]">
-                stellar · testnet
-              </span>
+            <div className="flex items-center gap-4">
+              <Link
+                href="/waitlist"
+                className="rounded-md border border-nectar/30 bg-nectar/10 px-3 py-1.5 font-tl-mono text-[11px] font-semibold text-nectar transition-colors hover:bg-nectar/20"
+              >
+                Early access
+              </Link>
+              <div className="flex items-center gap-2">
+                <span className="tl-anim-blink h-[7px] w-[7px] rounded-full bg-ion shadow-[0_0_8px_#58F0C8]" />
+                <span className="font-tl-mono text-[11px] text-[#5a635e]">
+                  stellar · testnet
+                </span>
+              </div>
             </div>
           )}
         </div>
@@ -160,6 +168,13 @@ export default function TLNav({
                 </Link>
               );
             })}
+            <Link
+              href="/waitlist"
+              className="mt-4 flex items-center justify-center rounded-lg border border-nectar/30 bg-nectar/10 px-4 py-3 font-tl-mono text-sm font-semibold text-nectar"
+              onClick={() => setOpen(false)}
+            >
+              Early access
+            </Link>
             <div className="mt-4 flex items-center gap-2 px-1">
               <span className="tl-anim-blink h-[7px] w-[7px] rounded-full bg-ion shadow-[0_0_8px_#58F0C8]" />
               <span className="font-tl-mono text-[11px] text-[#5a635e]">stellar · testnet</span>

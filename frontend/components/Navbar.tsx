@@ -68,14 +68,22 @@ export default function Navbar({ action }: { action?: React.ReactNode }) {
           })}
         </nav>
 
-        {action ?? (
+        <div className="flex shrink-0 items-center gap-4">
           <Link
-            href="/underwrite"
-            className="rounded-full bg-primary-container px-6 py-2.5 font-display text-[15px] font-medium tracking-tight text-on-primary-container transition-colors hover:bg-primary hover:text-surface"
+            href="/waitlist"
+            className="hidden font-display text-[15px] font-medium tracking-tight text-secondary transition-colors hover:text-on-surface sm:inline-block"
           >
-            Underwrite
+            Early Access
           </Link>
-        )}
+          {action ?? (
+            <Link
+              href="/underwrite"
+              className="rounded-full bg-primary-container px-6 py-2.5 font-display text-[15px] font-medium tracking-tight text-on-primary-container transition-colors hover:bg-primary hover:text-surface"
+            >
+              Underwrite
+            </Link>
+          )}
+        </div>
       </div>
     </header>
   );
