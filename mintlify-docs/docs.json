@@ -39,6 +39,7 @@
         "pages": [
           "index",
           "what-and-why",
+          "whitepaper",
           "architecture"
         ]
       },

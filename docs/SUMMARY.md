@@ -2,6 +2,7 @@
 
 * [Getting started](README.md)
 * [What & why](what-and-why.md)
+* [Whitepaper](whitepaper.md)
 * [Architecture](architecture.md)
 
 ## Protocol
