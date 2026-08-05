@@ -235,17 +235,17 @@ want rather than one we are pushing.
 ---
 ## Budget
 
-**Total requested: $99,225 in XLM · 1,665 hours · 19 deliverables · 20 weeks**
+**Total requested: $81,565 in XLM · 1,373 hours · 17 deliverables · 20 weeks**
 
 Costed bottom-up. Every deliverable is priced as hours × role rate; the total is
 the sum of the parts, not a figure worked backwards from a ceiling.
 
 | Role | Rate | Hours | Cost |
 |---|---:|---:|---:|
-| Protocol / systems Rust (contracts, credit core, indexer, SDK crate) | $65/hr | 840 | $54,600 |
-| Backend (risk engine, services, API, infra) | $55/hr | 750 | $41,250 |
-| Frontend (lender dashboard, monitoring UI) | $45/hr | 75 | $3,375 |
-| **Total** | **$59.59 blended** | **1,665** | **$99,225** |
+| Protocol / systems Rust (contracts, credit core, stake waterfall) | $65/hr | 660 | $42,900 |
+| Backend (risk engine, services, API, infra) | $55/hr | 658 | $36,190 |
+| Frontend (lender dashboard, monitoring UI) | $45/hr | 55 | $2,475 |
+| **Total** | **$59.41 blended** | **1,373** | **$81,565** |
 
 Payments follow SCF's fixed 10/20/30/40 schedule, which is deliberately not the
 same shape as the cost curve: Tranche #0 pays 10% on approval, before any
@@ -254,30 +254,37 @@ tranche-by-tranche.
 
 | Tranche | Milestone | Completion | Payment | Cum. paid | Deliverable cost | Cum. cost | Position |
 |---|---|---|---:|---:|---:|---:|---:|
-| #0 | On approval | — | $9,922 | $9,922 | — | $0 | $+9,922 |
-| #1 | MVP verified | 30/10/2026 | $19,845 | $29,767 | $31,050 | $31,050 | $-1,283 |
-| #2 | Testnet verified | 18/12/2026 | $29,768 | $59,535 | $40,825 | $71,875 | $-12,340 |
-| #3 | Mainnet launch verified | 05/02/2027 | $39,690 | $99,225 | $27,350 | $99,225 | $0 |
+| #0 | On approval | — | $8,156 | $8,156 | — | $0 | $+8,156 |
+| #1 | MVP verified | 30/10/2026 | $16,313 | $24,469 | $28,825 | $28,825 | $-4,356 |
+| #2 | Testnet verified | 18/12/2026 | $24,470 | $48,939 | $37,950 | $66,775 | $-17,836 |
+| #3 | Mainnet launch verified | 05/02/2027 | $32,626 | $81,565 | $14,790 | $81,565 | $0 |
 
 Tranche #0's 10% pre-funds the opening stretch of Tranche #1. From there
 cumulative payment runs behind cumulative cost — a peak working-capital gap of
-$12,340 during the Tranche #2 risk-engine build, which we carry — closing to
-exactly zero at mainnet launch. Total paid equals total costed: **$99,225**.
+$17,836 through the Tranche #2 risk-engine build, which we carry — closing to
+exactly zero at mainnet launch. Total paid equals total costed: **$81,565**.
+
+The total is a multiple of 5 because every rate is; $81,565 is the nearest
+reachable figure to an $81,563 target under whole-hour costing.
 
 Assuming award notification in mid-September 2026, the milestones land at roughly
 6, 13 and 20 weeks. Intervals between tranche submissions are 45, 49 and 49 days,
-all inside the 90-day window. Effort runs 510 → 695 → 460 hours.
+all inside the 90-day window. Effort runs 475 → 640 → 258 hours.
 
-Both founders work on Fianza full time. 1,665 funded hours over 20 weeks is
-roughly 42 hours per engineer per week. The request is 66% of the $150,000
-ceiling.
+Both founders work on Fianza full time. 1,373 funded hours over 20 weeks is
+roughly 34 hours per engineer per week — deliberately below what two full-time
+engineers will actually put in, with the difference being our own contribution.
+The request is 54% of the $150,000 ceiling.
 
-**Where the money actually goes.** Roughly $38,600 — the largest share — funds
-credit-risk work: borrower stake, the size-weighted ramp, operator-cluster
-exposure caps, the expanded attack catalog, and the independence-engine
-migration. That is deliberate. The vault and the interest curve are standard
-engineering; the underwriting model is the part that decides whether this
-protocol is solvent, and it is the part with known, documented gaps.
+**Where the money actually goes.** $43,075 — **53% of the total** — funds
+credit-risk work: borrower stake, the size-weighted ramp and freshness gate,
+operator-cluster exposure caps, the expanded attack catalog, and the
+independence-engine migration. That is deliberate. The vault and the interest
+curve are standard engineering; the underwriting model is the part that decides
+whether this protocol stays solvent, and it is the part with known, documented
+gaps. Deferred to keep the request proportionate: the Rust service-layer cutover,
+the Rust indexer migration and a Rust SDK crate — all real, none of them risk
+work.
 
 **What this does not fund.** The three Soroban contracts, the independence
 engine, the indexer, both SDKs, and the existing testnet and mainnet deployments
@@ -342,12 +349,12 @@ worse — three problems, one mechanism.
 
 ---
 
-## Tranche #1 Deliverables — MVP · 510 hours · $31,050 · due 30/10/2026
+## Tranche #1 Deliverables — MVP · 475 hours · $28,825 · due 30/10/2026
 
 | Deliverable | Hours (P/B/F) | Cost |
 |---|---|---:|
 | Size-weighted credit ramp + score-freshness gate | 70 / 25 / 0 | $5,925 |
-| Rust credit-math core sharing `revenue_math` with the contracts | 110 / 40 / 0 | $9,350 |
+| Rust credit-math core sharing `revenue_math` with the contracts | 80 / 35 / 0 | $7,125 |
 | Independence engine to Rust + common-funder clustering | 70 / 45 / 0 | $7,025 |
 | Decentralised score attestation | 50 / 30 / 0 | $4,900 |
 | Authenticated, rate-limited underwriting API | 0 / 40 / 0 | $2,200 |
@@ -364,7 +371,7 @@ the cold-start ramp, while an agent repaying material amounts advances normally;
 a draw against a deliberately-aged score is rejected on-chain; and both cases are
 covered by contract tests that fail against today's implementation.
 
-**Rust credit-math core sharing `revenue_math` with the contracts — 110 protocol + 40 backend hrs — $9,350**
+**Rust credit-math core sharing `revenue_math` with the contracts — 80 protocol + 35 backend hrs — $7,125**
 Credit math currently exists twice: in Rust in
 `contracts/libraries/revenue_math`, which the contracts *enforce*, and again in
 TypeScript in `backend/src/scoring`, which the API *quotes*. The backend carries
@@ -413,17 +420,17 @@ adversarial catalog**, with any attack scenario regressing blocking merge.
 
 ---
 
-## Tranche #2 Deliverables — Testnet · 695 hours · $40,825 · due 18/12/2026
+## Tranche #2 Deliverables — Testnet · 640 hours · $37,950 · due 18/12/2026
 
 | Deliverable | Hours (P/B/F) | Cost |
 |---|---|---:|
 | Borrower stake — junior tranche | 130 / 40 / 0 | $10,650 |
-| Operator-cluster exposure caps | 50 / 70 / 0 | $7,100 |
+| Operator-cluster exposure caps | 50 / 60 / 0 | $6,550 |
 | Pooled lender liquidity (SEP-56) | 90 / 30 / 0 | $7,500 |
-| Attack catalog A8–A12 + red-team harness | 30 / 90 / 0 | $6,900 |
-| Onchain monitoring and alerting stack | 0 / 60 / 25 | $4,425 |
+| Attack catalog A8–A12 + red-team harness | 30 / 70 / 0 | $5,800 |
+| Onchain monitoring and alerting stack | 0 / 50 / 20 | $3,650 |
 | Threat model + data flow diagram (STRIDE) | 20 / 25 / 0 | $2,675 |
-| Lender dashboard | 0 / 0 / 35 | $1,575 |
+| Lender dashboard | 0 / 0 / 25 | $1,125 |
 
 **Borrower stake — junior tranche — 130 protocol + 40 backend hrs — $10,650**
 Stake custody in `lending_vault`, a required-stake curve keyed to the ramp, and a
@@ -437,7 +444,7 @@ repayment returns stake in full; and an invariant test proves no ordering of
 deposit/borrow/repay/stake/default lets a lender absorb loss while stake remains
 unseized.
 
-**Operator-cluster exposure caps — 50 protocol + 70 backend hrs — $7,100**
+**Operator-cluster exposure caps — 50 protocol + 60 backend hrs — $6,550**
 Every agent is currently underwritten in isolation, so one operator running N
 agents extracts N × limit while each agent looks individually modest. This
 clusters agents by shared funding origin and shared payer sets, then enforces an
@@ -458,7 +465,7 @@ agents; an invariant test proves share price is a pure function of pool equity
 and supply and that no depositor can mint or redeem at a stale price; and a
 simulated default in one agent impairs only that agent's proportional share.
 
-**Attack catalog A8–A12 + red-team harness — 30 protocol + 90 backend hrs — $6,900**
+**Attack catalog A8–A12 + red-team harness — 30 protocol + 70 backend hrs — $5,800**
 The current catalog covers seven payer-side attacks. It does not cover attacks on
 the *credit mechanics* themselves, which is where both flaws found in this audit
 live. Adds and defends: **A8** ramp farming (many trivial repayments), **A9**
@@ -470,7 +477,7 @@ stop. Each becomes a reproducible scenario in a harness that runs in CI.
 today's implementation and fails against the new one, and the harness runs on
 every push.
 
-**Onchain monitoring and alerting stack — 60 backend + 25 frontend hrs — $4,425**
+**Onchain monitoring and alerting stack — 50 backend + 20 frontend hrs — $3,650**
 *Done when:* a public dashboard exposes per-vault and pool liquidity, utilization,
 outstanding principal, overdue loans, staked value and realized loss; alerting
 fires on overdue-loan backlog, failed score publication, indexer lag, cluster-cap
@@ -482,36 +489,23 @@ boundaries and data entities across agent, SDK, indexer, signer and contracts,
 with a STRIDE assessment against that diagram, and every identified threat mapped
 either to an existing control or a tracked mitigation.
 
-**Lender dashboard — 35 frontend hrs — $1,575**
+**Lender dashboard — 25 frontend hrs — $1,125**
 *Done when:* a lender connects a wallet on testnet and completes deposit →
 position view → yield claim → withdraw against both an isolated vault and the
 pool, with each agent's posted stake visible before depositing.
 
 ---
 
-## Tranche #3 Deliverables — Mainnet · 460 hours · $27,350 · due 05/02/2027
+## Tranche #3 Deliverables — Mainnet · 258 hours · $14,790 · due 05/02/2027
 
 | Deliverable | Hours (P/B/F) | Cost |
 |---|---|---:|
-| Rust indexer and payment graph | 95 / 30 / 0 | $7,825 |
-| Mainnet underwriting engine | 20 / 75 / 0 | $5,425 |
+| Mainnet underwriting engine | 20 / 68 / 0 | $5,040 |
 | Mainnet launch: pool + stake, staged caps | 50 / 35 / 0 | $5,175 |
-| Rust agent SDK crate (crates.io) | 55 / 0 / 0 | $3,575 |
-| Production reliability and chaos drill | 0 / 55 / 0 | $3,025 |
-| SDK v1.0, docs and integration guide | 0 / 30 / 15 | $2,325 |
+| Production reliability and chaos drill | 0 / 50 / 0 | $2,750 |
+| SDK stake support, docs and integration guide | 0 / 25 / 10 | $1,825 |
 
-**Rust indexer and payment graph — 95 protocol + 30 backend hrs — $7,825**
-Migrates revenue indexing — Soroban RPC event ingestion, the Horizon
-deep-history fallback, and the persistent payment graph — to Rust. This is the
-throughput-bound component: it must keep pace with ledger close times while
-maintaining a graph that grows monotonically, and it feeds both the independence
-engine and the cluster-detection work.
-*Done when:* the Rust indexer runs against testnet in parallel with the
-TypeScript one for 72 hours and produces byte-identical payment-graph state;
-ingestion keeps pace with ledger close under a synthetic burst; and the
-TypeScript indexer is retired.
-
-**Mainnet underwriting engine — 20 protocol + 75 backend hrs — $5,425**
+**Mainnet underwriting engine — 20 protocol + 68 backend hrs — $5,040**
 Mainnet scores are published manually today. This brings the indexer,
 independence engine and signer online against mainnet so scores are produced from
 real mainnet agent revenue.
@@ -524,23 +518,13 @@ from public ledger data by a third party.
 third-party USDC under a published, risk-gated deposit cap schedule, with every
 deployment tx hash published.
 
-**Rust agent SDK crate (crates.io) — 55 protocol hrs — $3,575**
-A `fianza-agent-sdk` crate covering the same surface as the TypeScript and Python
-SDKs — register, underwrite, credit line, borrow, repay, stake, vault reads and
-draw-on-402. Soroban tooling is Rust-native, so this is the SDK an agent already
-running Rust infrastructure reaches for; it reuses the shared credit-math crate
-rather than re-deriving policy.
-*Done when:* the crate is published on crates.io with documented examples, and an
-integration test runs the same register → borrow → repay sequence from all three
-SDKs against one agent, producing identical on-chain outcomes.
-
-**Production reliability and chaos drill — 55 backend hrs — $3,025**
+**Production reliability and chaos drill — 50 backend hrs — $2,750**
 *Done when:* service and indexer run redundantly with health-gated failover; a
 documented chaos drill kills the primary with no missed score publication and no
 indexer gap; and 72 hours of continuous mainnet operation completes with zero
 stuck jobs.
 
-**SDK v1.0, docs and integration guide — 30 backend + 15 frontend hrs — $2,325**
+**SDK stake support, docs and integration guide — 25 backend + 10 frontend hrs — $1,825**
 *Done when:* the SDKs ship 1.0 with mainnet and stake support plus a published
 migration guide, and an external developer completes an agent integration on
 mainnet following the documentation alone.
@@ -637,12 +621,13 @@ Stale links from the interest form: `0xtrustline.vercel.app`,
   diagram, Stellar-specific integration detail, and complete system
   architecture, and that it is publicly accessible without login.
 - **Team members** — each must create an SCF account before you can add them.
-- **Budget** — $99,225 from 1,665 hours at $65/$55/$45, up from an earlier
-  $78,625 draft. The increase is the credit-engine track: borrower stake,
-  size-weighted ramp, operator-cluster caps and the expanded attack catalog
-  (~$38,600 of risk work in total). Deliverable costs sum to the full amount
-  while tranches #1–#3 pay only 90%; Tranche #0 covers the balance, so payment
-  and cost reconcile **cumulatively**, not tranche-by-tranche. If you change any
-  hours or rates, the role table, both tranche tables and the cumulative table
-  must be recomputed together.
+- **Budget** — $81,565 from 1,373 hours at $65/$55/$45. 53% of it ($43,075) is
+  credit-risk work: borrower stake, the size-weighted ramp and freshness gate,
+  operator-cluster caps, the expanded attack catalog and the independence-engine
+  migration. The total is a multiple of 5 because every rate is — $81,565 is the
+  nearest reachable figure to an $81,563 target under whole-hour costing.
+  Deliverable costs sum to the full amount while tranches #1–#3 pay only 90%;
+  Tranche #0 covers the balance, so payment and cost reconcile **cumulatively**,
+  not tranche-by-tranche. Change any hours or rates and the role table, both
+  tranche tables and the cumulative table must be recomputed together.
 - **Ambassador affiliation** — Yes / India, as per the interest form.
