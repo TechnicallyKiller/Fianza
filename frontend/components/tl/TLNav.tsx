@@ -29,10 +29,10 @@ const LINKS: { href: string; label: string; external?: boolean; badge?: string }
   { href: "/mainnet", label: "mainnet" },
 ];
 
-// "read" groups the two long-form surfaces: the hosted docs site and the
+// "resources" groups the two long-form surfaces: the hosted docs site and the
 // protocol paper. Kept as a dropdown so adding the whitepaper doesn't push the
 // nav wider — it was already at its comfortable limit.
-const READ_LINKS: { href: string; label: string; hint: string; external?: boolean }[] = [
+const RESOURCE_LINKS: { href: string; label: string; hint: string; external?: boolean }[] = [
   {
     href: DOCS_URL,
     label: "documentation",
@@ -50,17 +50,17 @@ export default function TLNav({
 }) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
-  const [readOpen, setReadOpen] = useState(false);
-  const readActive = READ_LINKS.some((l) => !l.external && pathname === l.href);
+  const [resourcesOpen, setResourcesOpen] = useState(false);
+  const resourcesActive = RESOURCE_LINKS.some((l) => !l.external && pathname === l.href);
 
   // Escape closes the dropdown — it opens on hover, so a keyboard user needs a
   // way out that isn't "move the mouse away".
   useEffect(() => {
-    if (!readOpen) return;
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setReadOpen(false);
+    if (!resourcesOpen) return;
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setResourcesOpen(false);
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [readOpen]);
+  }, [resourcesOpen]);
 
   const isActive = (l: { href: string; external?: boolean }) =>
     !l.external &&
@@ -119,39 +119,39 @@ export default function TLNav({
             );
           })}
 
-          {/* read: docs + whitepaper */}
+          {/* resources: docs + whitepaper */}
           <div
             className="relative"
-            onMouseEnter={() => setReadOpen(true)}
-            onMouseLeave={() => setReadOpen(false)}
+            onMouseEnter={() => setResourcesOpen(true)}
+            onMouseLeave={() => setResourcesOpen(false)}
           >
             <button
               type="button"
               aria-haspopup="true"
-              aria-expanded={readOpen}
-              onClick={() => setReadOpen((v) => !v)}
+              aria-expanded={resourcesOpen}
+              onClick={() => setResourcesOpen((v) => !v)}
               className="inline-flex items-center gap-1 rounded-md px-3 py-1.5 transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-nectar"
-              style={{ color: readActive ? "#FFB020" : "#A7ADA6" }}
+              style={{ color: resourcesActive ? "#FFB020" : "#A7ADA6" }}
             >
-              read
+              resources
               <ChevronDown
                 size={13}
                 className="transition-transform duration-150"
-                style={{ transform: readOpen ? "rotate(180deg)" : "none" }}
+                style={{ transform: resourcesOpen ? "rotate(180deg)" : "none" }}
               />
             </button>
 
-            {readOpen ? (
+            {resourcesOpen ? (
               <div className="absolute right-0 top-full z-50 w-[248px] pt-2">
                 <div className="overflow-hidden rounded-xl border border-white/[0.09] bg-obsidian shadow-[0_14px_44px_rgba(0,0,0,0.5)]">
-                  {READ_LINKS.map((l) =>
+                  {RESOURCE_LINKS.map((l) =>
                     l.external ? (
                       <a
                         key={l.href}
                         href={l.href}
                         target="_blank"
                         rel="noopener noreferrer"
-                        onClick={() => setReadOpen(false)}
+                        onClick={() => setResourcesOpen(false)}
                         className="flex flex-col gap-0.5 border-b border-white/[0.05] px-4 py-3 transition-colors last:border-0 hover:bg-white/[0.04]"
                       >
                         <span className="flex items-center gap-1.5 text-bone">
@@ -164,7 +164,7 @@ export default function TLNav({
                       <Link
                         key={l.href}
                         href={l.href}
-                        onClick={() => setReadOpen(false)}
+                        onClick={() => setResourcesOpen(false)}
                         className="flex flex-col gap-0.5 border-b border-white/[0.05] px-4 py-3 transition-colors last:border-0 hover:bg-white/[0.04]"
                         style={{ color: pathname === l.href ? "#FFB020" : undefined }}
                       >
@@ -251,8 +251,8 @@ export default function TLNav({
               );
             })}
 
-            {/* no dropdown on mobile — the read links sit flat in the sheet */}
-            {READ_LINKS.map((l) => {
+            {/* no dropdown on mobile — the resource links sit flat in the sheet */}
+            {RESOURCE_LINKS.map((l) => {
               const style = { color: !l.external && pathname === l.href ? "#FFB020" : "#EDEDE7" };
               const cls =
                 "flex items-center gap-2 rounded-lg border border-white/[0.06] bg-void/50 px-4 py-3.5 transition-colors";
