@@ -39,8 +39,13 @@
         "pages": [
           "index",
           "what-and-why",
-          "whitepaper",
           "architecture"
+        ]
+      },
+      {
+        "group": "Whitepaper",
+        "pages": [
+          "whitepaper"
         ]
       },
       {

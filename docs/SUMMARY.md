@@ -3,6 +3,7 @@
 * [Getting started](README.md)
 * [What & why](what-and-why.md)
 * [Whitepaper](whitepaper.md)
+* [Whitepaper (PDF)](fianza-whitepaper.pdf)
 * [Architecture](architecture.md)
 
 ## Protocol
