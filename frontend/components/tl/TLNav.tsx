@@ -8,8 +8,8 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
-import { Menu, X } from "lucide-react";
+import { useEffect, useState } from "react";
+import { ChevronDown, ExternalLink, Menu, X } from "lucide-react";
 
 // The docs live on a separately-hosted Mintlify site (docs.fianza.space),
 // not the internal Next.js /docs route — so the docs link is external.
@@ -27,7 +27,19 @@ const LINKS: { href: string; label: string; external?: boolean; badge?: string }
   { href: "/lender", label: "lender" },
   { href: "/portfolio", label: "credit book" },
   { href: "/mainnet", label: "mainnet" },
-  { href: DOCS_URL, label: "docs", external: true },
+];
+
+// "read" groups the two long-form surfaces: the hosted docs site and the
+// protocol paper. Kept as a dropdown so adding the whitepaper doesn't push the
+// nav wider — it was already at its comfortable limit.
+const READ_LINKS: { href: string; label: string; hint: string; external?: boolean }[] = [
+  {
+    href: DOCS_URL,
+    label: "documentation",
+    hint: "Architecture, SDK reference, contracts",
+    external: true,
+  },
+  { href: "/whitepaper", label: "whitepaper", hint: "The protocol paper · PDF" },
 ];
 
 export default function TLNav({
@@ -38,6 +50,17 @@ export default function TLNav({
 }) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
+  const [readOpen, setReadOpen] = useState(false);
+  const readActive = READ_LINKS.some((l) => !l.external && pathname === l.href);
+
+  // Escape closes the dropdown — it opens on hover, so a keyboard user needs a
+  // way out that isn't "move the mouse away".
+  useEffect(() => {
+    if (!readOpen) return;
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setReadOpen(false);
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [readOpen]);
 
   const isActive = (l: { href: string; external?: boolean }) =>
     !l.external &&
@@ -95,6 +118,65 @@ export default function TLNav({
               </Link>
             );
           })}
+
+          {/* read: docs + whitepaper */}
+          <div
+            className="relative"
+            onMouseEnter={() => setReadOpen(true)}
+            onMouseLeave={() => setReadOpen(false)}
+          >
+            <button
+              type="button"
+              aria-haspopup="true"
+              aria-expanded={readOpen}
+              onClick={() => setReadOpen((v) => !v)}
+              className="inline-flex items-center gap-1 rounded-md px-3 py-1.5 transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-nectar"
+              style={{ color: readActive ? "#FFB020" : "#A7ADA6" }}
+            >
+              read
+              <ChevronDown
+                size={13}
+                className="transition-transform duration-150"
+                style={{ transform: readOpen ? "rotate(180deg)" : "none" }}
+              />
+            </button>
+
+            {readOpen ? (
+              <div className="absolute right-0 top-full z-50 w-[248px] pt-2">
+                <div className="overflow-hidden rounded-xl border border-white/[0.09] bg-obsidian shadow-[0_14px_44px_rgba(0,0,0,0.5)]">
+                  {READ_LINKS.map((l) =>
+                    l.external ? (
+                      <a
+                        key={l.href}
+                        href={l.href}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={() => setReadOpen(false)}
+                        className="flex flex-col gap-0.5 border-b border-white/[0.05] px-4 py-3 transition-colors last:border-0 hover:bg-white/[0.04]"
+                      >
+                        <span className="flex items-center gap-1.5 text-bone">
+                          {l.label}
+                          <ExternalLink size={11} className="text-[#5a635e]" />
+                        </span>
+                        <span className="text-[10px] leading-snug text-[#5a635e]">{l.hint}</span>
+                      </a>
+                    ) : (
+                      <Link
+                        key={l.href}
+                        href={l.href}
+                        onClick={() => setReadOpen(false)}
+                        className="flex flex-col gap-0.5 border-b border-white/[0.05] px-4 py-3 transition-colors last:border-0 hover:bg-white/[0.04]"
+                        style={{ color: pathname === l.href ? "#FFB020" : undefined }}
+                      >
+                        <span className={pathname === l.href ? "" : "text-bone"}>{l.label}</span>
+                        <span className="text-[10px] leading-snug text-[#5a635e]">{l.hint}</span>
+                      </Link>
+                    ),
+                  )}
+                </div>
+              </div>
+            ) : null}
+          </div>
         </div>
 
         {/* right slot: desktop only */}
@@ -168,6 +250,39 @@ export default function TLNav({
                 </Link>
               );
             })}
+
+            {/* no dropdown on mobile — the read links sit flat in the sheet */}
+            {READ_LINKS.map((l) => {
+              const style = { color: !l.external && pathname === l.href ? "#FFB020" : "#EDEDE7" };
+              const cls =
+                "flex items-center gap-2 rounded-lg border border-white/[0.06] bg-void/50 px-4 py-3.5 transition-colors";
+              return l.external ? (
+                <a
+                  key={l.href}
+                  href={l.href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={cls}
+                  style={style}
+                  onClick={() => setOpen(false)}
+                >
+                  {l.label}
+                  <span className="ml-auto text-[10px] text-ash">↗</span>
+                </a>
+              ) : (
+                <Link
+                  key={l.href}
+                  href={l.href}
+                  className={cls}
+                  style={style}
+                  onClick={() => setOpen(false)}
+                >
+                  {l.label}
+                  <span className="ml-auto text-[10px] text-ash">PDF</span>
+                </Link>
+              );
+            })}
+
             <Link
               href="/waitlist"
               className="mt-4 flex items-center justify-center rounded-lg border border-nectar/30 bg-nectar/10 px-4 py-3 font-tl-mono text-sm font-semibold text-nectar"
