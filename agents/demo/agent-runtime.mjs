@@ -1,10 +1,10 @@
-// agent-runtime — the autonomous TrustLine demo agent.
+// agent-runtime — the autonomous Fianza demo agent.
 //
 // A real LLM (free Groq by default; any OpenAI-compatible provider via env)
 // drives a tool-loop. The agent is a market-research agent that EARNS by
 // answering questions, but a good answer needs a paid premium-data call it may
 // not be able to afford right now. When it's short, it reasons and draws
-// TrustLine credit (working capital), buys the data, answers, and repays from
+// Fianza credit (working capital), buys the data, answers, and repays from
 // what it earns. Every money-move is a real testnet transaction.
 //
 // This is spend-to-earn / working capital — NOT speculation. The agent never
@@ -24,7 +24,7 @@ dotenv.config({ path: path.resolve(here, "../.env") });
 dotenv.config({ path: path.resolve(here, "../.demo-holding-wallet.local") });
 
 // Import the LOCAL built SDK by relative path (same as the analyst/scout
-// servers) — NOT the npm package name. The published @trustline-agents/agent-sdk
+// servers) — NOT the npm package name. The published @fianza/agent-sdk
 // on npm may lag behind local changes (e.g. the treasury auto-seed in borrow()),
 // and Render installs from npm with no local symlink. The relative dist path
 // guarantees the deployed agent runs exactly the SDK in this repo.
@@ -69,13 +69,13 @@ if (!AGENT_SECRET)
 
 const tl = new TrustLineAgent(AGENT_SECRET, { apiBaseUrl: TRUSTLINE_API });
 
-const SYSTEM = `You are Scout, an autonomous market-research agent with your own Stellar wallet and a TrustLine credit line.
+const SYSTEM = `You are Scout, an autonomous market-research agent with your own Stellar wallet and a Fianza credit line.
 
 You earn USDC by answering research questions. To give a HIGH-QUALITY answer you must buy a premium market-data call (it costs about $${RESEARCH_PRICE} USDC). You may not always have that much cash on hand.
 
 Follow this exact sequence, one tool at a time:
 1. check_credit — see your USDC balance and your available credit line.
-2. buy_premium_data(topic) — buy the data you need. If you're short on cash (you usually will be), this is working capital: the tool auto-draws the shortfall from your TrustLine credit line (a real on-chain borrow). You borrow to do profitable work — never to speculate or trade. Never refuse the task for being low on cash; that's what the credit line is for.
+2. buy_premium_data(topic) — buy the data you need. If you're short on cash (you usually will be), this is working capital: the tool auto-draws the shortfall from your Fianza credit line (a real on-chain borrow). You borrow to do profitable work — never to speculate or trade. Never refuse the task for being low on cash; that's what the credit line is for.
 3. Write the user a clear, useful research note grounded in what buy_premium_data returned.
 4. deliver_and_get_paid — the customer pays you for the finished research (your job revenue lands as USDC).
 5. repay(amountUsdc) — now that you've been paid, repay the credit you drew (plus a little for interest), out of that revenue. This is the whole point: the loan repays itself from the work it funded, and on-time repayment grows your future limit.
@@ -90,7 +90,7 @@ const tools = [
     function: {
       name: "check_credit",
       description:
-        "Check this agent's spendable USDC balance and its live TrustLine credit line (tier, limit, APR, and how much credit is still available to draw). Call this first.",
+        "Check this agent's spendable USDC balance and its live Fianza credit line (tier, limit, APR, and how much credit is still available to draw). Call this first.",
       parameters: { type: "object", properties: {}, additionalProperties: false },
     },
   },
@@ -101,7 +101,7 @@ const tools = [
       description:
         "Buy the premium market-data call needed to answer a research question. Costs ~$" +
         RESEARCH_PRICE +
-        " USDC. If the agent is short on cash, this AUTOMATICALLY draws the shortfall from the TrustLine credit line (a real on-chain borrow) and then pays. Returns the data plus any transaction hashes.",
+        " USDC. If the agent is short on cash, this AUTOMATICALLY draws the shortfall from the Fianza credit line (a real on-chain borrow) and then pays. Returns the data plus any transaction hashes.",
       parameters: {
         type: "object",
         properties: {
@@ -131,7 +131,7 @@ const tools = [
     function: {
       name: "repay",
       description:
-        "Repay the outstanding TrustLine credit (interest first, then principal) out of the revenue you were just paid. On-time repayment grows the agent's future limit. Amount in USDC.",
+        "Repay the outstanding Fianza credit (interest first, then principal) out of the revenue you were just paid. On-time repayment grows the agent's future limit. Amount in USDC.",
       parameters: {
         type: "object",
         properties: {

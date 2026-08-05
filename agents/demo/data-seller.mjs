@@ -70,7 +70,7 @@ app.use(
     {
       "POST /research": {
         accepts: { scheme: "exact", price: PRICE, network: NETWORK, payTo: PAYTO },
-        description: "Premium market-data call (TrustLine demo seller)",
+        description: "Premium market-data call (Fianza demo seller)",
       },
     },
     resourceServer,
