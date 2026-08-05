@@ -141,12 +141,53 @@ realized loss rate as the constraint — the two together are the only honest
 measure of whether the underwriting works.
 
 ---
-
 ## Traction Evidence
 
-All figures verified on-chain on 2026-08-04. Transaction-level CSVs for both
-networks are attached (`fianza-testnet-transactions.csv`,
-`fianza-mainnet-transactions.csv`); every row carries a stellar.expert link.
+**Stage: closed beta.** The protocol runs end to end on Stellar testnet and the
+contracts are also live on mainnet. Access is not open — participants are agents
+we or a partner stood up deliberately, so the numbers below are small by design.
+We are reporting a controlled test of whether the mechanism works, not a growth
+metric. Opening the beta is what this award funds.
+
+The right question for a credit protocol at this stage is not "how many users"
+but "has every part of the loop, including the failure path, actually executed
+on-chain?" It has. Every figure below is verifiable; transaction-level CSVs for
+both networks are attached (`fianza-testnet-transactions.csv`,
+`fianza-mainnet-transactions.csv`) and every row carries a stellar.expert link.
+On-chain figures verified 2026-08-04; database figures 2026-08-05.
+
+### What closed beta has proven
+
+**The full credit lifecycle executes autonomously.** register → underwrite →
+publish score on-chain → lender deposit → borrow → repay → lender yield, driven
+by the agent's own key with no human in the loop. A live LLM-driven agent runs
+this loop on a public demo page, paying for a real x402-priced data call out of
+drawn credit.
+
+**A default works.** This is the part most lending projects cannot show. An agent
+was deliberately staged with an overdue loan; `mark_default` was triggered
+permissionlessly; the first-loss reserve absorbed what it could; the remainder
+was socialised pro-rata to that vault's lenders through share price; the agent
+was frozen. One `mark_default` transaction, on-chain, not simulated.
+
+**The anti-Sybil model catches a real attacker.** A live circular-funding
+attacker was constructed on testnet — wallets funded by the agent, paying the
+agent back — detected from on-chain funding data and discounted to zero
+effective revenue. It received no credit line.
+
+**Real money moved on mainnet.** Not a deployment artifact: 1 register, 1
+lender deposit, 6 borrows and 5 repays in real USDC, with interest accruing on an
+outstanding position. Small amounts, one agent, scores published manually — this
+is a proving run, and we describe it as one.
+
+**One integration we did not build.** Nebula, a separate team, built Fianza
+credit into their MCP server as four agent-native tools (`trustline_status`,
+`trustline_onboard`, `trustline_borrow`, `trustline_repay`), documented at
+https://docs.nebulaonchain.xyz/guides/trustline. Testnet only, per their docs.
+For a closed beta this is the signal that matters most: someone outside the
+program chose to build on the SDK.
+
+### Closed beta by the numbers
 
 **Testnet — 225 contract transactions, 0 failed** (30 Jun – 29 Jul 2026)
 
@@ -160,44 +201,34 @@ networks are attached (`fianza-testnet-transactions.csv`,
 | `record_repayment` | 7 |
 | `mark_default` | 1 |
 
-**19 agents** have a stored underwriting result (queried 2026-08-05; earliest
-2026-07-02). The 13 `register` calls above are lower than that because these
-counts come from enumerating the 25 participant accounts we can identify — an
-agent registered from a wallet outside that set still holds a published score but
-contributes no row here. The transaction figures are therefore a verifiable
-floor, not a ceiling; every one is in the attached CSV with a stellar.expert
-link.
+**19 agents** hold a stored underwriting result (earliest 2026-07-02). The 13
+`register` calls are fewer because these counts come from enumerating the 25
+participant accounts we can identify — an agent registered from a wallet outside
+that set still holds a published score but contributes no row. The transaction
+figures are a verifiable floor, not a ceiling.
 
 `score_registry` `CAZUPW5MWHG5XCE7BM6YP6M52NPB6TPRRAXU3GEV4TL2AR2ZMYE7TRSX` ·
 `credit_line` `CC4ZAKREYMCDEONIQMSSBYOBFC75LL5NPYVEBRZ5SACHYWLYGK2R7GDO` ·
 `lending_vault` `CAMF3BS23WXYMA6W6E55VSX577GIPSRKJXJKLL2G46TABUQ4GIRGHIL3`
 
 **Mainnet — 14 contract transactions, 13 successful** (25–26 Jul 2026)
-The full loop has executed on mainnet in real USDC: 1 register, 1 deposit,
-6 borrows, 5 repays, with interest accruing on an outstanding position. This is
-a live money path, not a deployment artifact.
+
 `score_registry` `CAHWYFLMQI6BBOL6ZLZRRINCK6KVBX73ACH7LCPB24WDED4LSMCI7YZC` ·
 `credit_line` `CDK7S4UWY227FHFKDSV37DGT7AIJ5Z2QEYO5AY456M7RBGJN25WYJVGC` ·
 `lending_vault` `CAE5C5UJYVED5DAVY4YKYT6E2C4NBZCIUBAK2MXGKGLKZESBBXKFPZ4U`
 
-**Adversarial validation, run live on testnet rather than simulated**
-- **A real on-chain default.** An agent was staged with an overdue loan,
-  `mark_default` was triggered permissionlessly, the first-loss reserve absorbed
-  what it could, the remainder was socialised pro-rata to that vault's lenders,
-  and the agent was frozen. Most lending submissions can show a loan working;
-  this shows a default working.
-- **A live circular-funding Sybil attacker** was detected from on-chain funding
-  data and discounted to zero effective revenue.
+### Engineering evidence
 
-**Engineering**
 - 40 Rust tests across the three contracts and the shared `revenue_math` library
 - A solvency-invariant fuzz test: 5 seeds × 300 randomised
   deposit/borrow/repay/withdraw/claim_yield steps (1,500 total), asserting
   `vault_balance == liquidity + reserve + yield_pool` after every successful
   state transition
-- Both SDKs published and installable at v0.2.1
+- Both SDKs published and installable at v0.2.1 — `@fianza/agent-sdk` (npm) and
+  `fianza-agent-sdk` (PyPI) — plus a Claude Code skill (`npx @fianza/skill`) so
+  an external builder can integrate without contacting us
 
-**Ecosystem integrations — four live, all reading or settling on Stellar**
+### Ecosystem integrations — four live
 
 1. **DeFindex (SCF #28, #32) — yield on idle lender capital.** Idle vault
    liquidity routes into a DeFindex tokenized vault while awaiting draw, with a
@@ -206,31 +237,42 @@ a live money path, not a deployment artifact.
 
 2. **Tael Protocol — cross-marketplace revenue underwriting and payment.** A
    two-way integration. *Inbound:* Tael settles x402 payments as **classic**
-   Stellar `payment` operations carrying a fixed text memo — a different
-   on-chain shape from our own SAC-event revenue — so we built a dedicated
-   Horizon reader that makes Tael earnings attributable from chain data alone
-   and folds them into underwriting as additive independent revenue.
-   *Outbound:* our SDK ships `tael-pay`, a second x402 dialect, because Tael's
-   verifier expects a classic `Operation.payment` rather than the SAC `transfer`
-   that `@x402/stellar` signs. An agent selling on Tael can therefore be
-   underwritten on income that never touches a Soroban SAC.
+   Stellar `payment` operations carrying a fixed text memo — a different on-chain
+   shape from our own SAC-event revenue — so we built a dedicated Horizon reader
+   that makes Tael earnings attributable from chain data alone and folds them
+   into underwriting as additive independent revenue. *Outbound:* our SDK ships
+   `tael-pay`, a second x402 dialect, because Tael's verifier expects a classic
+   `Operation.payment` rather than the SAC `transfer` that `@x402/stellar` signs.
+   An agent selling on Tael can therefore be underwritten on income that never
+   touches a Soroban SAC.
 
 3. **Reclaim zkTLS — off-chain revenue proofs.** Off-chain income (e.g. a Stripe
    balance) is proven via Reclaim and verified by a deployed Soroban verifier
    contract (`CA3EMXR6JOOTNP44T3OAJFMMMGKRRETDJKBLZP2RU3SIY4SDFAH54DU5`), so
    revenue that never touches Stellar still carries weight in an on-chain score.
 
-4. **Nebula — external adoption, built by another team on our SDK.** Nebula's
-   MCP server exposes Fianza credit to its agents as four native tools:
-   `trustline_status`, `trustline_onboard`, `trustline_borrow`, and
-   `trustline_repay`. Documented at
-   https://docs.nebulaonchain.xyz/guides/trustline. Enabled on testnet only, per
-   Nebula's own documentation.
+4. **Nebula — external adoption**, described above.
 
-The fourth carries the most weight. The first three are integrations we built
-into other protocols; Nebula is another team building Fianza into theirs, which
-is the earliest real signal that agent credit is a primitive other builders
-want rather than one we are pushing.
+### What closed beta has not tested, and we will not claim it has
+
+- **No adversary with money at stake.** Our attackers were constructed by us. A
+  real one has different incentives and more patience.
+- **Volume is small and mostly ours.** Of the agents above, the majority are
+  ours or a partner's. External repayment volume is near zero — which is exactly
+  why our headline metric going forward is *USDC repaid on time by agents we do
+  not operate*, paired with realized loss rate.
+- **Mainnet is a proving run, not a business.** Real USDC, small amounts, one
+  agent, scores published manually. There is no live mainnet underwriting engine
+  yet; Tranche #3 builds it.
+- **One trusted signer.** Scores are published by a single key. Anyone can
+  recompute a published score from public ledger data and detect a dishonest
+  underwriter, but detection is not prevention. Tranche #1 replaces it with
+  M-of-N attestation.
+
+Opening the beta responsibly is what the credit-engine work in Tranches #1 and #2
+is for: two exploitable defects found in our own audit, borrower stake, and
+operator-cluster exposure caps all need to land before untrusted borrowers are
+let in at scale.
 
 ---
 ## Budget
