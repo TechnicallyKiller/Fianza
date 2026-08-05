@@ -1,0 +1,88 @@
+---
+title: "Claude Code skill"
+description: "Install the Fianza skill so Claude Code writes agent credit code against the real SDK surface instead of guessing at it."
+---
+
+Fianza ships a [Claude Code](https://claude.com/claude-code) skill. Install it
+once and Claude writes agent-credit code against the real SDK — correct method
+names, correct lifecycle order, and the failure modes that actually bite —
+instead of inferring an API from the package name.
+
+It covers both SDKs: `@fianza/agent-sdk` (JavaScript/TypeScript) and
+`fianza-agent-sdk` (Python).
+
+## Install
+
+```bash
+npx @fianza/skill
+```
+
+Then restart Claude Code (or `/reload`) and invoke it with `/fianza-agent-sdk`.
+
+The installer writes to `~/.claude/skills/fianza-agent-sdk/`. Re-running it
+updates in place.
+
+<Accordion title="Other install methods">
+
+**curl** — no npm required:
+
+```bash
+mkdir -p ~/.claude/skills/fianza-agent-sdk && \
+  curl -fsSL https://raw.githubusercontent.com/TechnicallyKiller/Fianza/main/.claude/skills/fianza-agent-sdk/SKILL.md \
+  -o ~/.claude/skills/fianza-agent-sdk/SKILL.md
+```
+
+**Plugin marketplace:**
+
+```
+/plugin marketplace add TechnicallyKiller/Fianza
+/plugin install fianza-agent-sdk@fianza
+```
+
+</Accordion>
+
+## What it knows
+
+The skill is not a link to these docs — it is a working reference Claude reads
+before writing code.
+
+| Area | What the skill carries |
+|---|---|
+| Method map | Every SDK method in both languages, side by side, so Claude picks `creditLine()` vs `credit_line()` correctly |
+| Lifecycle | `register` → `underwrite` → `creditLine` → `borrow` → `repay`, in the order the contracts require |
+| Draw-on-402 | How `payWithCredit` auto-borrows a shortfall and settles an x402 payment |
+| Credit ramp | Why `vaultState().limitUsdc` (enforced) differs from `creditLine().limitUsdc` (scored), and how repaying grows it |
+| Networks | `network: "mainnet"` vs the testnet default, and which calls have no mainnet equivalent yet |
+| Errors | `ValidationError`, `ApiError`, `TxError`, `MaxDrawExceededError` — which are thrown locally and which come from chain |
+| Real pitfalls | SAC error #10 and #13, why a fresh agent correctly scores 0, backend cold starts |
+
+That last row is the point. A fresh agent scoring `400 / Unrated / limit 0` is
+the honest result of having no revenue, not a bug — but an assistant without the
+skill will usually treat it as one and start debugging the wrong thing.
+
+## Example
+
+With the skill installed, this prompt is enough:
+
+> Write a Python agent that registers on Fianza, gets underwritten on its
+> on-chain revenue, then buys a $0.05 x402 research call on credit.
+
+Claude will reach for `pay_with_credit`, pass `skip_proof=True` to avoid the
+slow zkTLS proof, and handle `MaxDrawExceededError` — without being told any of
+that.
+
+## Keeping it current
+
+The skill is versioned with the SDK surface it documents. `npx @fianza/skill`
+again to update; it overwrites in place.
+
+<Info>
+The earlier `@trustline-agents/skill` package still works and installs the same
+skill under its former name. New installs should use `@fianza/skill`.
+</Info>
+
+## Related
+
+- [SDK reference (JavaScript/TypeScript)](/sdk-reference)
+- [SDK reference (Python)](/sdk-reference-python)
+- [Onboarding kit](/onboarding-kit) — getting a funded testnet agent from zero

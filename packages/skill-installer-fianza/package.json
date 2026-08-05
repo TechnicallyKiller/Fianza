@@ -1,6 +1,6 @@
 {
   "name": "@fianza/skill",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "One-command installer for the Fianza Agent SDK Claude Code skill. Run `npx @fianza/skill` to add it to ~/.claude/skills.",
   "bin": {
     "fianza-skill": "./bin/install.mjs"
@@ -10,11 +10,18 @@
     "bin/",
     "skill/"
   ],
-  "keywords": ["claude-code", "skill", "fianza", "stellar", "agent", "sdk"],
+  "keywords": [
+    "claude-code",
+    "skill",
+    "fianza",
+    "stellar",
+    "agent",
+    "sdk"
+  ],
   "homepage": "https://docs.fianza.space/sdk-reference-python",
   "repository": {
     "type": "git",
-    "url": "https://github.com/TechnicallyKiller/TrustLine.git",
+    "url": "https://github.com/TechnicallyKiller/Fianza.git",
     "directory": "packages/skill-installer-fianza"
   },
   "license": "MIT",

@@ -1,6 +1,6 @@
 ---
 name: fianza-agent-sdk
-description: Drive the Fianza agent SDK (JavaScript/TypeScript `@fianza/agent-sdk` or Python `fianza-agent-sdk`) so an AI agent can take and repay revenue-underwritten, uncollateralized USDC credit on Stellar. Covers register -> underwrite -> credit_line -> borrow -> repay, on-chain vault/credit reads, and payWithCredit / pay_with_credit (draw-on-402: auto-borrow a shortfall then pay an x402-priced API). Testnet-first, USDC (SEP-41 SAC), stellar:testnet. Use when writing an agent (JS/TS or Python) that earns, gets underwritten, and pays for its own inputs on credit.
+description: Drive the Fianza agent SDK (JavaScript/TypeScript `@fianza/agent-sdk` or Python `fianza-agent-sdk`) so an AI agent can take and repay revenue-underwritten, uncollateralized USDC credit on Stellar. Covers register -> underwrite -> credit_line -> borrow -> repay, the repayment-driven credit ramp, on-chain vault/credit reads, mainnet vs testnet selection, and payWithCredit / pay_with_credit (draw-on-402: auto-borrow a shortfall then pay an x402-priced API). USDC (SEP-41 SAC), testnet by default. Use when writing an agent (JS/TS or Python) that earns, gets underwritten, and pays for its own inputs on credit.
 user-invocable: true
 argument-hint: "[language js|py + what to do — onboard / underwrite / borrow / pay an x402 API on credit]"
 ---
@@ -37,6 +37,8 @@ compute, other agents) and repays as it earns.
 | Read spendable USDC balance | `tl.usdcBalanceUsdc()` | `tl.usdc_balance_usdc()` |
 | Draw cash against the line | `tl.borrow(usdc)` | `tl.borrow(usdc)` |
 | Repay (interest → lender yield, then principal) | `tl.repay(usdc)` | `tl.repay(usdc)` |
+| Repay everything owed, in one call | `tl.repayAll()` | — (JS only) |
+| Preview live score/limit without writing on-chain | `tl.previewCredit()` | — (JS only) |
 | Lend into another agent's vault | `tl.deposit(agentAddress, usdc)` | `tl.deposit(agent_address, usdc)` |
 | Pay an x402 API, auto-borrowing any shortfall | `tl.payWithCredit(url, priceUsdc, opts)` | `tl.pay_with_credit(url, price_usdc, ...)` |
 
@@ -117,6 +119,51 @@ off-chain revenue.
 
 A fresh, zero-revenue agent correctly returns **score 400 / Unrated / limit 0**.
 That is the honest result, not a bug.
+
+## Repaying builds credit (v0.2.1+)
+
+`repay()` does two things: it clears the debt on-chain, and it settles that
+repayment into the agent's **credit history** in `score_registry`. History is
+what drives the *credit ramp* — the enforced limit starts near zero and grows
+only as the agent repays, independent of the headline score.
+
+```ts
+await tl.borrow(0.10);
+await tl.repayAll();        // clears debt AND records the repayment
+const { limitUsdc } = await tl.vaultState();  // ramped limit, higher than before
+```
+
+Two things follow from this:
+
+- **The vault's `limitUsdc` is the number that matters.** `creditLine()` and
+  `previewCredit()` report the underwritten limit; `vaultState().limitUsdc` is
+  the *ramped* limit the contract actually enforces. A new agent's ramped limit
+  is well below its scored limit — that is the design, not a bug.
+- **Settlement is best-effort.** If the backend is unreachable the repayment
+  still succeeds on-chain; only the history write is skipped. `repay()` never
+  fails because of it.
+
+Use `repayAll()` rather than hand-rolling read-then-repay: it reads the amount
+owed and the spendable balance, repays the lesser of the two, and returns
+`null` when there is nothing owed or nothing to pay with.
+
+## Mainnet (v0.2.0+)
+
+```ts
+const tl = new FianzaAgent(secret, { network: "mainnet" });
+```
+
+Sets the mainnet passphrase, contract ids and USDC SAC, and uses a multi-RPC
+fallback list because free public mainnet Soroban RPCs are individually flaky.
+Reads retry across every endpoint; a submitted transaction stays on the endpoint
+that accepted it, so nothing is ever double-submitted.
+
+**What does not work on mainnet yet:** `revenue()` and `underwrite()` throw
+immediately. There is no live mainnet indexer or scorer, because there is no
+real mainnet agent revenue to underwrite against yet — mainnet scores are
+published manually. Read already-published terms with `creditLine()` /
+`vaultState()`, and note `repay()` skips history settlement on mainnet for the
+same reason. Default is `"testnet"`; existing code is unaffected.
 
 ## Draw-on-402 (the headline feature)
 

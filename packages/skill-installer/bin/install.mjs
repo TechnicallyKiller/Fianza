@@ -39,7 +39,7 @@ function main() {
   console.log("  Next:");
   console.log("    • Restart Claude Code (or run /reload) to load it");
   console.log("    • Invoke it with  /trustline-agent-sdk");
-  console.log("    • Docs: https://docs.0xtrustline.online");
+  console.log("    • Docs: https://docs.fianza.space");
   console.log("");
 }
 
