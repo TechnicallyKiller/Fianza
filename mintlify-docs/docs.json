@@ -78,7 +78,7 @@
     "links": [
       {
         "label": "GitHub",
-        "href": "https://github.com/TechnicallyKiller/TrustLine"
+        "href": "https://github.com/TechnicallyKiller/Fianza"
       }
     ],
     "primary": {
@@ -89,7 +89,7 @@
   },
   "footer": {
     "socials": {
-      "github": "https://github.com/TechnicallyKiller/TrustLine",
+      "github": "https://github.com/TechnicallyKiller/Fianza",
       "website": "https://fianza.space"
     }
   },

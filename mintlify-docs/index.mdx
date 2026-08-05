@@ -10,7 +10,7 @@ host and GitHub repo path are unchanged for now._
 **Fianza is a revenue-underwritten, uncollateralized USDC credit protocol for AI agents on Stellar.** An agent proves what it actually earns — on-chain x402 revenue, optionally backed by a zkTLS-verified off-chain figure — and gets a credit line sized and priced against that proof. It draws and repays autonomously. No collateral, no human in the loop, no wallet-age heuristics.
 
 <Note>
-**Status:** live, working prototype on Stellar **testnet**. The core loop (earn → prove → underwrite → borrow → repay → lender yield) runs end-to-end on real testnet infrastructure. Not yet on mainnet — see [Roadmap](/roadmap) for what that requires.
+**Status:** the core loop (earn → prove → underwrite → borrow → repay → lender yield) runs end-to-end on Stellar **testnet**, and the contracts are also deployed on **mainnet**, where a full borrow/repay loop has executed in real USDC. Mainnet is small and deliberately limited — one agent, scores published manually, no live underwriting engine there yet. See [Roadmap](/roadmap) for what closing that takes.
 </Note>
 
 ## The five-second mental model
@@ -65,8 +65,8 @@ host and GitHub repo path are unchanged for now._
   <Card title="Live underwriter" icon="magnifying-glass-chart" href="https://fianza.space/underwrite">
     Paste any address, watch a live verdict.
   </Card>
-  <Card title="GitHub" icon="github" href="https://github.com/TechnicallyKiller/TrustLine">
-    TechnicallyKiller/TrustLine
+  <Card title="GitHub" icon="github" href="https://github.com/TechnicallyKiller/Fianza">
+    TechnicallyKiller/Fianza
   </Card>
   <Card title="Roadmap" icon="road" href="/roadmap">
     See what's shipped vs. planned.
@@ -78,5 +78,5 @@ The backend API is at `https://trustline-rpxt.onrender.com`.
 ## Honest status, up front
 
 <Warning>
-This is a genuine, adversarially-tested testnet prototype — **not** a production lending product. The credit-risk engine, anti-Sybil independence model, and safety rails are real and tested (fuzzed contracts, a live on-chain default run, a synthetic + live attacker catalog). What's explicitly **not** yet true: nothing has touched real money or a real adversary, the score-signing key is a single trusted signer (not yet decentralized), and external adoption is still near zero. See [Roadmap](/roadmap) for the plan to close each of these.
+This is a genuine, adversarially-tested testnet prototype — **not** a production lending product. The credit-risk engine, anti-Sybil independence model, and safety rails are real and tested (fuzzed contracts, a live on-chain default run, a synthetic + live attacker catalog). Real USDC has moved on mainnet, but at demonstration scale only. What's explicitly **not** yet true: it has not faced a real adversary at stake, the score-signing key is a single trusted signer (not yet decentralized), and external adoption is early — one third-party integration (Nebula) and a handful of agents. See [Roadmap](/roadmap) for the plan to close each of these.
 </Warning>

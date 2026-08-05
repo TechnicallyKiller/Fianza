@@ -31,7 +31,7 @@ If the CLI is out of date: `mint update`. To validate links: `mint broken-links`
 
 ## 2. Deploy (Mintlify hosting)
 
-1. Push this repo to GitHub (it already is: `TechnicallyKiller/TrustLine`).
+1. Push this repo to GitHub (it already is: `TechnicallyKiller/Fianza`).
 2. Go to [dashboard.mintlify.com](https://dashboard.mintlify.com) → sign in with
    GitHub → **connect the repo**.
 3. Set the **docs directory** to `mintlify-docs` (so Mintlify reads `docs.json`

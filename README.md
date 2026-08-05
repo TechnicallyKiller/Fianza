@@ -182,10 +182,14 @@ Full architecture, addresses, and the demo runbook are in
 Full, current roadmap — what's shipped, in progress, next up, and explicitly
 deferred until testnet is proven out — lives in
 [`docs/roadmap.md`](docs/roadmap.md). Short version: the core loop, the
-credit-risk engine, and the independence model are real and tested; the
-underwriter is still a single trusted signer (v1, with a documented
-decentralization path), and nothing has yet touched real money or a real
-adversary. Named openly, not hidden — see also [`PROJECT_LOG.md`](PROJECT_LOG.md).
+credit-risk engine, and the independence model are real and tested. The contracts
+are deployed on **mainnet** and have run a full borrow/repay loop in real USDC —
+small amounts, one agent, and scores published manually, since there is no live
+mainnet underwriting engine yet. What is still missing is scale and a real
+adversary: the underwriter remains a single trusted signer (v1, with a documented
+decentralization path), and external adoption is early — one third-party
+integration (Nebula's MCP server) and a handful of agents. Named openly, not
+hidden — see also [`PROJECT_LOG.md`](PROJECT_LOG.md).
 
 ## License
 

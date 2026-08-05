@@ -51,7 +51,7 @@ autonomously. No collateral, no human in the loop, no wallet-age heuristics.
 | Live app | [fianza.space](https://fianza.space) |
 | Live underwriter (paste any address) | [/underwrite](https://fianza.space/underwrite) |
 | Backend API | `https://trustline-rpxt.onrender.com` (unchanged) |
-| GitHub | [TechnicallyKiller/TrustLine](https://github.com/TechnicallyKiller/TrustLine) |
+| GitHub | [TechnicallyKiller/Fianza](https://github.com/TechnicallyKiller/Fianza) |
 | Agent SDK | [`packages/agent-sdk-fianza`](../packages/agent-sdk-fianza) (new); [`packages/agent-sdk`](../packages/agent-sdk) (old, still published & working) |
 
 ## Honest status, up front
