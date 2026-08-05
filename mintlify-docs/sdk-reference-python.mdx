@@ -285,15 +285,17 @@ npx @fianza/skill
 
 ```bash curl (no npm)
 mkdir -p ~/.claude/skills/fianza-agent-sdk && \
-  curl -fsSL https://raw.githubusercontent.com/TechnicallyKiller/TrustLine/main/.claude/skills/fianza-agent-sdk/SKILL.md \
+  curl -fsSL https://raw.githubusercontent.com/TechnicallyKiller/Fianza/main/.claude/skills/fianza-agent-sdk/SKILL.md \
   -o ~/.claude/skills/fianza-agent-sdk/SKILL.md
 ```
 
 ```bash plugin
 # in Claude Code:
-/plugin marketplace add TechnicallyKiller/TrustLine
+/plugin marketplace add TechnicallyKiller/Fianza
 /plugin install fianza-agent-sdk@fianza
 ```
 </CodeGroup>
 
 Then restart Claude Code (or run `/reload`) and invoke it with `/fianza-agent-sdk`. If you clone the repo, the skill is already present (it lives in `.claude/skills/`) — no install needed.
+
+See the [Claude Code skill](/claude-skill) page for what the skill covers and how it stays in sync with the SDK.
